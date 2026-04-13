@@ -1,4 +1,4 @@
-import fs from 'fs/promises';
+import fs from 'fs';
 import path from 'path';
 
 // Banco em memória
@@ -6,35 +6,47 @@ const banco = {
   conversas: {},
   mensagens: {},
   intervencao: {},
-  config: null // Carregado do arquivo
+  visitas: [], // Para relatório
+  config: null
 };
 
-// Carregar configuração do arquivo
-async function carregarConfig() {
+// Carregar configuração
+function carregarConfig() {
   try {
-    const configPath = path.join(process.cwd(), 'data', 'config.json');
-    const dados = await fs.readFile(configPath, 'utf8');
-    banco.config = JSON.parse(dados);
-    console.log('✅ Configuração carregada');
+    const tmpPath = path.join('/tmp', 'config.json');
+    const defaultPath = path.join(process.cwd(), 'data', 'config.json');
+    
+    // Prioriza /tmp (onde treinar.js salva)
+    const configPath = fs.existsSync(tmpPath) ? tmpPath : defaultPath;
+    
+    const data = fs.readFileSync(configPath, 'utf8');
+    banco.config = JSON.parse(data);
+    console.log('✅ Config carregada');
   } catch (e) {
-    console.error('❌ Erro ao carregar config:', e);
-    // Configuração padrão de emergência
+    console.error('❌ Erro config:', e);
+    // Fallback
     banco.config = {
-      saudacao: "Olá! Sou o assistente de Reforma e Construção. Como posso ajudar?",
+      saudacao: "Olá! Sou o assistente de Reforma. Como posso ajudar?\n\n1️⃣ Reforma\n2️⃣ Marcenaria\n3️⃣ Construção\n4️⃣ Atendente",
       respostas_rapidas: {},
       fluxos: {},
       palavras_intervencao: ["atendente", "humano"],
-      resposta_intervencao: "Transferindo para atendente..."
+      resposta_intervencao: "Transferindo..."
     };
   }
 }
 
-// Carregar no início
 carregarConfig();
+// Recarrega a cada 30 segundos (para pegar alterações do treinar)
+setInterval(carregarConfig, 30000);
+
+// CONFIGURAÇÕES TELEGRAM
+const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+const TELEGRAM_CHAT = process.env.TELEGRAM_CHAT_ID;
 
 export default async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
   
-  // VERIFICAÇÃO GET (Meta)
+  // VERIFICAÇÃO WEBHOOK
   if (req.method === 'GET' && !req.query.acao) {
     const mode = req.query['hub.mode'];
     const token = req.query['hub.verify_token'];
@@ -46,7 +58,7 @@ export default async function handler(req, res) {
     return res.status(403).send('Forbidden');
   }
   
-  // API DO PAINEL - Listar conversas
+  // API PAINEL - Listar conversas
   if (req.method === 'GET' && req.query.acao === 'conversas') {
     const lista = Object.keys(banco.conversas).map(tel => ({
       telefone: tel,
@@ -57,13 +69,12 @@ export default async function handler(req, res) {
     return res.json(lista);
   }
   
-  // API DO PAINEL - Buscar mensagens
+  // API PAINEL - Mensagens
   if (req.method === 'GET' && req.query.acao === 'mensagens') {
-    const tel = req.query.telefone;
-    return res.json(banco.mensagens[tel] || []);
+    return res.json(banco.mensagens[req.query.telefone] || []);
   }
   
-  // RECEBER MENSAGEM DO WHATSAPP
+  // RECEBER MENSAGEM WHATSAPP
   if (req.method === 'POST' && !req.query.acao) {
     try {
       const body = req.body;
@@ -72,158 +83,233 @@ export default async function handler(req, res) {
         const value = body.entry?.[0]?.changes?.[0]?.value;
         const message = value?.messages?.[0];
         
-        if (message && message.type === 'text') {
-          const telefone = message.from;
+        if (message?.type === 'text') {
+          const tel = message.from;
           const nome = value.contacts?.[0]?.profile?.name || 'Cliente';
           const texto = message.text.body;
           
-          console.log(`📩 ${nome}: ${texto}`);
+          // Salvar
+          if (!banco.conversas[tel]) banco.conversas[tel] = { nome, etapa: 'inicio', dados: {} };
+          if (!banco.mensagens[tel]) banco.mensagens[tel] = [];
           
-          // Salvar no banco
-          if (!banco.conversas[telefone]) {
-            banco.conversas[telefone] = { nome, data: new Date().toISOString() };
-          }
-          if (!banco.mensagens[telefone]) {
-            banco.mensagens[telefone] = [];
-          }
-          
-          banco.mensagens[telefone].push({
-            tipo: 'cliente',
-            nome: nome,
-            texto: texto,
+          banco.mensagens[tel].push({
+            tipo: 'cliente', nome, texto,
             hora: new Date().toLocaleTimeString('pt-BR')
           });
           
-          // VERIFICAR INTERVENÇÃO
-          if (banco.intervencao[telefone]) {
-            console.log('👤 Intervenção ativa - robô não responde');
+          // Se intervenção ativa, não responde
+          if (banco.intervencao[tel]) {
             return res.status(200).send('OK');
           }
           
-          // GERAR RESPOSTA DO ROBÔ (lê do arquivo config)
-          const resposta = gerarRespostaRobo(texto, nome);
+          // GERAR RESPOSTA
+          const resp = processarMensagem(tel, nome, texto);
           
-          await enviarWhatsApp(telefone, resposta);
-          
-          banco.mensagens[telefone].push({
-            tipo: 'robo',
-            nome: 'Robô',
-            texto: resposta,
-            hora: new Date().toLocaleTimeString('pt-BR')
-          });
+          if (resp) {
+            await enviarWhatsApp(tel, resp);
+            banco.mensagens[tel].push({
+              tipo: 'robo', nome: 'Robô', texto: resp,
+              hora: new Date().toLocaleTimeString('pt-BR')
+            });
+          }
         }
       }
       
       return res.status(200).send('OK');
-      
-    } catch (erro) {
-      console.error('Erro:', erro);
+    } catch (e) {
+      console.error('Erro:', e);
       return res.status(200).send('OK');
     }
   }
   
-  // AÇÕES DO PAINEL (POST com query acao)
-  if (req.method === 'POST' && req.query.acao) {
+  // AÇÕES DO PAINEL
+  if (req.method === 'POST') {
     const { acao } = req.query;
     const body = req.body;
     
-    // INTERVIR
     if (acao === 'intervir') {
       banco.intervencao[body.telefone] = true;
       await enviarWhatsApp(body.telefone, banco.config.resposta_intervencao);
       return res.json({ ok: true });
     }
     
-    // LIBERAR
     if (acao === 'liberar') {
       banco.intervencao[body.telefone] = false;
-      await enviarWhatsApp(body.telefone, '🤖 Robô retomou o atendimento. Como posso ajudar?');
+      await enviarWhatsApp(body.telefone, '🤖 Robô retomou. Como posso ajudar?');
       return res.json({ ok: true });
     }
     
-    // ENVIAR MENSAGEM HUMANA
     if (acao === 'enviar') {
       await enviarWhatsApp(body.telefone, body.mensagem);
-      
       banco.mensagens[body.telefone].push({
-        tipo: 'humano',
-        nome: 'Você',
-        texto: body.mensagem,
+        tipo: 'humano', nome: 'Você', texto: body.mensagem,
         hora: new Date().toLocaleTimeString('pt-BR')
       });
-      
       return res.json({ ok: true });
     }
-    
-    return res.json({ erro: 'Ação inválida' });
   }
   
   res.status(405).end();
 }
 
-// FUNÇÃO: GERAR RESPOSTA DO ROBÔ (lê do arquivo config.json)
-function gerarRespostaRobo(mensagem, nome) {
-  const t = mensagem.toLowerCase();
+// PROCESSAR MENSAGEM DO CLIENTE
+function processarMensagem(tel, nome, texto) {
+  const t = texto.toLowerCase();
+  const chat = banco.conversas[tel];
   const config = banco.config;
   
-  // 1. VERIFICAR PALAVRAS DE INTERVENÇÃO
+  // Verificar intervenção
   for (const palavra of config.palavras_intervencao) {
-    if (t.includes(palavra.toLowerCase())) {
+    if (t.includes(palavra)) {
+      banco.intervencao[tel] = true;
+      enviarTelegram(`🚨 *INTERVENÇÃO*\n\n👤 ${nome}\n📱 ${tel}\n💬 ${texto}`);
       return config.resposta_intervencao;
     }
   }
   
-  // 2. VERIFICAR RESPOSTAS RÁPIDAS
-  for (const [chaves, resposta] of Object.entries(config.respostas_rapidas)) {
-    const listaChaves = chaves.split('|');
-    if (listaChaves.some(chave => t.includes(chave.toLowerCase()))) {
-      return resposta;
+  // Respostas rápidas
+  for (const [chaves, resp] of Object.entries(config.respostas_rapidas)) {
+    if (chaves.split('|').some(c => t.includes(c))) {
+      return resp;
     }
   }
   
-  // 3. DETECTAR FLUXO (1, 2, 3 ou palavras-chave)
-  if (t.includes('1') || t.includes('orçamento') || t.includes('reforma')) {
-    return config.fluxos.orcamento_reforma.pergunta_1;
+  // Fluxo Reforma
+  if (t.includes('1') || t.includes('reforma')) {
+    chat.etapa = 'ref_comodo';
+    return config.fluxos.reforma.pergunta_1;
   }
   
-  if (t.includes('2') || t.includes('marcenaria') || t.includes('móvel') || t.includes('armário')) {
+  if (chat.etapa === 'ref_comodo') {
+    chat.dados.comodo = texto;
+    chat.etapa = 'ref_bairro';
+    return config.fluxos.reforma.pergunta_2;
+  }
+  
+  if (chat.etapa === 'ref_bairro') {
+    chat.dados.bairro = texto;
+    chat.etapa = 'ref_desc';
+    return config.fluxos.reforma.pergunta_3;
+  }
+  
+  if (chat.etapa === 'ref_desc') {
+    chat.dados.descricao = texto;
+    chat.etapa = 'ref_contato';
+    return config.fluxos.reforma.pergunta_4;
+  }
+  
+  if (chat.etapa === 'ref_contato') {
+    chat.dados.contato = texto;
+    chat.etapa = 'inicio';
+    
+    // MARCOU VISITA - Salvar e notificar
+    const visita = {
+      nome, telefone: tel,
+      servico: 'Reforma',
+      comodo: chat.dados.comodo,
+      bairro: chat.dados.bairro,
+      descricao: chat.dados.descricao,
+      contato: chat.dados.contato,
+      data: new Date().toLocaleDateString('pt-BR'),
+      hora: new Date().toLocaleTimeString('pt-BR')
+    };
+    
+    banco.visitas.push(visita);
+    
+    // NOTIFICAR TELEGRAM VISITA MARCADA
+    enviarTelegram(`✅ *VISITA MARCADA*\n\n👤 ${nome}\n📱 ${tel}\n🏠 ${chat.dados.comodo}\n📍 ${chat.dados.bairro}\n📝 ${chat.dados.descricao}\n📞 ${texto}\n⏰ ${visita.hora}`);
+    
+    return config.fluxos.reforma.final;
+  }
+  
+  // Fluxo Marcenaria
+  if (t.includes('2') || t.includes('marcenaria')) {
+    chat.etapa = 'marc_moveis';
     return config.fluxos.marcenaria.pergunta_1;
   }
   
-  if (t.includes('3') || t.includes('construção') || t.includes('obra') || t.includes('casa')) {
+  if (chat.etapa === 'marc_moveis') {
+    chat.dados.moveis = texto;
+    chat.etapa = 'marc_medidas';
+    return config.fluxos.marcenaria.pergunta_2;
+  }
+  
+  if (chat.etapa === 'marc_medidas') {
+    chat.dados.medidas = texto;
+    chat.etapa = 'inicio';
+    
+    enviarTelegram(`🪚 *MARCENARIA*\n\n👤 ${nome}\n📱 ${tel}\n🪑 ${chat.dados.moveis}\n📐 ${texto}`);
+    
+    return config.fluxos.marcenaria.final;
+  }
+  
+  // Fluxo Construção
+  if (t.includes('3') || t.includes('construção') || t.includes('construcao')) {
+    chat.etapa = 'cons_tipo';
     return config.fluxos.construcao.pergunta_1;
   }
   
-  // 4. SAUDAÇÃO
-  if (t.includes('oi') || t.includes('olá') || t.includes('ola') || t.includes('bom dia') || t.includes('boa tarde') || t.includes('boa noite')) {
+  if (chat.etapa === 'cons_tipo') {
+    chat.dados.tipo = texto;
+    chat.etapa = 'inicio';
+    
+    enviarTelegram(`🏗️ *CONSTRUÇÃO*\n\n👤 ${nome}\n📱 ${tel}\n🏗️ ${texto}`);
+    
+    return config.fluxos.construcao.final;
+  }
+  
+  // Saudação
+  if (t.includes('oi') || t.includes('olá') || t.includes('ola') || t.includes('bom dia')) {
     return config.saudacao.replace('{nome}', nome);
   }
   
-  // 5. RESPOSTA PADRÃO
-  return `Entendi, ${nome}. 🤔\n\nPosso ajudar com:\n\n1️⃣ Orçamento de reforma\n2️⃣ Marcenaria sob medida\n3️⃣ Construção civil\n4️⃣ Falar com atendente\n\nO que você precisa?`;
+  // Padrão
+  return `Entendi, ${nome}. Posso ajudar com:\n\n1️⃣ Orçamento de reforma\n2️⃣ Marcenaria\n3️⃣ Construção\n4️⃣ Falar com atendente`;
 }
 
 // ENVIAR WHATSAPP
-async function enviarWhatsApp(numero, mensagem) {
-  const PHONE_ID = process.env.WHATSAPP_PHONE_ID;
-  const TOKEN = process.env.WHATSAPP_TOKEN;
-  
+async function enviarWhatsApp(numero, texto) {
   try {
-    await fetch(`https://graph.facebook.com/v18.0/${PHONE_ID}/messages`, {
+    await fetch(`https://graph.facebook.com/v18.0/${process.env.WHATSAPP_PHONE_ID}/messages`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${TOKEN}`,
+        'Authorization': `Bearer ${process.env.WHATSAPP_TOKEN}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         messaging_product: 'whatsapp',
         to: numero,
         type: 'text',
-        text: { body: mensagem }
+        text: { body: texto }
       })
     });
-    console.log('📤 Enviado');
   } catch (e) {
-    console.error('Erro ao enviar:', e);
+    console.error('Erro WhatsApp:', e);
   }
 }
+
+// ENVIAR TELEGRAM
+async function enviarTelegram(texto) {
+  if (!TELEGRAM_TOKEN || !TELEGRAM_CHAT) return;
+  
+  try {
+    await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: TELEGRAM_CHAT,
+        text: texto,
+        parse_mode: 'Markdown'
+      })
+    });
+    console.log('📤 Telegram enviado');
+  } catch (e) {
+    console.error('Erro Telegram:', e);
+  }
+}
+
+// RELATÓRIO DIÁRIO 19H
+// Vercel não suporta cron nativo, então usamos uma API externa ou verificamos a cada requisição
+// Alternativa: configurar um serviço externo para chamar /api/relatorio às 19h
+
+export { banco }; // Exportar para usar no relatório

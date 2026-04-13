@@ -1,5 +1,8 @@
 {
-  "name": "robo-atendente",
+  "name": "robo-reforma",
   "version": "1.0.0",
-  "type": "module"
+  "type": "module",
+  "dependencies": {
+    "node-cron": "^3.0.3"
+  }
 }

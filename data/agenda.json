@@ -1,0 +1,23 @@
+{
+  "tecnicos": [
+    {
+      "id": "tec1",
+      "nome": "João",
+      "especialidade": ["ar", "geladeira"],
+      "disponibilidade": {
+        "2026-04-14": ["09:00", "14:00"],
+        "2026-04-15": ["10:00", "16:00"]
+      }
+    },
+    {
+      "id": "tec2", 
+      "nome": "Maria",
+      "especialidade": ["maquina", "reforma"],
+      "disponibilidade": {
+        "2026-04-14": ["08:00", "11:00"],
+        "2026-04-15": ["09:00", "15:00"]
+      }
+    }
+  ],
+  "visitas_agendadas": []
+}

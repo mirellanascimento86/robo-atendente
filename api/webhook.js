@@ -3,22 +3,15 @@
 // ============================================
 
 const CONFIG_ROBO = {
-  saudacao: `Olá! 👋 Sou o assistente de *Reforma e Construção*.
-
-Como posso ajudar?
-
-1️⃣ Orçamento de reforma
-2️⃣ Marcenaria sob medida  
-3️⃣ Construção civil
-4️⃣ Falar com atendente`,
+  saudacao: `Olá! Bem-vindo ao Atendimento Digital da RC. Qual serviço precisa e qual o bairro?`,
 
   respostas: {
     "preço|valor|custo|quanto": `💰 Orçamento gratuito! Envie fotos do local.`,
     "prazo|tempo|demora": `⏱️ Reformas: 3-7 dias | Marcenaria: 15-30 dias`,
     "pagamento|paga": `💳 Pix (5% off), Cartão 12x, ou 50% + 50%`,
-    "marcenaria|móvel|armário": `🪚 Marcenaria: cozinhas, guarda-roupas, escritórios`,
-    "reforma|banheiro|pintura": `🔨 Reformas: banheiro, cozinha, pintura, elétrica`,
-    "construção|casa|obra": `🏗️ Construção civil completa`,
+    "marcenaria|móvel|armário": `Gostaria de Atendimento ainda hoje?`,
+    "reforma|banheiro|pintura": `Gostaria de Atendimento ainda hoje?`,
+    "construção|casa|obra": `Gostaria de Atendimento ainda hoje?`,
     "visita|técnico": `📍 Visita: R$150 (deduzido do orçamento)`
   },
 

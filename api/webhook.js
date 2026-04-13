@@ -3,7 +3,7 @@
 // ============================================
 
 const CONFIG_ROBO = {
-  saudacao: `Olá! 👋 Sou o assistente de *Reforma e Construção*.
+  saudacao: `Olá! Atendimento Digital de *Reforma e Construção*.
 
 Como posso ajudar?
 

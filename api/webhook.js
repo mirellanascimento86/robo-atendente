@@ -64,6 +64,13 @@ const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const TELEGRAM_CHAT = process.env.TELEGRAM_CHAT_ID;
 
 // ============================================
+// GROQ AI CONFIG
+// ============================================
+
+const GROQ_API_KEY = process.env.GROQ_API_KEY;
+const GROQ_MODEL = process.env.GROQ_MODEL || 'llama3-70b-8192'; // ou 'mixtral-8x7b-32768', 'llama3-8b-8192'
+
+// ============================================
 // BANCO DE DADOS EM MEMÓRIA
 // ============================================
 
@@ -73,7 +80,8 @@ const memoria = {
   intervencao: {},
   estados: {},
   visitasHoje: [],
-  tecnicosNotificados: {} // Para rastrear quem já foi notificado
+  tecnicosNotificados: {}, // Para rastrear quem já foi notificado
+  contextoIA: {} // Histórico de contexto para IA
 };
 
 // ============================================
@@ -149,6 +157,7 @@ export default async function handler(req, res) {
         memoria.mensagens[telefone] = [];
         memoria.estados[telefone] = 'inicio';
         memoria.intervencao[telefone] = false;
+        memoria.contextoIA[telefone] = []; // Inicializar contexto da IA
       }
       
       // ATUALIZAR ATIVIDADE (timestamp para painel detectar mudança)
@@ -162,14 +171,20 @@ export default async function handler(req, res) {
         hora: new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})
       });
       
+      // Adicionar ao contexto da IA
+      memoria.contextoIA[telefone].push({
+        role: 'user',
+        content: texto
+      });
+      
       // SE EM INTERVENÇÃO, NÃO RESPONDE (mas notifica Telegram)
       if (memoria.intervencao[telefone]) {
         enviarTelegram(`💬 *Mensagem cliente (em intervenção)*\n\n👤 ${nome}\n📱 ${telefone}\n📝 ${texto.substring(0, 100)}`);
         return res.status(200).send('OK');
       }
       
-      // PROCESSAR E RESPONDER
-      const resposta = processarMensagem(telefone, nome, texto);
+      // PROCESSAR E RESPONDER COM IA
+      const resposta = await processarMensagemComIA(telefone, nome, texto);
       
       if (resposta) {
         await enviarWhatsApp(telefone, resposta);
@@ -180,6 +195,17 @@ export default async function handler(req, res) {
           texto: resposta,
           hora: new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})
         });
+        
+        // Adicionar resposta ao contexto da IA
+        memoria.contextoIA[telefone].push({
+          role: 'assistant',
+          content: resposta
+        });
+        
+        // Limitar contexto para não estourar tokens (últimas 10 mensagens)
+        if (memoria.contextoIA[telefone].length > 20) {
+          memoria.contextoIA[telefone] = memoria.contextoIA[telefone].slice(-20);
+        }
       }
       
       return res.status(200).send('OK');
@@ -271,15 +297,14 @@ export default async function handler(req, res) {
 }
 
 // ============================================
-// PROCESSAR MENSAGEM
+// PROCESSAR MENSAGEM COM IA (GROQ)
 // ============================================
 
-function processarMensagem(tel, nome, texto) {
+async function processarMensagemComIA(tel, nome, texto) {
   const t = texto.toLowerCase();
-  const estado = memoria.estados[tel];
   const config = CONFIG_ROBO;
   
-  // 1. VERIFICAR INTERVENÇÃO
+  // 1. VERIFICAR INTERVENÇÃO HUMANA (palavras-chave)
   for (const palavra of config.intervencao.palavras) {
     if (t.includes(palavra.toLowerCase())) {
       memoria.intervencao[tel] = true;
@@ -289,118 +314,94 @@ function processarMensagem(tel, nome, texto) {
     }
   }
   
-  // 2. RESPOSTAS RÁPIDAS
-  for (const [chaves, resp] of Object.entries(config.respostas)) {
-    if (chaves.split('|').some(c => t.includes(c.toLowerCase()))) {
-      return resp;
-    }
-  }
-  
-  // 3. FLUXO REFORMA
-  if (t.includes('1') || t.includes('reforma')) {
-    memoria.estados[tel] = 'ref1';
-    return config.fluxo_reforma.p1;
-  }
-  
-  if (estado === 'ref1') {
-    memoria.estados[tel] = 'ref2';
-    memoria.conversas[tel].comodo = texto;
-    return config.fluxo_reforma.p2;
-  }
-  
-  if (estado === 'ref2') {
-    memoria.estados[tel] = 'ref3';
-    memoria.conversas[tel].bairro = texto;
-    return config.fluxo_reforma.p3;
-  }
-  
-  if (estado === 'ref3') {
-    memoria.estados[tel] = 'ref4';
-    memoria.conversas[tel].descricao = texto;
-    return config.fluxo_reforma.p4;
-  }
-  
-  if (estado === 'ref4') {
-    memoria.estados[tel] = 'inicio';
-    memoria.conversas[tel].contato = texto;
-    
-    // REGISTRAR VISITA
-    const visita = {
-      nome, telefone: tel, servico: 'Reforma',
-      comodo: memoria.conversas[tel].comodo,
-      bairro: memoria.conversas[tel].bairro,
-      descricao: memoria.conversas[tel].descricao,
-      contato: texto,
-      data: new Date().toLocaleDateString('pt-BR'),
-      hora: new Date().toLocaleTimeString('pt-BR')
-    };
-    
-    memoria.visitasHoje.push(visita);
-    
-    // NOTIFICAR TÉCNICO DISPONÍVEL
-    notificarTecnicos(visita);
-    
-    return config.fluxo_reforma.final;
-  }
-  
-  // 4. FLUXO MARCENARIA
-  if (t.includes('2') || t.includes('marcenaria')) {
-    memoria.estados[tel] = 'marc1';
-    return config.fluxo_marcenaria.p1;
-  }
-  
-  if (estado === 'marc1') {
-    memoria.estados[tel] = 'marc2';
-    memoria.conversas[tel].movel = texto;
-    return config.fluxo_marcenaria.p2;
-  }
-  
-  if (estado === 'marc2') {
-    memoria.estados[tel] = 'inicio';
-    
-    const visita = {
-      nome, telefone: tel, servico: 'Marcenaria',
-      movel: memoria.conversas[tel].movel,
-      medidas: texto,
-      data: new Date().toLocaleDateString('pt-BR'),
-      hora: new Date().toLocaleTimeString('pt-BR')
-    };
-    
-    memoria.visitasHoje.push(visita);
-    notificarTecnicos(visita);
-    
-    return config.fluxo_marcenaria.final;
-  }
-  
-  // 5. FLUXO CONSTRUÇÃO
-  if (t.includes('3') || t.includes('construção') || t.includes('construcao')) {
-    memoria.estados[tel] = 'cons1';
-    return config.fluxo_construcao.p1;
-  }
-  
-  if (estado === 'cons1') {
-    memoria.estados[tel] = 'inicio';
-    
-    const visita = {
-      nome, telefone: tel, servico: 'Construção',
-      tipo: texto,
-      data: new Date().toLocaleDateString('pt-BR'),
-      hora: new Date().toLocaleTimeString('pt-BR')
-    };
-    
-    memoria.visitasHoje.push(visita);
-    notificarTecnicos(visita);
-    
-    return config.fluxo_construcao.final;
-  }
-  
-  // 6. SAUDAÇÃO
-  if (t.includes('oi') || t.includes('olá') || t.includes('ola') || t.includes('bom') || t.includes('boa')) {
+  // 2. VERIFICAR SE É PRIMEIRA MENSAGEM (saudação)
+  if (memoria.contextoIA[tel].length === 1) {
     return config.saudacao;
   }
   
-  // 7. PADRÃO
-  return `Olá ${nome}! 👋\n\n1️⃣ Reforma\n2️⃣ Marcenaria\n3️⃣ Construção\n4️⃣ Atendente`;
+  // 3. PROCESSAR COM GROQ IA
+  try {
+    const respostaIA = await chamarGroqIA(tel, nome, texto);
+    return respostaIA;
+  } catch (erro) {
+    console.error('❌ Erro na IA:', erro);
+    // Fallback para resposta padrão se IA falhar
+    return `Olá ${nome}! 👋\n\nComo posso ajudar com reforma, marcenaria ou construção?`;
+  }
+}
+
+// ============================================
+// CHAMAR API GROQ
+// ============================================
+
+async function chamarGroqIA(tel, nome, texto) {
+  const systemPrompt = `Você é o assistente virtual da RC (Reforma e Construção), uma empresa de serviços de reforma, marcenaria e construção civil.
+
+SUA MISSÃO:
+- Atender clientes de forma natural, amigável e profissional
+- Identificar o serviço que o cliente precisa (reforma, marcenaria, construção, pintura, gesso, piso, elétrica, hidráulica, etc.)
+- Identificar o bairro onde o cliente precisa do serviço
+- Coletar informações essenciais para agendar uma visita técnica
+
+REGRAS IMPORTANTES:
+1. SEMPRE que o cliente mencionar um serviço de reforma/construção (pintura, marcenaria, gesso, piso, banheiro, cozinha, elétrica, hidráulica, etc.) E um bairro, pergunte: "Gostaria de Atendimento ainda hoje?"
+
+2. Se o cliente NÃO informar o serviço e NEM o bairro, diga: "Por favor, me informe o serviço que deseja e o bairro"
+
+3. Se o cliente informar APENAS o bairro (sem o serviço), diga: "Por favor, me informe o serviço que deseja"
+
+4. Se o cliente informar APENAS o serviço (sem o bairro), diga: "Por favor, me informe o bairro que deseja atendimento"
+
+5. Seja sempre cordial, use emojis ocasionalmente, e mantenha respostas curtas e objetivas (máximo 2-3 frases)
+
+6. Se o cliente perguntar sobre preços, informe que o orçamento é gratuito após visita técnica
+
+7. Se o cliente perguntar sobre prazos, informe que depende do serviço e será passado na visita
+
+8. Formas de pagamento: Pix (5% desconto), Cartão em até 12x, ou 50% + 50%
+
+9. SEMPRE que possível, direcione para agendar uma visita técnica
+
+10. Se não souber responder algo específico, transfira para atendente humano dizendo "Vou transferir você para um de nossos atendentes"
+
+DADOS DO CLIENTE:
+Nome: ${nome}
+Telefone: ${tel}
+
+HISTÓRICO DA CONVERSA:`;
+
+  // Montar mensagens para a API
+  const messages = [
+    {
+      role: 'system',
+      content: systemPrompt
+    },
+    ...memoria.contextoIA[tel].slice(-10) // Últimas 10 mensagens do contexto
+  ];
+
+  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${GROQ_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: GROQ_MODEL,
+      messages: messages,
+      temperature: 0.7,
+      max_tokens: 500,
+      top_p: 1,
+      stream: false
+    })
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Groq API error: ${error}`);
+  }
+
+  const data = await response.json();
+  return data.choices[0].message.content;
 }
 
 // ============================================

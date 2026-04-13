@@ -1,0 +1,36 @@
+{
+  "saudacao": "Olá! Sou o assistente virtual. Como posso ajudar?\n\n1️⃣ Ar condicionado\n2️⃣ Geladeira\n3️⃣ Máquina de lavar\n4️⃣ Reformas\n5️⃣ Falar com atendente",
+  
+  "fluxos": {
+    "ar_condicionado": {
+      "pergunta": "Perfeito! Quantos BTUs?",
+      "proximo": "btus"
+    },
+    "btus": {
+      "pergunta": "Qual o bairro?",
+      "proximo": "bairro"
+    },
+    "bairro": {
+      "pergunta": "Qual o problema?",
+      "proximo": "problema"
+    },
+    "problema": {
+      "resposta": "✅ Visita técnica: R$140\n📅 Disponibilidade: {{agenda}}\n\nConfirmar agendamento?",
+      "proximo": "confirmar"
+    }
+  },
+  
+  "respostas_diretas": {
+    "preço": "Visita técnica: R$140. Orçamento gratuito no local.",
+    "horario": "Seg-Sex: 8h-18h | Sáb: 8h-12h",
+    "pagamento": "Pix, cartão, dinheiro",
+    "garantia": "90 dias em todos os serviços",
+    "emergencia": "🚨 Ligue direto: (21) 99999-9999"
+  },
+  
+  "palavras_chave": {
+    "atendente|humano|pessoa|especialista": "🔄 Transferindo... Aguarde.",
+    "cancelar|desistir": "Entendido. Posso ajudar em algo mais?",
+    "obrigado|valeu": "Por nada! 😊"
+  }
+}

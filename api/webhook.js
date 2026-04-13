@@ -1,4 +1,7 @@
-// ============================================
+
+# Vou criar o código corrigido para você
+
+codigo_corrigido = '''// ============================================
 // CONFIGURAÇÃO DO ROBÔ - EDITE AQUI
 // ============================================
 
@@ -43,7 +46,7 @@ const CONFIG_ROBO = {
   tecnicos: [
     {
       nome: "João - Reformas",
-      telegram: process.env.TELEGRAM_CHAT_ID, // Ou ID específico
+      telegram: process.env.TELEGRAM_CHAT_ID,
       especialidade: "reforma",
       disponivel: true
     },
@@ -68,7 +71,7 @@ const TELEGRAM_CHAT = process.env.TELEGRAM_CHAT_ID;
 // ============================================
 
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
-const GROQ_MODEL = process.env.GROQ_MODEL || 'llama3-70b-8192'; // ou 'mixtral-8x7b-32768', 'llama3-8b-8192'
+const GROQ_MODEL = process.env.GROQ_MODEL || 'llama3-70b-8192';
 
 // ============================================
 // BANCO DE DADOS EM MEMÓRIA
@@ -80,8 +83,9 @@ const memoria = {
   intervencao: {},
   estados: {},
   visitasHoje: [],
-  tecnicosNotificados: {}, // Para rastrear quem já foi notificado
-  contextoIA: {} // Histórico de contexto para IA
+  tecnicosNotificados: {},
+  contextoIA: {},
+  dadosColetados: {} // NOVO: Armazena serviço e bairro detectados
 };
 
 // ============================================
@@ -109,7 +113,6 @@ export default async function handler(req, res) {
       nome: memoria.conversas[tel].nome || 'Cliente',
       intervencao: !!memoria.intervencao[tel],
       ultima: memoria.mensagens[tel]?.slice(-1)[0]?.texto?.substring(0, 40) + '...' || '...',
-      // Importante: enviar timestamp para painel saber se precisa atualizar
       ultimaAtividade: memoria.conversas[tel].ultimaAtividade || 0
     }));
     return res.json(lista);
@@ -152,15 +155,17 @@ export default async function handler(req, res) {
         memoria.conversas[telefone] = { 
           nome, 
           inicio: new Date().toISOString(),
-          ultimaAtividade: Date.now()
+          ultimaAtividade: Date.now(),
+          etapa: 'inicio' // NOVO: Controla etapa do atendimento
         };
         memoria.mensagens[telefone] = [];
         memoria.estados[telefone] = 'inicio';
         memoria.intervencao[telefone] = false;
-        memoria.contextoIA[telefone] = []; // Inicializar contexto da IA
+        memoria.contextoIA[telefone] = [];
+        memoria.dadosColetados[telefone] = { servico: null, bairro: null };
       }
       
-      // ATUALIZAR ATIVIDADE (timestamp para painel detectar mudança)
+      // ATUALIZAR ATIVIDADE
       memoria.conversas[telefone].ultimaAtividade = Date.now();
       
       // SALVAR MENSAGEM DO CLIENTE
@@ -177,9 +182,9 @@ export default async function handler(req, res) {
         content: texto
       });
       
-      // SE EM INTERVENÇÃO, NÃO RESPONDE (mas notifica Telegram)
+      // SE EM INTERVENÇÃO, NÃO RESPONDE
       if (memoria.intervencao[telefone]) {
-        enviarTelegram(`💬 *Mensagem cliente (em intervenção)*\n\n👤 ${nome}\n📱 ${telefone}\n📝 ${texto.substring(0, 100)}`);
+        enviarTelegram(`💬 *Mensagem cliente (em intervenção)*\\n\\n👤 ${nome}\\n📱 ${telefone}\\n📝 ${texto.substring(0, 100)}`);
         return res.status(200).send('OK');
       }
       
@@ -196,13 +201,12 @@ export default async function handler(req, res) {
           hora: new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})
         });
         
-        // Adicionar resposta ao contexto da IA
         memoria.contextoIA[telefone].push({
           role: 'assistant',
           content: resposta
         });
         
-        // Limitar contexto para não estourar tokens (últimas 10 mensagens)
+        // Limitar contexto
         if (memoria.contextoIA[telefone].length > 20) {
           memoria.contextoIA[telefone] = memoria.contextoIA[telefone].slice(-20);
         }
@@ -226,69 +230,52 @@ export default async function handler(req, res) {
       return res.json({ erro: 'Telefone não encontrado' });
     }
     
-    // INTERVIR - Assumir controle
     if (acao === 'intervir') {
       console.log(`🚨 Intervindo: ${tel}`);
-      
       memoria.intervencao[tel] = true;
       memoria.estados[tel] = 'inicio';
-      
       await enviarWhatsApp(tel, CONFIG_ROBO.intervencao.mensagem);
-      
       memoria.mensagens[tel].push({
         tipo: 'sistema',
         nome: 'Sistema',
         texto: '[Você assumiu o controle]',
         hora: new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})
       });
-      
-      enviarTelegram(`🚨 *INTERVENÇÃO*\n📱 ${tel}\n👤 ${memoria.conversas[tel].nome}`);
-      
+      enviarTelegram(`🚨 *INTERVENÇÃO*\\n📱 ${tel}\\n👤 ${memoria.conversas[tel].nome}`);
       return res.json({ ok: true, status: 'intervencao_ativada' });
     }
     
-    // LIBERAR - Devolver ao robô
     if (acao === 'liberar') {
       console.log(`🤖 Liberando: ${tel}`);
-      
       memoria.intervencao[tel] = false;
       memoria.estados[tel] = 'inicio';
-      
+      memoria.conversas[tel].etapa = 'inicio';
       await enviarWhatsApp(tel, '🤖 Robô retomou. Como posso ajudar?');
-      
       memoria.mensagens[tel].push({
         tipo: 'sistema',
         nome: 'Sistema',
         texto: '[Robô retomou o atendimento]',
         hora: new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})
       });
-      
       return res.json({ ok: true, status: 'robo_ativado' });
     }
     
-    // ENVIAR - Mensagem humana
     if (acao === 'enviar') {
       if (!memoria.intervencao[tel]) {
         return res.json({ erro: 'Não está em intervenção' });
       }
-      
       const mensagem = body.mensagem;
       if (!mensagem?.trim()) {
         return res.json({ erro: 'Mensagem vazia' });
       }
-      
       await enviarWhatsApp(tel, mensagem);
-      
       memoria.mensagens[tel].push({
         tipo: 'humano',
         nome: 'Você',
         texto: mensagem,
         hora: new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})
       });
-      
-      // Atualizar timestamp para painel detectar
       memoria.conversas[tel].ultimaAtividade = Date.now();
-      
       return res.json({ ok: true });
     }
   }
@@ -297,111 +284,134 @@ export default async function handler(req, res) {
 }
 
 // ============================================
-// PROCESSAR MENSAGEM COM IA (GROQ)
+// PROCESSAR MENSAGEM COM IA (GROQ) - CORRIGIDO
 // ============================================
 
 async function processarMensagemComIA(tel, nome, texto) {
-  const t = texto.toLowerCase();
+  const t = texto.toLowerCase().trim();
   const config = CONFIG_ROBO;
+  const etapa = memoria.conversas[tel].etapa;
+  const dados = memoria.dadosColetados[tel];
   
-  // 1. VERIFICAR INTERVENÇÃO HUMANA (palavras-chave)
+  // 1. VERIFICAR INTERVENÇÃO HUMANA
   for (const palavra of config.intervencao.palavras) {
     if (t.includes(palavra.toLowerCase())) {
       memoria.intervencao[tel] = true;
       memoria.estados[tel] = 'inicio';
-      enviarTelegram(`🚨 *Cliente pediu humano*\n👤 ${nome}\n📱 ${tel}`);
+      enviarTelegram(`🚨 *Cliente pediu humano*\\n👤 ${nome}\\n📱 ${tel}`);
       return config.intervencao.mensagem;
     }
   }
   
-  // 2. VERIFICAR SE É PRIMEIRA MENSAGEM (saudação)
-  if (memoria.contextoIA[tel].length === 1) {
+  // 2. PRIMEIRA MENSAGEM - Enviar saudação
+  if (etapa === 'inicio' && memoria.mensagens[tel].filter(m => m.tipo === 'cliente').length === 1) {
+    memoria.conversas[tel].etapa = 'aguardando_servico_bairro';
     return config.saudacao;
   }
   
-  // 3. PROCESSAR COM GROQ IA
+  // 3. ANÁLISE INTELIGENTE COM IA
   try {
-    const respostaIA = await chamarGroqIA(tel, nome, texto);
-    return respostaIA;
+    const analise = await analisarMensagemComIA(tel, nome, texto);
+    
+    // Atualizar dados coletados se a IA encontrou
+    if (analise.servicoDetectado) {
+      dados.servico = analise.servico;
+    }
+    if (analise.bairroDetectado) {
+      dados.bairro = analise.bairro;
+    }
+    
+    // LÓGICA DE RESPOSTA BASEADA NO QUE FOI DETECTADO
+    
+    // Caso 1: Tem serviço E bairro
+    if (dados.servico && dados.bairro) {
+      memoria.conversas[tel].etapa = 'confirmar_atendimento';
+      return `Gostaria de Atendimento ainda hoje?`;
+    }
+    
+    // Caso 2: Não tem serviço e NÃO tem bairro
+    if (!dados.servico && !dados.bairro) {
+      return `Por favor, me informe o serviço que deseja e o bairro`;
+    }
+    
+    // Caso 3: Tem bairro mas NÃO tem serviço
+    if (!dados.servico && dados.bairro) {
+      return `Por favor, me informe o serviço que deseja`;
+    }
+    
+    // Caso 4: Tem serviço mas NÃO tem bairro
+    if (dados.servico && !dados.bairro) {
+      return `Por favor, me informe o bairro que deseja atendimento`;
+    }
+    
   } catch (erro) {
-    console.error('❌ Erro na IA:', erro);
-    // Fallback para resposta padrão se IA falhar
-    return `Olá ${nome}! 👋\n\nComo posso ajudar com reforma, marcenaria ou construção?`;
+    console.error('❌ Erro na análise da IA:', erro);
+    // Fallback simples
+    return `Desculpe, não entendi. Pode me informar o serviço que precisa e o bairro?`;
   }
 }
 
 // ============================================
-// CHAMAR API GROQ
+// ANALISAR MENSAGEM COM IA (GROQ)
 // ============================================
 
-async function chamarGroqIA(tel, nome, texto) {
-  const systemPrompt = `Você é o assistente virtual da RC (Reforma e Construção), uma empresa de serviços de reforma, marcenaria e construção civil.
+async function analisarMensagemComIA(tel, nome, texto) {
+  const promptAnalise = `Você é um analisador de intenções para uma empresa de reforma e construção.
 
-SUA MISSÃO:
-- Atender clientes de forma natural, amigável e profissional
-- Identificar o serviço que o cliente precisa (reforma, marcenaria, construção, pintura, gesso, piso, elétrica, hidráulica, etc.)
-- Identificar o bairro onde o cliente precisa do serviço
-- Coletar informações essenciais para agendar uma visita técnica
+Analise a mensagem do cliente e extraia:
+1. Se foi mencionado algum SERVIÇO de reforma/construção
+2. Se foi mencionado algum BAIRRO
 
-REGRAS IMPORTANTES:
-1. SEMPRE que o cliente mencionar um serviço de reforma/construção (pintura, marcenaria, gesso, piso, banheiro, cozinha, elétrica, hidráulica, etc.) E um bairro, pergunte: "Gostaria de Atendimento ainda hoje?"
+Serviços válidos: reforma, pintura, marcenaria, gesso, piso, banheiro, cozinha, elétrica, hidráulica, construção, obra, telhado, azulejo, porcelanato, armário, móvel, etc.
 
-2. Se o cliente NÃO informar o serviço e NEM o bairro, diga: "Por favor, me informe o serviço que deseja e o bairro"
+Responda APENAS em formato JSON:
+{
+  "servicoDetectado": true/false,
+  "servico": "nome do serviço ou null",
+  "bairroDetectado": true/false,
+  "bairro": "nome do bairro ou null"
+}
 
-3. Se o cliente informar APENAS o bairro (sem o serviço), diga: "Por favor, me informe o serviço que deseja"
+Mensagem do cliente: "${texto}"`;
 
-4. Se o cliente informar APENAS o serviço (sem o bairro), diga: "Por favor, me informe o bairro que deseja atendimento"
+  try {
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${GROQ_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: GROQ_MODEL,
+        messages: [
+          { role: 'system', content: promptAnalise }
+        ],
+        temperature: 0.1,
+        max_tokens: 200,
+        response_format: { type: "json_object" }
+      })
+    });
 
-5. Seja sempre cordial, use emojis ocasionalmente, e mantenha respostas curtas e objetivas (máximo 2-3 frases)
+    if (!response.ok) {
+      throw new Error(`Groq API error: ${response.status}`);
+    }
 
-6. Se o cliente perguntar sobre preços, informe que o orçamento é gratuito após visita técnica
-
-7. Se o cliente perguntar sobre prazos, informe que depende do serviço e será passado na visita
-
-8. Formas de pagamento: Pix (5% desconto), Cartão em até 12x, ou 50% + 50%
-
-9. SEMPRE que possível, direcione para agendar uma visita técnica
-
-10. Se não souber responder algo específico, transfira para atendente humano dizendo "Vou transferir você para um de nossos atendentes"
-
-DADOS DO CLIENTE:
-Nome: ${nome}
-Telefone: ${tel}
-
-HISTÓRICO DA CONVERSA:`;
-
-  // Montar mensagens para a API
-  const messages = [
-    {
-      role: 'system',
-      content: systemPrompt
-    },
-    ...memoria.contextoIA[tel].slice(-10) // Últimas 10 mensagens do contexto
-  ];
-
-  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${GROQ_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: GROQ_MODEL,
-      messages: messages,
-      temperature: 0.7,
-      max_tokens: 500,
-      top_p: 1,
-      stream: false
-    })
-  });
-
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Groq API error: ${error}`);
+    const data = await response.json();
+    const resultado = JSON.parse(data.choices[0].message.content);
+    
+    console.log('🔍 Análise IA:', resultado);
+    return resultado;
+    
+  } catch (erro) {
+    console.error('❌ Erro ao analisar:', erro);
+    // Fallback: análise simples
+    return {
+      servicoDetectado: false,
+      servico: null,
+      bairroDetectado: false,
+      bairro: null
+    };
   }
-
-  const data = await response.json();
-  return data.choices[0].message.content;
 }
 
 // ============================================
@@ -409,7 +419,6 @@ HISTÓRICO DA CONVERSA:`;
 // ============================================
 
 function notificarTecnicos(visita) {
-  // Encontrar técnico da especialidade
   const tecnico = CONFIG_ROBO.tecnicos.find(t => 
     t.especialidade === visita.servico.toLowerCase() && t.disponivel
   );
@@ -428,14 +437,12 @@ function notificarTecnicos(visita) {
     
     enviarTelegram(msg);
     
-    // Salvar que notificou este técnico para esta visita
     memoria.tecnicosNotificados[visita.telefone] = {
       tecnico: tecnico.nome,
       hora: visita.hora,
       respondido: false
     };
   } else {
-    // Notificar chat geral se não achou técnico específico
     enviarTelegram(`⚠️ *AGENDAMENTO SEM TÉCNICO ESPECÍFICO*
 
 ${visita.servico} - ${visita.nome}
@@ -500,42 +507,41 @@ async function enviarRelatorioDiario(res) {
   const hoje = new Date().toLocaleDateString('pt-BR');
   
   if (memoria.visitasHoje.length === 0) {
-    enviarTelegram(`📊 *RELATÓRIO ${hoje}*\n\nNenhuma visita marcada.`);
+    enviarTelegram(`📊 *RELATÓRIO ${hoje}*\\n\\nNenhuma visita marcada.`);
     return res?.json({ mensagem: 'Sem visitas' });
   }
   
-  let texto = `📊 *RELATÓRIO DIÁRIO - ${hoje}*\n\n`;
-  texto += `*Total:* ${memoria.visitasHoje.length} visitas\n\n`;
+  let texto = `📊 *RELATÓRIO DIÁRIO - ${hoje}*\\n\\n`;
+  texto += `*Total:* ${memoria.visitasHoje.length} visitas\\n\\n`;
   
   memoria.visitasHoje.forEach((v, i) => {
-    texto += `*${i + 1}.* ${v.nome}\n`;
-    texto += `   📱 ${v.telefone}\n`;
+    texto += `*${i + 1}.* ${v.nome}\\n`;
+    texto += `   📱 ${v.telefone}\\n`;
     texto += `   🏠 ${v.servico}`;
     if (v.comodo) texto += ` - ${v.comodo}`;
     if (v.movel) texto += ` - ${v.movel}`;
-    texto += `\n`;
-    if (v.bairro) texto += `   📍 ${v.bairro}\n`;
-    texto += `   ⏰ ${v.hora}\n\n`;
+    texto += `\\n`;
+    if (v.bairro) texto += `   📍 ${v.bairro}\\n`;
+    texto += `   ⏰ ${v.hora}\\n\\n`;
   });
   
-  // Resumo por tipo
   const reformas = memoria.visitasHoje.filter(v => v.servico === 'Reforma').length;
   const marcenarias = memoria.visitasHoje.filter(v => v.servico === 'Marcenaria').length;
   const construcoes = memoria.visitasHoje.filter(v => v.servico === 'Construção').length;
   
-  texto += `\n*Resumo:*\n`;
-  texto += `🔨 Reformas: ${reformas}\n`;
-  texto += `🪚 Marcenarias: ${marcenarias}\n`;
-  texto += `🏗️ Construções: ${construcoes}\n`;
+  texto += `\\n*Resumo:*\\n`;
+  texto += `🔨 Reformas: ${reformas}\\n`;
+  texto += `🪚 Marcenarias: ${marcenarias}\\n`;
+  texto += `🏗️ Construções: ${construcoes}\\n`;
   
   enviarTelegram(texto);
   
-  // Limpar para amanhã
   memoria.visitasHoje = [];
   memoria.tecnicosNotificados = {};
   
   res?.json({ ok: true, enviados: memoria.visitasHoje.length });
 }
 
-// Exportar para possível cron externo
-export { enviarRelatorioDiario };
+export { enviarRelatorioDiario };'''
+
+print(codigo_corrigido)

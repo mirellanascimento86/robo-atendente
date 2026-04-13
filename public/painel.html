@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel de Controle - Robô Atendente</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f0f2f5; }
+        
+        .header { background: #075e54; color: white; padding: 20px; text-align: center; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 20px; display: grid; grid-template-columns: 300px 1fr; gap: 20px; }
+        
+        .sidebar { background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .sidebar h3 { margin-bottom: 15px; color: #075e54; }
+        .conversa-item { padding: 15px; border-bottom: 1px solid #eee; cursor: pointer; transition: all 0.3s; }
+        .conversa-item:hover { background: #f5f5f5; }
+        .conversa-item.ativa { background: #dcf8c6; border-left: 4px solid #075e54; }
+        .conversa-item.intervencao { border-left: 4px solid #ff6b6b; }
+        .telefone { font-weight: bold; color: #075e54; }
+        .preview { color: #666; font-size: 14px; margin-top: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .badge { background: #ff6b6b; color: white; padding: 2px 8px; border-radius: 10px; font-size: 12px; margin-left: 5px; }
+        
+        .chat-area { background: white; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); display: flex; flex-direction: column; height: 80vh; }
+        .chat-header { padding: 20px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
+        .chat-messages { flex: 1; overflow-y: auto; padding: 20px; background: #e5ddd5; }
+        .mensagem { max-width: 70%; padding: 12px 15px; border-radius: 10px; margin-bottom: 10px; word-wrap: break-word; }
+        .mensagem.cliente { background: white; align-self: flex-start; margin-right: auto; }
+        .mensagem.bot { background: #dcf8c6; align-self: flex-end; margin-left: auto; }
+        .mensagem.humano { background: #ff6b6b; color: white; align-self: flex-end; margin-left: auto; }
+        .meta { font-size: 12px; color: #999; margin-top: 5px; }
+        
+        .chat-input { padding: 20px; border-top: 1px solid #eee; display: flex; gap: 10px; }
+        .chat-input input { flex: 1; padding: 15px; border: 1px solid #ddd; border-radius: 25px; outline: none; }
+        .chat-input button { padding: 15px 30px; background: #075e54; color: white; border: none; border-radius: 25px; cursor: pointer; }
+        .chat-input button:hover { background: #128c7e; }
+        
+        .acoes { display: flex; gap: 10px; }
+        .btn { padding: 8px 15px; border: none; border-radius: 5px; cursor: pointer; font-size: 14px; }
+        .btn-intervir { background: #ff6b6b; color: white; }
+        .btn-liberar { background: #4ecdc4; color: white; }
+        .btn-agendar { background: #ffe66d; color: #333; }
+        
+        .status-online { color: #4ecdc4; }
+        .status-offline { color: #ff6b6b; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🤖 Painel de Controle - Robô Atendente</h1>
+        <p>Intervenção humana em tempo real | <span class="status-online">● Online</span></p>
+    </div>
+    
+    <div class="container">
+        <div class="sidebar">
+            <h3>📱 Conversas Ativas</h3>
+            <div id="lista-conversas">
+                <div class="conversa-item" onclick="selecionarConversa('5511999999999')">
+                    <div class="telefone">+55 11 99999-9999</div>
+                    <div class="preview">Cliente: Quero agendar...</div>
+                </div>
+            </div>
+            
+            <h3 style="margin-top: 30px;">⚡ Ações Rápidas</h3>
+            <button class="btn btn-agendar" onclick="verAgenda()">📅 Ver Agenda</button>
+            <button class="btn" onclick="verRelatorio()">📊 Relatório Diário</button>
+            <button class="btn" onclick="treinarRobo()">🧠 Treinar Robô</button>
+        </div>
+        
+        <div class="chat-area">
+            <div class="chat-header">
+                <div>
+                    <h3 id="chat-titulo">Selecione uma conversa</h3>
+                    <p id="chat-subtitulo">-</p>
+                </div>
+                <div class="acoes">
+                    <button class="btn btn-intervir" id="btn-intervir" onclick="intervir()" style="display:none;">
+                        🚨 Intervir (assumir)
+                    </button>
+                    <button class="btn btn-liberar" id="btn-liberar" onclick="liberarRobo()" style="display:none;">
+                        🤖 Devolver ao robô
+                    </button>
+                </div>
+            </div>
+            
+            <div class="chat-messages" id="chat-messages">
+                <p style="text-align:center; color:#999; margin-top:50px;">
+                    Selecione uma conversa ao lado para ver as mensagens
+                </p>
+            </div>
+            
+            <div class="chat-input" style="display:none;" id="area-input">
+                <input type="text" id="mensagem-input" placeholder="Digite sua mensagem..." onkeypress="if(event.key==='Enter')enviarMensagem()">
+                <button onclick="enviarMensagem()">Enviar</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let conversaAtual = null;
+        let modoIntervencao = false;
+        
+        // Carregar conversas a cada 3 segundos
+        setInterval(carregarConversas, 3000);
+        carregarConversas();
+        
+        async function carregarConversas() {
+            try {
+                const res = await fetch('/api/painel-data?tipo=conversas');
+                const dados = await res.json();
+                
+                const lista = document.getElementById('lista-conversas');
+                lista.innerHTML = '';
+                
+                dados.forEach(conv => {
+                    const div = document.createElement('div');
+                    div.className = `conversa-item ${conv.intervencao ? 'intervencao' : ''} ${conv.telefone === conversaAtual ? 'ativa' : ''}`;
+                    div.onclick = () => selecionarConversa(conv.telefone);
+                    div.innerHTML = `
+                        <div class="telefone">${conv.telefone}</div>
+                        <div class="preview">${conv.ultimaMensagem || '...'}</div>
+                        ${conv.intervencao ? '<span class="badge">INTERNAÇÃO</span>' : ''}
+                    `;
+                    lista.appendChild(div);
+                });
+                
+            } catch (e) {
+                console.error('Erro ao carregar:', e);
+            }
+        }
+        
+        async function selecionarConversa(telefone) {
+            conversaAtual = telefone;
+            modoIntervencao = false;
+            
+            document.getElementById('chat-titulo').textContent = telefone;
+            document.getElementById('area-input').style.display = 'flex';
+            document.getElementById('btn-intervir').style.display = 'inline-block';
+            document.getElementById('btn-liberar').style.display = 'none';
+            
+            carregarMensagens(telefone);
+        }
+        
+        async function carregarMensagens(telefone) {
+            try {
+                const res = await fetch(`/api/painel-data?tipo=mensagens&telefone=${telefone}`);
+                const msgs = await res.json();
+                
+                const area = document.getElementById('chat-messages');
+                area.innerHTML = '';
+                
+                msgs.forEach(msg => {
+                    const div = document.createElement('div');
+                    div.className = `mensagem ${msg.tipo}`;
+                    div.innerHTML = `
+                        ${msg.texto}
+                        <div class="meta">${msg.nome} - ${new Date(msg.data).toLocaleTimeString()}</div>
+                    `;
+                    area.appendChild(div);
+                });
+                
+                area.scrollTop = area.scrollHeight;
+                
+            } catch (e) {
+                console.error('Erro:', e);
+            }
+        }
+        
+        async function intervir() {
+            modoIntervencao = true;
+            document.getElementById('btn-intervir').style.display = 'none';
+            document.getElementById('btn-liberar').style.display = 'inline-block';
+            document.getElementById('chat-subtitulo').textContent = '🚨 VOCÊ ESTÁ NO CONTROLE (Intervenção humana ativa)';
+            
+            // Notificar backend
+            await fetch('/api/painel-data', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ acao: 'intervir', telefone: conversaAtual })
+            });
+        }
+        
+        async function liberarRobo() {
+            modoIntervencao = false;
+            document.getElementById('btn-intervir').style.display = 'inline-block';
+            document.getElementById('btn-liberar').style.display = 'none';
+            document.getElementById('chat-subtitulo').textContent = '🤖 Robô retomou o atendimento';
+            
+            await fetch('/api/painel-data', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ acao: 'liberar', telefone: conversaAtual })
+            });
+        }
+        
+        async function enviarMensagem() {
+            const input = document.getElementById('mensagem-input');
+            const texto = input.value.trim();
+            if (!texto || !conversaAtual) return;
+            
+            // Enviar mensagem
+            await fetch('/api/painel-data', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    acao: 'enviar', 
+                    telefone: conversaAtual, 
+                    mensagem: texto 
+                })
+            });
+            
+            input.value = '';
+            carregarMensagens(conversaAtual);
+        }
+        
+        function verAgenda() {
+            window.open('/agenda.html', '_blank');
+        }
+        
+        function verRelatorio() {
+            window.open('/api/painel-data?tipo=relatorio', '_blank');
+        }
+        
+        function treinarRobo() {
+            window.open('/treinar.html', '_blank');
+        }
+    </script>
+</body>
+</html>

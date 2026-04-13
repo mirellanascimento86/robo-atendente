@@ -3,9 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Painel de Controle - Intervenção</title>
+    <title>Painel de Controle</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
+        
         body { 
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
             background: #f0f2f5;
@@ -24,44 +25,45 @@
         
         .container { 
             display: grid; 
-            grid-template-columns: 350px 1fr; 
+            grid-template-columns: 320px 1fr; 
             height: calc(100vh - 60px);
         }
         
-        /* Lista de conversas */
-        .lista-conversas { 
+        /* LISTA DE CONVERSAS */
+        .lista { 
             background: white;
             border-right: 1px solid #ddd;
             overflow-y: auto;
         }
         
-        .conversa-item { 
+        .conversa { 
             padding: 15px; 
             border-bottom: 1px solid #eee; 
             cursor: pointer;
-            transition: all 0.2s;
+            transition: 0.2s;
         }
         
-        .conversa-item:hover { background: #f5f5f5; }
-        .conversa-item.ativa { background: #e3f2fd; border-left: 4px solid #2196f3; }
-        .conversa-item.intervencao { border-left: 4px solid #f44336; }
+        .conversa:hover { background: #f5f5f5; }
+        .conversa.ativa { background: #e3f2fd; border-left: 4px solid #2196f3; }
+        .conversa.intervencao { border-left: 4px solid #f44336; }
         
-        .telefone { font-weight: bold; color: #075e54; font-size: 14px; }
-        .nome { color: #666; font-size: 12px; margin-top: 2px; }
-        .preview { color: #999; font-size: 13px; margin-top: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .badge { 
+        .tel { font-weight: bold; color: #075e54; font-size: 14px; }
+        .nome { color: #666; font-size: 12px; }
+        .prev { color: #999; font-size: 13px; margin-top: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        
+        .tag { 
             display: inline-block;
-            padding: 2px 8px; 
-            border-radius: 10px; 
+            padding: 3px 10px; 
+            border-radius: 12px; 
             font-size: 11px; 
-            margin-top: 5px;
+            margin-top: 8px;
             font-weight: bold;
         }
-        .badge.robo { background: #4caf50; color: white; }
-        .badge.humano { background: #f44336; color: white; }
+        .tag.robo { background: #4caf50; color: white; }
+        .tag.humano { background: #f44336; color: white; }
         
-        /* Área de chat */
-        .chat-area { 
+        /* ÁREA DO CHAT */
+        .chat { 
             display: flex; 
             flex-direction: column;
             background: #e5ddd5;
@@ -76,10 +78,10 @@
             align-items: center;
         }
         
-        .chat-info h3 { color: #075e54; margin-bottom: 5px; }
-        .chat-info p { color: #666; font-size: 13px; }
+        .info h3 { color: #075e54; }
+        .info p { color: #666; font-size: 13px; margin-top: 5px; }
         
-        .acoes button {
+        .botoes button {
             padding: 10px 20px;
             border: none;
             border-radius: 20px;
@@ -88,9 +90,9 @@
             margin-left: 10px;
         }
         
-        .btn-intervir { background: #f44336; color: white; }
-        .btn-liberar { background: #4caf50; color: white; }
-        .btn-desabilitado { background: #ccc; cursor: not-allowed; }
+        .btn-vermelho { background: #f44336; color: white; }
+        .btn-verde { background: #4caf50; color: white; }
+        .btn-cinza { background: #ccc; cursor: not-allowed; }
         
         .mensagens { 
             flex: 1; 
@@ -101,40 +103,41 @@
             gap: 10px;
         }
         
-        .mensagem { 
-            max-width: 70%; 
+        .msg { 
+            max-width: 75%; 
             padding: 12px 15px; 
             border-radius: 10px;
-            position: relative;
+            font-size: 14px;
+            line-height: 1.4;
         }
         
-        .mensagem.cliente { 
+        .msg.cliente { 
             background: white; 
             align-self: flex-start;
             border-top-left-radius: 2px;
         }
         
-        .mensagem.robo { 
+        .msg.robo { 
             background: #dcf8c6; 
             align-self: flex-end;
             border-top-right-radius: 2px;
         }
         
-        .mensagem.humano { 
+        .msg.humano { 
             background: #ff6b6b; 
             color: white;
             align-self: flex-end;
             border-top-right-radius: 2px;
         }
         
-        .mensagem .meta {
+        .hora {
             font-size: 11px;
             color: #999;
             margin-top: 5px;
             text-align: right;
         }
         
-        .mensagem.humano .meta { color: rgba(255,255,255,0.8); }
+        .msg.humano .hora { color: rgba(255,255,255,0.8); }
         
         .input-area {
             background: #f0f0f0;
@@ -169,108 +172,90 @@
         
         .aviso {
             background: #fff3cd;
-            border: 1px solid #ffc107;
-            padding: 10px;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 20px;
+            border-radius: 5px;
+        }
+        
+        .vazio {
             text-align: center;
-            font-size: 13px;
-            color: #856404;
+            color: #999;
+            margin-top: 50px;
         }
     </style>
 </head>
 <body>
     <div class="header">
-        <h2>🤖 Painel de Intervenção</h2>
-        <span id="status-geral">🟢 Sistema Online</span>
+        <h2>🤖 Painel de Controle</h2>
+        <span>🟢 Online</span>
     </div>
     
     <div class="container">
-        <!-- Lista de conversas -->
-        <div class="lista-conversas" id="lista">
-            <div style="padding: 20px; text-align: center; color: #999;">
-                Carregando conversas...
-            </div>
+        <!-- LISTA -->
+        <div class="lista" id="lista">
+            <div class="vazio">Nenhuma conversa ainda.<br>Envie uma mensagem de teste.</div>
         </div>
         
-        <!-- Área de chat -->
-        <div class="chat-area">
-            <div class="chat-header" id="chat-header" style="display: none;">
-                <div class="chat-info">
-                    <h3 id="chat-telefone">Selecione uma conversa</h3>
-                    <p id="chat-status">-</p>
+        <!-- CHAT -->
+        <div class="chat">
+            <div class="chat-header" id="header" style="display: none;">
+                <div class="info">
+                    <h3 id="titulo">Selecione uma conversa</h3>
+                    <p id="subtitulo">-</p>
                 </div>
-                <div class="acoes" id="acoes">
-                    <button class="btn-intervir" id="btn-intervir" onclick="intervir()">
-                        🚨 INTERVIR
-                    </button>
-                    <button class="btn-liberar" id="btn-liberar" onclick="liberar()" style="display: none;">
-                        🤖 LIBERAR ROBÔ
-                    </button>
-                </div>
+                <div class="botoes" id="botoes"></div>
             </div>
             
             <div class="mensagens" id="mensagens">
-                <div style="text-align: center; color: #999; margin-top: 50px;">
-                    Selecione uma conversa à esquerda para ver as mensagens
-                </div>
+                <div class="vazio">Clique em uma conversa à esquerda</div>
             </div>
             
-            <div class="input-area" id="input-area" style="display: none;">
-                <input 
-                    type="text" 
-                    id="mensagem-input" 
-                    placeholder="Digite sua mensagem..." 
-                    onkeypress="if(event.key==='Enter') enviar()"
-                >
-                <button onclick="enviar()">Enviar</button>
+            <div class="input-area" id="input" style="display: none;">
+                <input type="text" id="campo" placeholder="Digite sua mensagem..." onkeypress="if(event.key==='Enter') enviar()">
+                <button onclick="enviar()" id="btn-enviar">Enviar</button>
             </div>
         </div>
     </div>
 
     <script>
-        const API_URL = window.location.origin + '/api/painel';
-        let conversaAtual = null;
-        let statusIntervencao = false;
+        const API = window.location.origin + '/api/webhook';
+        let atual = null;
+        let intervencaoAtiva = false;
         
-        // Carregar conversas a cada 3 segundos
-        setInterval(carregarConversas, 3000);
-        carregarConversas();
+        // Carregar conversas a cada 2 segundos
+        setInterval(carregar, 2000);
+        carregar();
         
         // Se tiver conversa selecionada, recarregar mensagens
         setInterval(() => {
-            if (conversaAtual) carregarMensagens(conversaAtual);
-        }, 2000);
+            if (atual) carregarMensagens(atual);
+        }, 1500);
         
-        async function carregarConversas() {
+        async function carregar() {
             try {
-                const res = await fetch(`${API_URL}?acao=listar`);
-                const conversas = await res.json();
+                const res = await fetch(`${API}?acao=conversas`);
+                const dados = await res.json();
                 
                 const lista = document.getElementById('lista');
                 
-                if (conversas.length === 0) {
-                    lista.innerHTML = `
-                        <div style="padding: 40px; text-align: center; color: #999;">
-                            <p>Nenhuma conversa ativa</p>
-                            <p style="font-size: 12px; margin-top: 10px;">
-                                Envie uma mensagem de teste para aparecer aqui
-                            </p>
-                        </div>
-                    `;
+                if (dados.length === 0) {
+                    lista.innerHTML = '<div class="vazio">Nenhuma conversa ainda.<br>Envie uma mensagem de teste.</div>';
                     return;
                 }
                 
                 lista.innerHTML = '';
-                conversas.forEach(conv => {
+                dados.forEach(c => {
                     const div = document.createElement('div');
-                    div.className = `conversa-item ${conv.telefone === conversaAtual ? 'ativa' : ''} ${conv.intervencao ? 'intervencao' : ''}`;
-                    div.onclick = () => selecionarConversa(conv.telefone, conv.nome, conv.intervencao);
+                    div.className = `conversa ${c.telefone === atual ? 'ativa' : ''} ${c.intervencao ? 'intervencao' : ''}`;
+                    div.onclick = () => abrir(c.telefone, c.nome, c.intervencao);
                     
                     div.innerHTML = `
-                        <div class="telefone">${conv.telefone}</div>
-                        <div class="nome">${conv.nome}</div>
-                        <div class="preview">${conv.ultimaMsg}</div>
-                        <span class="badge ${conv.intervencao ? 'humano' : 'robo'}">
-                            ${conv.intervencao ? '🔴 INTERVENÇÃO' : '🟢 ROBÔ'}
+                        <div class="tel">${c.telefone}</div>
+                        <div class="nome">${c.nome}</div>
+                        <div class="prev">${c.ultima}</div>
+                        <span class="tag ${c.intervencao ? 'humano' : 'robo'}">
+                            ${c.intervencao ? '🔴 VOCÊ' : '🟢 ROBÔ'}
                         </span>
                     `;
                     
@@ -278,118 +263,104 @@
                 });
                 
             } catch (e) {
-                console.error('Erro ao carregar:', e);
+                console.log('Erro ao carregar:', e);
             }
         }
         
-        function selecionarConversa(telefone, nome, intervencao) {
-            conversaAtual = telefone;
-            statusIntervencao = intervencao;
+        function abrir(telefone, nome, intervencao) {
+            atual = telefone;
+            intervencaoAtiva = intervencao;
             
-            // Atualizar header
-            document.getElementById('chat-header').style.display = 'flex';
-            document.getElementById('chat-telefone').textContent = telefone;
-            document.getElementById('chat-status').textContent = nome || 'Cliente';
-            document.getElementById('input-area').style.display = 'flex';
+            document.getElementById('header').style.display = 'flex';
+            document.getElementById('titulo').textContent = telefone;
+            document.getElementById('subtitulo').textContent = nome || 'Cliente';
+            document.getElementById('input').style.display = 'flex';
             
             atualizarBotoes();
             carregarMensagens(telefone);
         }
         
         function atualizarBotoes() {
-            const btnIntervir = document.getElementById('btn-intervir');
-            const btnLiberar = document.getElementById('btn-liberar');
+            const div = document.getElementById('botoes');
             
-            if (statusIntervencao) {
-                btnIntervir.style.display = 'none';
-                btnLiberar.style.display = 'inline-block';
-                document.getElementById('chat-status').innerHTML += ' <span style="color:#f44336">(VOCÊ ESTÁ NO CONTROLE)</span>';
+            if (intervencaoAtiva) {
+                div.innerHTML = `
+                    <button class="btn-verde" onclick="liberar()">
+                        🤖 LIBERAR ROBÔ
+                    </button>
+                `;
+                document.getElementById('subtitulo').innerHTML += ' <span style="color:#f44336;font-weight:bold">(VOCÊ ESTÁ NO CONTROLE)</span>';
             } else {
-                btnIntervir.style.display = 'inline-block';
-                btnLiberar.style.display = 'none';
+                div.innerHTML = `
+                    <button class="btn-vermelho" onclick="intervir()">
+                        🚨 ASSUMIR CONTROLE
+                    </button>
+                `;
             }
         }
         
         async function carregarMensagens(telefone) {
             try {
-                const res = await fetch(`${API_URL}?acao=mensagens&telefone=${telefone}`);
+                const res = await fetch(`${API}?acao=mensagens&telefone=${telefone}`);
                 const msgs = await res.json();
                 
                 const area = document.getElementById('mensagens');
-                area.innerHTML = '';
                 
                 if (msgs.length === 0) {
-                    area.innerHTML = '<div style="text-align:center;color:#999">Nenhuma mensagem ainda</div>';
+                    area.innerHTML = '<div class="vazio">Nenhuma mensagem ainda</div>';
                     return;
                 }
                 
-                msgs.forEach(msg => {
+                area.innerHTML = '';
+                msgs.forEach(m => {
                     const div = document.createElement('div');
-                    div.className = `mensagem ${msg.tipo}`;
-                    
-                    const hora = new Date(msg.data).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
-                    
+                    div.className = `msg ${m.tipo}`;
                     div.innerHTML = `
-                        <div>${msg.texto}</div>
-                        <div class="meta">${msg.nome} • ${hora}</div>
+                        ${m.texto.replace(/\n/g, '<br>')}
+                        <div class="hora">${m.nome} • ${m.hora}</div>
                     `;
-                    
                     area.appendChild(div);
                 });
                 
                 area.scrollTop = area.scrollHeight;
                 
             } catch (e) {
-                console.error('Erro mensagens:', e);
+                console.log('Erro mensagens:', e);
             }
         }
         
         async function intervir() {
-            if (!conversaAtual) return;
+            if (!atual) return;
             
             try {
-                const res = await fetch(API_URL, {
+                await fetch(`${API}?acao=intervir`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        acao: 'intervir',
-                        telefone: conversaAtual
-                    })
+                    body: JSON.stringify({ telefone: atual })
                 });
                 
-                const result = await res.json();
-                
-                if (result.ok) {
-                    statusIntervencao = true;
-                    atualizarBotoes();
-                    alert('✅ Você assumiu o controle! O robô não vai mais responder nesta conversa.');
-                }
+                intervencaoAtiva = true;
+                atualizarBotoes();
+                carregarMensagens(atual);
                 
             } catch (e) {
-                alert('Erro ao intervir');
+                alert('Erro ao assumir controle');
             }
         }
         
         async function liberar() {
-            if (!conversaAtual) return;
+            if (!atual) return;
             
             try {
-                const res = await fetch(API_URL, {
+                await fetch(`${API}?acao=liberar`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        acao: 'liberar',
-                        telefone: conversaAtual
-                    })
+                    body: JSON.stringify({ telefone: atual })
                 });
                 
-                const result = await res.json();
-                
-                if (result.ok) {
-                    statusIntervencao = false;
-                    atualizarBotoes();
-                    alert('🤖 Robô retomou o atendimento!');
-                }
+                intervencaoAtiva = false;
+                atualizarBotoes();
+                carregarMensagens(atual);
                 
             } catch (e) {
                 alert('Erro ao liberar');
@@ -397,32 +368,30 @@
         }
         
         async function enviar() {
-            if (!conversaAtual || !statusIntervencao) {
-                if (!statusIntervencao) {
-                    alert('⚠️ Você precisa clicar em INTERVIR antes de enviar mensagens!');
-                    return;
-                }
+            if (!atual) return;
+            
+            if (!intervencaoAtiva) {
+                alert('⚠️ Clique em "ASSUMIR CONTROLE" primeiro!');
                 return;
             }
             
-            const input = document.getElementById('mensagem-input');
-            const texto = input.value.trim();
+            const campo = document.getElementById('campo');
+            const texto = campo.value.trim();
             
             if (!texto) return;
             
             try {
-                await fetch(API_URL, {
+                await fetch(`${API}?acao=enviar`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        acao: 'enviar',
-                        telefone: conversaAtual,
-                        texto: texto
+                    body: JSON.stringify({ 
+                        telefone: atual, 
+                        mensagem: texto 
                     })
                 });
                 
-                input.value = '';
-                carregarMensagens(conversaAtual);
+                campo.value = '';
+                carregarMensagens(atual);
                 
             } catch (e) {
                 alert('Erro ao enviar');

@@ -17,22 +17,37 @@
         .salvo {
             background: #d4edda;
             color: #155724;
-            padding: 15px;
-            border-radius: 8px;
+            padding: 20px;
+            border-radius: 10px;
             margin: 20px 0;
             display: none;
             text-align: center;
             font-weight: bold;
+            font-size: 18px;
+            border: 2px solid #4caf50;
         }
         
         .erro {
             background: #f8d7da;
             color: #721c24;
-            padding: 15px;
-            border-radius: 8px;
+            padding: 20px;
+            border-radius: 10px;
             margin: 20px 0;
             display: none;
             text-align: center;
+            font-weight: bold;
+            border: 2px solid #f44336;
+        }
+        
+        .salvando {
+            background: #fff3cd;
+            color: #856404;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+            display: none;
+            text-align: center;
+            font-weight: bold;
         }
         
         .caixa { 
@@ -44,9 +59,9 @@
         }
         
         .secao {
-            background: #e3f2fd;
-            color: #1976d2;
-            padding: 12px 20px;
+            background: #075e54;
+            color: white;
+            padding: 15px 20px;
             margin: 30px 0 15px 0;
             border-radius: 8px;
             font-weight: bold;
@@ -100,11 +115,13 @@
         .btn-remove { background: #f44336; padding: 8px 15px; font-size: 12px; }
         .btn-salvar { 
             background: #4caf50; 
-            font-size: 18px; 
-            padding: 20px 50px;
+            font-size: 20px; 
+            padding: 25px 60px;
             display: block;
             margin: 40px auto;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
         }
+        .btn-salvar:hover { background: #45a049; transform: translateY(-2px); }
         
         .dica {
             font-size: 13px;
@@ -113,10 +130,13 @@
             font-style: italic;
         }
         
-        .loading {
-            display: none;
+        .info-banco {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
             text-align: center;
-            padding: 20px;
+            color: #1976d2;
         }
     </style>
 </head>
@@ -124,9 +144,13 @@
     <h1>🧠 Treinar Robô</h1>
     <p style="text-align:center;color:#666">Reforma, Marcenaria e Construção</p>
     
-    <div id="salvo" class="salvo">✅ Configuração salva com sucesso!</div>
-    <div id="erro" class="erro">❌ Erro ao salvar. Tente novamente.</div>
-    <div id="loading" class="loading">⏳ Carregando...</div>
+    <div class="info-banco">
+        💾 As alterações são salvas no banco de dados e o robô usa imediatamente
+    </div>
+    
+    <div id="salvando" class="salvando">⏳ Salvando no banco de dados...</div>
+    <div id="salvo" class="salvo">✅ CONFIGURAÇÃO SALVA COM SUCESSO!<br>O robô já está usando as novas respostas!</div>
+    <div id="erro" class="erro">❌ Erro ao salvar. Verifique se configurou o Upstash Redis.</div>
     
     <div class="caixa">
         <div class="secao">👋 Saudação Inicial</div>
@@ -141,7 +165,7 @@
         
         <div id="respostas"></div>
         
-        <button class="btn-add" onclick="addResposta()">➕ Adicionar</button>
+        <button class="btn-add" onclick="addResposta()">➕ Adicionar resposta</button>
     </div>
     
     <div class="caixa">
@@ -187,7 +211,7 @@
     </div>
     
     <div class="caixa">
-        <div class="secao">⚡ Configurações</div>
+        <div class="secao">⚡ Configurações de Intervenção</div>
         
         <label>Palavras que ativam intervenção humana (separadas por vírgula):</label>
         <input type="text" id="interv-palavras">
@@ -196,58 +220,59 @@
         <textarea id="interv-msg"></textarea>
     </div>
     
-    <button class="btn-salvar" onclick="salvar()">💾 SALVAR TUDO</button>
+    <button class="btn-salvar" onclick="salvar()" id="btn-salvar">💾 SALVAR TUDO</button>
 
     <script>
         const API = window.location.origin + '/api/treinar';
         
-        // CARREGAR ao abrir
+        // Carregar ao abrir
         async function carregar() {
-            document.getElementById('loading').style.display = 'block';
-            
             try {
                 const res = await fetch(API);
                 const config = await res.json();
                 
-                // Preencher campos
                 document.getElementById('saudacao').value = config.saudacao || '';
                 
                 // Respostas rápidas
                 const container = document.getElementById('respostas');
                 container.innerHTML = '';
                 
-                for (const [chaves, resp] of Object.entries(config.respostas_rapidas || {})) {
+                for (const [chaves, resp] of Object.entries(config.respostas || {})) {
                     addResposta(chaves, resp);
                 }
                 
                 // Fluxos
-                if (config.fluxos) {
-                    const r = config.fluxos.reforma || {};
-                    document.getElementById('ref-p1').value = r.pergunta_1 || '';
-                    document.getElementById('ref-p2').value = r.pergunta_2 || '';
-                    document.getElementById('ref-p3').value = r.pergunta_3 || '';
-                    document.getElementById('ref-p4').value = r.pergunta_4 || '';
+                if (config.fluxo_reforma) {
+                    const r = config.fluxo_reforma;
+                    document.getElementById('ref-p1').value = r.p1 || '';
+                    document.getElementById('ref-p2').value = r.p2 || '';
+                    document.getElementById('ref-p3').value = r.p3 || '';
+                    document.getElementById('ref-p4').value = r.p4 || '';
                     document.getElementById('ref-final').value = r.final || '';
-                    
-                    const m = config.fluxos.marcenaria || {};
-                    document.getElementById('marc-p1').value = m.pergunta_1 || '';
-                    document.getElementById('marc-p2').value = m.pergunta_2 || '';
+                }
+                
+                if (config.fluxo_marcenaria) {
+                    const m = config.fluxo_marcenaria;
+                    document.getElementById('marc-p1').value = m.p1 || '';
+                    document.getElementById('marc-p2').value = m.p2 || '';
                     document.getElementById('marc-final').value = m.final || '';
-                    
-                    const c = config.fluxos.construcao || {};
-                    document.getElementById('cons-p1').value = c.pergunta_1 || '';
+                }
+                
+                if (config.fluxo_construcao) {
+                    const c = config.fluxo_construcao;
+                    document.getElementById('cons-p1').value = c.p1 || '';
                     document.getElementById('cons-final').value = c.final || '';
                 }
                 
                 // Intervenção
-                document.getElementById('interv-palavras').value = (config.palavras_intervencao || []).join(', ');
-                document.getElementById('interv-msg').value = config.resposta_intervencao || '';
+                if (config.intervencao) {
+                    document.getElementById('interv-palavras').value = (config.intervencao.palavras || []).join(', ');
+                    document.getElementById('interv-msg').value = config.intervencao.mensagem || '';
+                }
                 
             } catch (e) {
                 console.error('Erro ao carregar:', e);
-                mostrarErro('Erro ao carregar configuração');
-            } finally {
-                document.getElementById('loading').style.display = 'none';
+                mostrarErro('Erro ao carregar configuração. Verifique o console.');
             }
         }
         
@@ -263,22 +288,31 @@
         }
         
         function mostrarSalvo() {
-            const div = document.getElementById('salvo');
-            div.style.display = 'block';
-            setTimeout(() => div.style.display = 'none', 5000);
+            document.getElementById('salvando').style.display = 'none';
+            document.getElementById('salvo').style.display = 'block';
+            document.getElementById('btn-salvar').disabled = false;
+            document.getElementById('btn-salvar').textContent = '💾 SALVAR TUDO';
+            
+            setTimeout(() => {
+                document.getElementById('salvo').style.display = 'none';
+            }, 5000);
         }
         
         function mostrarErro(msg) {
-            const div = document.getElementById('erro');
-            div.textContent = msg;
-            div.style.display = 'block';
-            setTimeout(() => div.style.display = 'none', 5000);
+            document.getElementById('salvando').style.display = 'none';
+            document.getElementById('erro').textContent = msg;
+            document.getElementById('erro').style.display = 'block';
+            document.getElementById('btn-salvar').disabled = false;
+            document.getElementById('btn-salvar').textContent = '💾 SALVAR TUDO';
         }
         
         async function salvar() {
-            const btn = document.querySelector('.btn-salvar');
-            btn.textContent = '⏳ Salvando...';
+            const btn = document.getElementById('btn-salvar');
+            btn.textContent = '⏳ SALVANDO...';
             btn.disabled = true;
+            document.getElementById('salvando').style.display = 'block';
+            document.getElementById('salvo').style.display = 'none';
+            document.getElementById('erro').style.display = 'none';
             
             try {
                 // Coletar respostas rápidas
@@ -295,27 +329,27 @@
                 // Montar config
                 const config = {
                     saudacao: document.getElementById('saudacao').value,
-                    respostas_rapidas: respostas,
-                    fluxos: {
-                        reforma: {
-                            pergunta_1: document.getElementById('ref-p1').value,
-                            pergunta_2: document.getElementById('ref-p2').value,
-                            pergunta_3: document.getElementById('ref-p3').value,
-                            pergunta_4: document.getElementById('ref-p4').value,
-                            final: document.getElementById('ref-final').value
-                        },
-                        marcenaria: {
-                            pergunta_1: document.getElementById('marc-p1').value,
-                            pergunta_2: document.getElementById('marc-p2').value,
-                            final: document.getElementById('marc-final').value
-                        },
-                        construcao: {
-                            pergunta_1: document.getElementById('cons-p1').value,
-                            final: document.getElementById('cons-final').value
-                        }
+                    respostas: respostas,
+                    fluxo_reforma: {
+                        p1: document.getElementById('ref-p1').value,
+                        p2: document.getElementById('ref-p2').value,
+                        p3: document.getElementById('ref-p3').value,
+                        p4: document.getElementById('ref-p4').value,
+                        final: document.getElementById('ref-final').value
                     },
-                    palavras_intervencao: document.getElementById('interv-palavras').value.split(',').map(s => s.trim()).filter(s => s),
-                    resposta_intervencao: document.getElementById('interv-msg').value
+                    fluxo_marcenaria: {
+                        p1: document.getElementById('marc-p1').value,
+                        p2: document.getElementById('marc-p2').value,
+                        final: document.getElementById('marc-final').value
+                    },
+                    fluxo_construcao: {
+                        p1: document.getElementById('cons-p1').value,
+                        final: document.getElementById('cons-final').value
+                    },
+                    intervencao: {
+                        palavras: document.getElementById('interv-palavras').value.split(',').map(s => s.trim()).filter(s => s),
+                        mensagem: document.getElementById('interv-msg').value
+                    }
                 };
                 
                 // ENVIAR PARA API
@@ -330,15 +364,12 @@
                 if (resultado.ok) {
                     mostrarSalvo();
                 } else {
-                    mostrarErro(resultado.erro || 'Erro desconhecido');
+                    mostrarErro(resultado.erro || 'Erro desconhecido ao salvar');
                 }
                 
             } catch (e) {
                 console.error('Erro:', e);
-                mostrarErro('Erro de conexão. Tente novamente.');
-            } finally {
-                btn.textContent = '💾 SALVAR TUDO';
-                btn.disabled = false;
+                mostrarErro('Erro de conexão. Verifique se o Upstash Redis está configurado.');
             }
         }
         

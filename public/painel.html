@@ -2,151 +2,80 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Painel de Intervenção</title>
+    <title>Painel de Controle</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial; background: #f0f2f5; height: 100vh; overflow: hidden; }
         
-        body { 
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
-            background: #f0f2f5;
-            height: 100vh;
-            overflow: hidden;
-        }
+        .header { background: #075e54; color: white; padding: 15px; text-align: center; }
         
-        .header { 
-            background: #075e54; 
-            color: white; 
-            padding: 15px 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
+        .container { display: grid; grid-template-columns: 300px 1fr; height: calc(100vh - 50px); }
         
-        .container { 
-            display: grid; 
-            grid-template-columns: 350px 1fr; 
-            height: calc(100vh - 60px);
-        }
-        
-        /* Lista */
-        .lista { 
-            background: white;
-            border-right: 1px solid #ddd;
-            overflow-y: auto;
-        }
+        .lista { background: white; border-right: 1px solid #ddd; overflow-y: auto; }
         
         .conversa { 
             padding: 15px; 
             border-bottom: 1px solid #eee; 
             cursor: pointer;
-            transition: 0.2s;
         }
-        
         .conversa:hover { background: #f5f5f5; }
         .conversa.ativa { background: #e3f2fd; border-left: 4px solid #2196f3; }
-        .conversa.intervencao { border-left: 4px solid #f44336; background: #ffebee; }
+        .conversa.intervencao { border-left: 4px solid #f44336; }
         
-        .tel { font-weight: bold; color: #075e54; font-size: 14px; }
+        .tel { font-weight: bold; color: #075e54; }
         .nome { color: #666; font-size: 12px; }
-        .prev { color: #999; font-size: 13px; margin-top: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .prev { color: #999; font-size: 12px; margin-top: 5px; }
         
         .tag { 
             display: inline-block;
-            padding: 3px 10px; 
-            border-radius: 12px; 
+            padding: 2px 8px; 
+            border-radius: 10px; 
             font-size: 11px; 
-            margin-top: 8px;
-            font-weight: bold;
+            margin-top: 5px;
         }
         .tag.robo { background: #4caf50; color: white; }
         .tag.humano { background: #f44336; color: white; }
         
-        /* Chat */
-        .chat { 
-            display: flex; 
-            flex-direction: column;
-            background: #e5ddd5;
-        }
+        .chat { display: flex; flex-direction: column; background: #e5ddd5; }
         
         .chat-header { 
             background: #f0f0f0; 
-            padding: 15px 20px; 
+            padding: 15px; 
             border-bottom: 1px solid #ddd;
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
         
-        .info h3 { color: #075e54; margin-bottom: 5px; }
-        .info p { color: #666; font-size: 13px; }
-        
         .botoes button {
-            padding: 10px 20px;
+            padding: 10px 15px;
             border: none;
             border-radius: 20px;
             cursor: pointer;
             font-weight: bold;
             margin-left: 10px;
-            font-size: 13px;
         }
-        
         .btn-intervir { background: #f44336; color: white; }
         .btn-liberar { background: #4caf50; color: white; }
-        .btn-desabilitado { background: #ccc; cursor: not-allowed; opacity: 0.6; }
         
         .mensagens { 
             flex: 1; 
             overflow-y: auto; 
             padding: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
         }
         
         .msg { 
-            max-width: 75%; 
-            padding: 10px 14px; 
-            border-radius: 8px;
+            max-width: 70%; 
+            padding: 10px 15px; 
+            border-radius: 10px;
+            margin-bottom: 10px;
             font-size: 14px;
-            line-height: 1.4;
-            word-wrap: break-word;
         }
+        .msg.cliente { background: white; margin-right: auto; }
+        .msg.robo { background: #dcf8c6; margin-left: auto; }
+        .msg.humano { background: #ff6b6b; color: white; margin-left: auto; }
         
-        .msg.cliente { 
-            background: white; 
-            align-self: flex-start;
-            border-top-left-radius: 2px;
-        }
-        
-        .msg.robo { 
-            background: #dcf8c6; 
-            align-self: flex-end;
-            border-top-right-radius: 2px;
-        }
-        
-        .msg.humano { 
-            background: #ff6b6b; 
-            color: white;
-            align-self: flex-end;
-            border-top-right-radius: 2px;
-        }
-        
-        .msg.sistema {
-            background: #fff3cd;
-            align-self: center;
-            font-size: 12px;
-            color: #856404;
-            padding: 5px 10px;
-        }
-        
-        .hora {
-            font-size: 11px;
-            color: #999;
-            margin-top: 4px;
-            text-align: right;
-        }
-        
+        .hora { font-size: 11px; color: #999; margin-top: 5px; text-align: right; }
         .msg.humano .hora { color: rgba(255,255,255,0.8); }
         
         .input-area {
@@ -155,16 +84,13 @@
             display: flex;
             gap: 10px;
         }
-        
         .input-area input {
             flex: 1;
-            padding: 12px 15px;
+            padding: 12px;
             border: none;
             border-radius: 20px;
             outline: none;
-            font-size: 15px;
         }
-        
         .input-area button {
             padding: 12px 25px;
             background: #075e54;
@@ -172,34 +98,27 @@
             border: none;
             border-radius: 20px;
             cursor: pointer;
-            font-weight: bold;
         }
+        .input-area button:disabled { background: #ccc; }
         
-        .input-area button:disabled {
-            background: #ccc;
-            cursor: not-allowed;
-        }
-        
-        .aviso-intervencao {
+        .aviso {
             background: #ff6b6b;
             color: white;
             padding: 10px;
             text-align: center;
-            font-size: 13px;
             font-weight: bold;
         }
         
         .vazio {
             text-align: center;
             color: #999;
-            margin-top: 50px;
+            padding: 50px;
         }
     </style>
 </head>
 <body>
     <div class="header">
         <h2>🤖 Painel de Intervenção</h2>
-        <span id="status-geral">🟢 Online</span>
     </div>
     
     <div class="container">
@@ -209,23 +128,23 @@
         
         <div class="chat">
             <div class="chat-header" id="header" style="display: none;">
-                <div class="info">
-                    <h3 id="titulo">Selecione uma conversa</h3>
+                <div>
+                    <h3 id="titulo">-</h3>
                     <p id="subtitulo">-</p>
                 </div>
                 <div class="botoes" id="botoes"></div>
             </div>
             
-            <div id="aviso" style="display: none;" class="aviso-intervencao">
-                🚨 VOCÊ ESTÁ NO CONTROLE - Robô não está respondendo
+            <div id="aviso" class="aviso" style="display: none;">
+                🚨 VOCÊ ESTÁ NO CONTROLE
             </div>
             
             <div class="mensagens" id="mensagens">
-                <div class="vazio">Selecione uma conversa à esquerda</div>
+                <div class="vazio">Selecione uma conversa</div>
             </div>
             
             <div class="input-area" id="input" style="display: none;">
-                <input type="text" id="campo" placeholder="Digite sua mensagem..." onkeypress="if(event.key==='Enter') enviar()">
+                <input type="text" id="campo" placeholder="Digite..." onkeypress="if(event.key==='Enter') enviar()">
                 <button onclick="enviar()" id="btn-enviar">Enviar</button>
             </div>
         </div>
@@ -234,46 +153,33 @@
     <script>
         const API = window.location.origin + '/api/webhook';
         let atual = null;
-        let intervencaoAtiva = false;
+        let intervencao = false;
         
         // Carregar a cada 2 segundos
         setInterval(carregar, 2000);
         carregar();
         
-        // Recarregar mensagens se tiver conversa selecionada
         setInterval(() => {
-            if (atual) carregarMensagens(atual);
+            if (atual) carregarMsg(atual);
         }, 1500);
         
         async function carregar() {
             try {
-                const res = await fetch(`${API}?acao=listar`);
+                const res = await fetch(API + '?acao=listar');
                 const dados = await res.json();
                 
                 const lista = document.getElementById('lista');
                 
                 if (dados.length === 0) {
-                    lista.innerHTML = '<div class="vazio" style="padding:40px">Nenhuma conversa ainda.<br>Envie uma mensagem de teste.</div>';
+                    lista.innerHTML = '<div class="vazio">Nenhuma conversa.<br>Envie mensagem de teste.</div>';
                     return;
-                }
-                
-                // Manter seleção atual se existir
-                const temAtual = dados.find(d => d.telefone === atual);
-                if (!temAtual && atual) {
-                    // Conversa sumiu, resetar
-                    atual = null;
-                    intervencaoAtiva = false;
-                    document.getElementById('header').style.display = 'none';
-                    document.getElementById('input').style.display = 'none';
-                    document.getElementById('aviso').style.display = 'none';
                 }
                 
                 lista.innerHTML = '';
                 dados.forEach(c => {
                     const div = document.createElement('div');
-                    const isAtiva = c.telefone === atual;
-                    div.className = `conversa ${isAtiva ? 'ativa' : ''} ${c.intervencao ? 'intervencao' : ''}`;
-                    div.onclick = () => selecionar(c.telefone, c.nome, c.intervencao);
+                    div.className = `conversa ${c.telefone === atual ? 'ativa' : ''} ${c.intervencao ? 'intervencao' : ''}`;
+                    div.onclick = () => abrir(c.telefone, c.nome, c.intervencao);
                     
                     div.innerHTML = `
                         <div class="tel">${c.telefone}</div>
@@ -288,178 +194,132 @@
                 });
                 
             } catch (e) {
-                console.log('Erro carregar:', e);
+                console.log('Erro:', e);
             }
         }
         
-        function selecionar(telefone, nome, intervencao) {
-            atual = telefone;
-            intervencaoAtiva = intervencao;
+        function abrir(tel, nome, interv) {
+            atual = tel;
+            intervencao = interv;
             
             document.getElementById('header').style.display = 'flex';
-            document.getElementById('titulo').textContent = telefone;
+            document.getElementById('titulo').textContent = tel;
             document.getElementById('subtitulo').textContent = nome || 'Cliente';
             document.getElementById('input').style.display = 'flex';
             
             atualizarBotoes();
-            carregarMensagens(telefone);
+            carregarMsg(tel);
         }
         
         function atualizarBotoes() {
             const div = document.getElementById('botoes');
             const aviso = document.getElementById('aviso');
+            const campo = document.getElementById('campo');
+            const btn = document.getElementById('btn-enviar');
             
-            if (intervencaoAtiva) {
-                div.innerHTML = `
-                    <button class="btn-liberar" onclick="liberar()">
-                        🤖 LIBERAR ROBÔ
-                    </button>
-                `;
+            if (intervencao) {
+                div.innerHTML = '<button class="btn-liberar" onclick="liberar()">🤖 LIBERAR</button>';
                 aviso.style.display = 'block';
-                document.getElementById('campo').placeholder = 'Você no controle - digite sua mensagem...';
-                document.getElementById('btn-enviar').disabled = false;
+                campo.placeholder = 'Digite sua mensagem...';
+                campo.disabled = false;
+                btn.disabled = false;
             } else {
-                div.innerHTML = `
-                    <button class="btn-intervir" onclick="intervir()">
-                        🚨 ASSUMIR CONTROLE
-                    </button>
-                `;
+                div.innerHTML = '<button class="btn-intervir" onclick="intervir()">🚨 ASSUMIR</button>';
                 aviso.style.display = 'none';
-                document.getElementById('campo').placeholder = 'Clique em ASSUMIR CONTROLE para responder...';
-                document.getElementById('btn-enviar').disabled = true;
+                campo.placeholder = 'Clique em ASSUMIR primeiro...';
+                campo.disabled = true;
+                btn.disabled = true;
             }
         }
         
-        async function carregarMensagens(telefone) {
+        async function carregarMsg(tel) {
             try {
-                const res = await fetch(`${API}?acao=mensagens&telefone=${telefone}`);
+                const res = await fetch(API + '?acao=mensagens&telefone=' + tel);
                 const msgs = await res.json();
                 
                 const area = document.getElementById('mensagens');
                 
                 if (msgs.length === 0) {
-                    area.innerHTML = '<div class="vazio">Nenhuma mensagem ainda</div>';
+                    area.innerHTML = '<div class="vazio">Sem mensagens</div>';
                     return;
                 }
                 
                 area.innerHTML = '';
                 msgs.forEach(m => {
                     const div = document.createElement('div');
-                    div.className = `msg ${m.tipo}`;
-                    div.innerHTML = `
-                        ${m.texto.replace(/\n/g, '<br>')}
-                        <div class="hora">${m.nome} • ${m.hora}</div>
-                    `;
+                    div.className = 'msg ' + m.tipo;
+                    div.innerHTML = m.texto.replace(/\n/g, '<br>') + 
+                        '<div class="hora">' + m.nome + ' • ' + m.hora + '</div>';
                     area.appendChild(div);
                 });
                 
                 area.scrollTop = area.scrollHeight;
                 
-            } catch (e) {
-                console.error('Erro mensagens:', e);
-            }
+            } catch (e) {}
         }
         
         async function intervir() {
             if (!atual) return;
             
-            const btn = document.querySelector('.btn-intervir');
-            btn.textContent = '⏳...';
-            btn.disabled = true;
-            
             try {
-                const res = await fetch(`${API}?acao=intervir`, {
+                await fetch(API + '?acao=intervir', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ telefone: atual })
                 });
                 
-                const result = await res.json();
-                
-                if (result.ok) {
-                    intervencaoAtiva = true;
-                    atualizarBotoes();
-                    carregarMensagens(atual);
-                } else {
-                    alert('Erro: ' + (result.erro || 'Desconhecido'));
-                }
+                intervencao = true;
+                atualizarBotoes();
+                carregarMsg(atual);
                 
             } catch (e) {
-                alert('Erro de conexão');
-            } finally {
-                if (!intervencaoAtiva) {
-                    btn.textContent = '🚨 ASSUMIR CONTROLE';
-                    btn.disabled = false;
-                }
+                alert('Erro');
             }
         }
         
         async function liberar() {
             if (!atual) return;
             
-            const btn = document.querySelector('.btn-liberar');
-            btn.textContent = '⏳...';
-            btn.disabled = true;
-            
             try {
-                const res = await fetch(`${API}?acao=liberar`, {
+                await fetch(API + '?acao=liberar', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ telefone: atual })
                 });
                 
-                const result = await res.json();
-                
-                if (result.ok) {
-                    intervencaoAtiva = false;
-                    atualizarBotoes();
-                    carregarMensagens(atual);
-                }
+                intervencao = false;
+                atualizarBotoes();
+                carregarMsg(atual);
                 
             } catch (e) {
-                alert('Erro de conexão');
+                alert('Erro');
             }
         }
         
         async function enviar() {
-            if (!atual || !intervencaoAtiva) {
-                if (!intervencaoAtiva) {
-                    alert('⚠️ Clique em ASSUMIR CONTROLE primeiro!');
-                }
+            if (!atual || !intervencao) {
+                alert('Assuma o controle primeiro!');
                 return;
             }
             
             const campo = document.getElementById('campo');
             const texto = campo.value.trim();
-            
             if (!texto) return;
             
-            // Limpar campo imediatamente para UX
             campo.value = '';
             
             try {
-                const res = await fetch(`${API}?acao=enviar`, {
+                await fetch(API + '?acao=enviar', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        telefone: atual, 
-                        mensagem: texto 
-                    })
+                    body: JSON.stringify({ telefone: atual, mensagem: texto })
                 });
                 
-                const result = await res.json();
-                
-                if (result.ok) {
-                    // Recarregar mensagens para mostrar a enviada
-                    setTimeout(() => carregarMensagens(atual), 500);
-                } else {
-                    alert('Erro: ' + (result.erro || 'Não foi possível enviar'));
-                    campo.value = texto; // Devolver texto
-                }
+                setTimeout(() => carregarMsg(atual), 500);
                 
             } catch (e) {
-                alert('Erro de conexão');
-                campo.value = texto; // Devolver texto
+                campo.value = texto;
+                alert('Erro ao enviar');
             }
         }
     </script>

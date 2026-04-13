@@ -1,31 +1,70 @@
-// ============================================
-// WEBHOOK - VERSÃO SIMPLES E FUNCIONAL
-// ============================================
+import fs from 'fs/promises';
+import path from 'path';
 
-// Banco de dados em memória (funciona enquanto servidor está ligado)
+// Banco em memória
 const banco = {
-  conversas: {},      // Dados das conversas
-  mensagens: {},      // Histórico de mensagens
-  intervencao: {}     // Quem está em intervenção humana
+  conversas: {},
+  mensagens: {},
+  intervencao: {},
+  config: null // Carregado do arquivo
 };
+
+// Carregar configuração do arquivo
+async function carregarConfig() {
+  try {
+    const configPath = path.join(process.cwd(), 'data', 'config.json');
+    const dados = await fs.readFile(configPath, 'utf8');
+    banco.config = JSON.parse(dados);
+    console.log('✅ Configuração carregada');
+  } catch (e) {
+    console.error('❌ Erro ao carregar config:', e);
+    // Configuração padrão de emergência
+    banco.config = {
+      saudacao: "Olá! Sou o assistente de Reforma e Construção. Como posso ajudar?",
+      respostas_rapidas: {},
+      fluxos: {},
+      palavras_intervencao: ["atendente", "humano"],
+      resposta_intervencao: "Transferindo para atendente..."
+    };
+  }
+}
+
+// Carregar no início
+carregarConfig();
 
 export default async function handler(req, res) {
   
-  // VERIFICAÇÃO DO WEBHOOK (Meta confirma)
-  if (req.method === 'GET') {
+  // VERIFICAÇÃO GET (Meta)
+  if (req.method === 'GET' && !req.query.acao) {
     const mode = req.query['hub.mode'];
     const token = req.query['hub.verify_token'];
     const challenge = req.query['hub.challenge'];
     
     if (mode === 'subscribe' && token === 'roboatendente') {
-      console.log('✅ Webhook verificado!');
       return res.status(200).send(challenge);
     }
     return res.status(403).send('Forbidden');
   }
-
+  
+  // API DO PAINEL - Listar conversas
+  if (req.method === 'GET' && req.query.acao === 'conversas') {
+    const lista = Object.keys(banco.conversas).map(tel => ({
+      telefone: tel,
+      nome: banco.conversas[tel].nome,
+      intervencao: banco.intervencao[tel] || false,
+      ultima: banco.mensagens[tel]?.slice(-1)[0]?.texto?.substring(0, 30) + '...' || '...'
+    }));
+    return res.json(lista);
+  }
+  
+  // API DO PAINEL - Buscar mensagens
+  if (req.method === 'GET' && req.query.acao === 'mensagens') {
+    const tel = req.query.telefone;
+    return res.json(banco.mensagens[tel] || []);
+  }
+  
   // RECEBER MENSAGEM DO WHATSAPP
-  if (req.method === 'POST') {
+  if (req.method === 'POST' && !req.query.acao) {
     try {
       const body = req.body;
       
@@ -40,11 +79,10 @@ export default async function handler(req, res) {
           
           console.log(`📩 ${nome}: ${texto}`);
           
-          // SALVAR NO BANCO
+          // Salvar no banco
           if (!banco.conversas[telefone]) {
             banco.conversas[telefone] = { nome, data: new Date().toISOString() };
           }
-          
           if (!banco.mensagens[telefone]) {
             banco.mensagens[telefone] = [];
           }
@@ -56,19 +94,23 @@ export default async function handler(req, res) {
             hora: new Date().toLocaleTimeString('pt-BR')
           });
           
-          // SE NÃO ESTIVER EM INTERVENÇÃO, ROBÔ RESPONDE
-          if (!banco.intervencao[telefone]) {
-            const respostaRobo = gerarRespostaRobo(nome, texto);
-            
-            await enviarWhatsApp(telefone, respostaRobo);
-            
-            banco.mensagens[telefone].push({
-              tipo: 'robo',
-              nome: 'Robô',
-              texto: respostaRobo,
-              hora: new Date().toLocaleTimeString('pt-BR')
-            });
+          // VERIFICAR INTERVENÇÃO
+          if (banco.intervencao[telefone]) {
+            console.log('👤 Intervenção ativa - robô não responde');
+            return res.status(200).send('OK');
           }
+          
+          // GERAR RESPOSTA DO ROBÔ (lê do arquivo config)
+          const resposta = gerarRespostaRobo(texto, nome);
+          
+          await enviarWhatsApp(telefone, resposta);
+          
+          banco.mensagens[telefone].push({
+            tipo: 'robo',
+            nome: 'Robô',
+            texto: resposta,
+            hora: new Date().toLocaleTimeString('pt-BR')
+          });
         }
       }
       
@@ -80,48 +122,26 @@ export default async function handler(req, res) {
     }
   }
   
-  // GET /api/webhook?acao=dados - Para o painel buscar dados
-  if (req.method === 'GET' && req.query.acao) {
-    const { acao, telefone } = req.query;
-    
-    if (acao === 'conversas') {
-      const lista = Object.keys(banco.conversas).map(tel => ({
-        telefone: tel,
-        nome: banco.conversas[tel].nome,
-        intervencao: banco.intervencao[tel] || false,
-        ultima: banco.mensagens[tel]?.slice(-1)[0]?.texto?.substring(0, 30) + '...' || '...'
-      }));
-      return res.json(lista);
-    }
-    
-    if (acao === 'mensagens' && telefone) {
-      return res.json(banco.mensagens[telefone] || []);
-    }
-    
-    return res.json({ erro: 'Ação inválida' });
-  }
-  
-  // POST /api/webhook?acao=intervir - Painel intervém
+  // AÇÕES DO PAINEL (POST com query acao)
   if (req.method === 'POST' && req.query.acao) {
     const { acao } = req.query;
     const body = req.body;
     
+    // INTERVIR
     if (acao === 'intervir') {
       banco.intervencao[body.telefone] = true;
-      
-      await enviarWhatsApp(body.telefone, '👤 Atendente humano assumiu o chat. Como posso ajudar?');
-      
+      await enviarWhatsApp(body.telefone, banco.config.resposta_intervencao);
       return res.json({ ok: true });
     }
     
+    // LIBERAR
     if (acao === 'liberar') {
       banco.intervencao[body.telefone] = false;
-      
-      await enviarWhatsApp(body.telefone, '🤖 Robô retomou o atendimento.');
-      
+      await enviarWhatsApp(body.telefone, '🤖 Robô retomou o atendimento. Como posso ajudar?');
       return res.json({ ok: true });
     }
     
+    // ENVIAR MENSAGEM HUMANA
     if (acao === 'enviar') {
       await enviarWhatsApp(body.telefone, body.mensagem);
       
@@ -141,53 +161,49 @@ export default async function handler(req, res) {
   res.status(405).end();
 }
 
-// FUNÇÃO: ROBÔ GERA RESPOSTA (sem IA - 100% código)
-function gerarRespostaRobo(nome, mensagem) {
+// FUNÇÃO: GERAR RESPOSTA DO ROBÔ (lê do arquivo config.json)
+function gerarRespostaRobo(mensagem, nome) {
   const t = mensagem.toLowerCase();
+  const config = banco.config;
   
-  // SAUDAÇÃO
-  if (t.includes('oi') || t.includes('olá') || t.includes('ola') || t.includes('bom dia') || t.includes('boa tarde')) {
-    return `Olá ${nome}! 👋\n\nSou o assistente virtual. Como posso ajudar?\n\n1️⃣ *Ar condicionado*\n2️⃣ *Geladeira*\n3️⃣ *Máquina de lavar*\n4️⃣ *Falar com atendente*`;
+  // 1. VERIFICAR PALAVRAS DE INTERVENÇÃO
+  for (const palavra of config.palavras_intervencao) {
+    if (t.includes(palavra.toLowerCase())) {
+      return config.resposta_intervencao;
+    }
   }
   
-  // SERVIÇOS
-  if (t.includes('1') || t.includes('ar') || t.includes('condicionado')) {
-    return '❄️ *Ar Condicionado*\n\nPara agendar, preciso saber:\n• Quantos BTUs?\n• Qual bairro?\n• Qual o problema?\n\nOu digite *atendente* para falar com uma pessoa.';
+  // 2. VERIFICAR RESPOSTAS RÁPIDAS
+  for (const [chaves, resposta] of Object.entries(config.respostas_rapidas)) {
+    const listaChaves = chaves.split('|');
+    if (listaChaves.some(chave => t.includes(chave.toLowerCase()))) {
+      return resposta;
+    }
   }
   
-  if (t.includes('2') || t.includes('geladeira')) {
-    return '🧊 *Geladeira*\n\nQual a marca e modelo?\nQual o problema?\n\nVisita técnica: R$140';
+  // 3. DETECTAR FLUXO (1, 2, 3 ou palavras-chave)
+  if (t.includes('1') || t.includes('orçamento') || t.includes('reforma')) {
+    return config.fluxos.orcamento_reforma.pergunta_1;
   }
   
-  if (t.includes('3') || t.includes('máquina') || t.includes('lavar')) {
-    return '👕 *Máquina de Lavar*\n\nQual a marca?\nNão liga, não centrifuga ou vazamento?';
+  if (t.includes('2') || t.includes('marcenaria') || t.includes('móvel') || t.includes('armário')) {
+    return config.fluxos.marcenaria.pergunta_1;
   }
   
-  // ATENDENTE
-  if (t.includes('4') || t.includes('atendente') || t.includes('humano') || t.includes('pessoa')) {
-    return '🔄 *Transferindo...*\n\nUm atendente humano vai assumir em instantes. Aguarde.';
+  if (t.includes('3') || t.includes('construção') || t.includes('obra') || t.includes('casa')) {
+    return config.fluxos.construcao.pergunta_1;
   }
   
-  // PREÇO
-  if (t.includes('preço') || t.includes('valor') || t.includes('custo') || t.includes('quanto')) {
-    return '💰 *Valores:*\n\n• Visita técnica: R$140\n• Orçamento: Gratuito\n• Mão de obra: A combinar\n\nAceitamos Pix, cartão e dinheiro.';
+  // 4. SAUDAÇÃO
+  if (t.includes('oi') || t.includes('olá') || t.includes('ola') || t.includes('bom dia') || t.includes('boa tarde') || t.includes('boa noite')) {
+    return config.saudacao.replace('{nome}', nome);
   }
   
-  // HORÁRIO
-  if (t.includes('horário') || t.includes('hora') || t.includes('funcionamento')) {
-    return '⏰ *Horário:*\n\nSegunda a Sexta: 8h às 18h\nSábado: 8h às 12h\n\nEmergências: (21) 99999-9999';
-  }
-  
-  // LOCALIZAÇÃO
-  if (t.includes('onde') || t.includes('endereço') || t.includes('local')) {
-    return '📍 Atendemos em toda a região!\n\nQual seu bairro? Verifico disponibilidade.';
-  }
-  
-  // PADRÃO
-  return `Entendi, ${nome}. 🤔\n\nPosso ajudar com:\n1️⃣ Ar condicionado\n2️⃣ Geladeira\n3️⃣ Máquina de lavar\n4️⃣ Falar com atendente\n\nO que precisa?`;
+  // 5. RESPOSTA PADRÃO
+  return `Entendi, ${nome}. 🤔\n\nPosso ajudar com:\n\n1️⃣ Orçamento de reforma\n2️⃣ Marcenaria sob medida\n3️⃣ Construção civil\n4️⃣ Falar com atendente\n\nO que você precisa?`;
 }
 
-// FUNÇÃO: ENVIAR MENSAGEM WHATSAPP
+// ENVIAR WHATSAPP
 async function enviarWhatsApp(numero, mensagem) {
   const PHONE_ID = process.env.WHATSAPP_PHONE_ID;
   const TOKEN = process.env.WHATSAPP_TOKEN;
@@ -206,7 +222,7 @@ async function enviarWhatsApp(numero, mensagem) {
         text: { body: mensagem }
       })
     });
-    console.log('📤 Enviado:', mensagem.substring(0, 30));
+    console.log('📤 Enviado');
   } catch (e) {
     console.error('Erro ao enviar:', e);
   }

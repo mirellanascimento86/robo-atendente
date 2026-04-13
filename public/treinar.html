@@ -2,8 +2,9 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>Treinar Robô - Reforma e Construção</title>
+    <title>Treinar Robô - Reforma</title>
     <style>
+        * { box-sizing: border-box; }
         body { 
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
             max-width: 1000px; 
@@ -11,8 +12,28 @@
             padding: 20px;
             background: #f5f5f5;
         }
-        h1 { color: #075e54; text-align: center; margin-bottom: 10px; }
-        .subtitulo { text-align: center; color: #666; margin-bottom: 30px; }
+        h1 { color: #075e54; text-align: center; }
+        
+        .salvo {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            display: none;
+            text-align: center;
+            font-weight: bold;
+        }
+        
+        .erro {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            display: none;
+            text-align: center;
+        }
         
         .caixa { 
             background: white; 
@@ -22,35 +43,45 @@
             box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
         
+        .secao {
+            background: #e3f2fd;
+            color: #1976d2;
+            padding: 12px 20px;
+            margin: 30px 0 15px 0;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 16px;
+        }
+        
         label { 
             display: block; 
             font-weight: bold; 
-            margin-bottom: 8px;
+            margin: 15px 0 8px 0;
             color: #333;
-            font-size: 14px;
         }
         
         textarea, input { 
             width: 100%; 
             padding: 12px; 
-            border: 1px solid #ddd;
+            border: 2px solid #ddd;
             border-radius: 8px;
             font-size: 14px;
-            margin-bottom: 15px;
             font-family: inherit;
         }
         
-        textarea { min-height: 80px; resize: vertical; }
+        textarea { min-height: 100px; resize: vertical; }
+        textarea:focus, input:focus {
+            border-color: #075e54;
+            outline: none;
+        }
         
-        .resposta-item { 
-            background: #f9f9f9; 
-            padding: 15px; 
+        .item {
+            background: #f9f9f9;
+            padding: 15px;
             margin: 10px 0;
             border-radius: 8px;
             border-left: 4px solid #4caf50;
         }
-        
-        .resposta-item input { margin-bottom: 10px; }
         
         button { 
             padding: 12px 25px; 
@@ -67,214 +98,227 @@
         
         .btn-add { background: #2196f3; }
         .btn-remove { background: #f44336; padding: 8px 15px; font-size: 12px; }
-        .btn-salvar { background: #4caf50; font-size: 16px; padding: 15px 40px; }
-        
-        .status {
-            padding: 15px;
-            margin: 20px 0;
-            border-radius: 8px;
-            text-align: center;
-            display: none;
-        }
-        .status.sucesso { background: #d4edda; color: #155724; display: block; }
-        .status.erro { background: #f8d7da; color: #721c24; display: block; }
-        
-        .secao-titulo {
-            background: #e3f2fd;
-            padding: 10px 15px;
-            margin: 25px 0 15px 0;
-            border-radius: 5px;
-            color: #1976d2;
-            font-weight: bold;
+        .btn-salvar { 
+            background: #4caf50; 
+            font-size: 18px; 
+            padding: 20px 50px;
+            display: block;
+            margin: 40px auto;
         }
         
         .dica {
-            font-size: 12px;
+            font-size: 13px;
             color: #666;
             margin-top: 5px;
             font-style: italic;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
         }
     </style>
 </head>
 <body>
     <h1>🧠 Treinar Robô</h1>
-    <p class="subtitulo">Reforma, Marcenaria e Construção</p>
+    <p style="text-align:center;color:#666">Reforma, Marcenaria e Construção</p>
     
-    <div id="status" class="status"></div>
+    <div id="salvo" class="salvo">✅ Configuração salva com sucesso!</div>
+    <div id="erro" class="erro">❌ Erro ao salvar. Tente novamente.</div>
+    <div id="loading" class="loading">⏳ Carregando...</div>
     
     <div class="caixa">
-        <div class="secao-titulo">👋 Saudação Inicial</div>
+        <div class="secao">👋 Saudação Inicial</div>
         <label>Mensagem de boas-vindas:</label>
         <textarea id="saudacao"></textarea>
         <p class="dica">Use *texto* para negrito no WhatsApp</p>
     </div>
     
     <div class="caixa">
-        <div class="secao-titulo">💬 Respostas Rápidas</div>
-        <p class="dica">Quando o cliente falar a palavra da esquerda, o robô responde o texto da direita. Use | para separar sinônimos.</p>
+        <div class="secao">💬 Respostas Rápidas</div>
+        <p class="dica">Palavra que cliente fala → Resposta do robô. Use | para separar sinônimos (ex: preço|valor)</p>
         
         <div id="respostas"></div>
         
-        <button class="btn-add" onclick="addResposta()">➕ Adicionar resposta</button>
+        <button class="btn-add" onclick="addResposta()">➕ Adicionar</button>
     </div>
     
     <div class="caixa">
-        <div class="secao-titulo">🔨 Fluxo: Orçamento de Reforma</div>
+        <div class="secao">🔨 Fluxo: Reforma</div>
         
         <label>Pergunta 1 - Cômodo:</label>
-        <textarea id="ref-pergunta1"></textarea>
+        <textarea id="ref-p1"></textarea>
         
         <label>Pergunta 2 - Bairro:</label>
-        <textarea id="ref-pergunta2"></textarea>
+        <textarea id="ref-p2"></textarea>
         
         <label>Pergunta 3 - Descrição:</label>
-        <textarea id="ref-pergunta3"></textarea>
+        <textarea id="ref-p3"></textarea>
         
         <label>Pergunta 4 - Contato:</label>
-        <textarea id="ref-pergunta4"></textarea>
+        <textarea id="ref-p4"></textarea>
         
         <label>Mensagem final:</label>
         <textarea id="ref-final"></textarea>
     </div>
     
     <div class="caixa">
-        <div class="secao-titulo">🪚 Fluxo: Marcenaria</div>
+        <div class="secao">🪚 Fluxo: Marcenaria</div>
         
         <label>Pergunta 1 - Móvel:</label>
-        <textarea id="marc-pergunta1"></textarea>
+        <textarea id="marc-p1"></textarea>
         
         <label>Pergunta 2 - Medidas:</label>
-        <textarea id="marc-pergunta2"></textarea>
+        <textarea id="marc-p2"></textarea>
         
         <label>Mensagem final:</label>
         <textarea id="marc-final"></textarea>
     </div>
     
     <div class="caixa">
-        <div class="secao-titulo">🏗️ Fluxo: Construção</div>
+        <div class="secao">🏗️ Fluxo: Construção</div>
         
         <label>Pergunta 1 - Tipo de obra:</label>
-        <textarea id="const-pergunta1"></textarea>
+        <textarea id="cons-p1"></textarea>
         
         <label>Mensagem final:</label>
-        <textarea id="const-final"></textarea>
+        <textarea id="cons-final"></textarea>
     </div>
     
     <div class="caixa">
-        <div class="secao-titulo">⚡ Configurações</div>
+        <div class="secao">⚡ Configurações</div>
         
         <label>Palavras que ativam intervenção humana (separadas por vírgula):</label>
-        <input type="text" id="palavras-intervencao">
+        <input type="text" id="interv-palavras">
         
         <label>Mensagem quando transfere para humano:</label>
-        <textarea id="msg-intervencao"></textarea>
+        <textarea id="interv-msg"></textarea>
     </div>
     
-    <div style="text-align:center;margin:40px 0;">
-        <button class="btn-salvar" onclick="salvar()">💾 SALVAR ALTERAÇÕES</button>
-    </div>
+    <button class="btn-salvar" onclick="salvar()">💾 SALVAR TUDO</button>
 
     <script>
         const API = window.location.origin + '/api/treinar';
         
-        // Carregar configuração atual ao abrir a página
+        // CARREGAR ao abrir
         async function carregar() {
+            document.getElementById('loading').style.display = 'block';
+            
             try {
                 const res = await fetch(API);
                 const config = await res.json();
                 
+                // Preencher campos
                 document.getElementById('saudacao').value = config.saudacao || '';
-                document.getElementById('palavras-intervencao').value = (config.palavras_intervencao || []).join(', ');
-                document.getElementById('msg-intervencao').value = config.resposta_intervencao || '';
                 
-                // Carregar respostas rápidas
-                const divRespostas = document.getElementById('respostas');
-                divRespostas.innerHTML = '';
+                // Respostas rápidas
+                const container = document.getElementById('respostas');
+                container.innerHTML = '';
                 
-                for (const [chaves, resposta] of Object.entries(config.respostas_rapidas || {})) {
-                    addResposta(chaves, resposta);
+                for (const [chaves, resp] of Object.entries(config.respostas_rapidas || {})) {
+                    addResposta(chaves, resp);
                 }
                 
-                // Carregar fluxos
+                // Fluxos
                 if (config.fluxos) {
-                    const ref = config.fluxos.orcamento_reforma || {};
-                    document.getElementById('ref-pergunta1').value = ref.pergunta_1 || '';
-                    document.getElementById('ref-pergunta2').value = ref.pergunta_2 || '';
-                    document.getElementById('ref-pergunta3').value = ref.pergunta_3 || '';
-                    document.getElementById('ref-pergunta4').value = ref.pergunta_4 || '';
-                    document.getElementById('ref-final').value = ref.final || '';
+                    const r = config.fluxos.reforma || {};
+                    document.getElementById('ref-p1').value = r.pergunta_1 || '';
+                    document.getElementById('ref-p2').value = r.pergunta_2 || '';
+                    document.getElementById('ref-p3').value = r.pergunta_3 || '';
+                    document.getElementById('ref-p4').value = r.pergunta_4 || '';
+                    document.getElementById('ref-final').value = r.final || '';
                     
-                    const marc = config.fluxos.marcenaria || {};
-                    document.getElementById('marc-pergunta1').value = marc.pergunta_1 || '';
-                    document.getElementById('marc-pergunta2').value = marc.pergunta_2 || '';
-                    document.getElementById('marc-final').value = marc.final || '';
+                    const m = config.fluxos.marcenaria || {};
+                    document.getElementById('marc-p1').value = m.pergunta_1 || '';
+                    document.getElementById('marc-p2').value = m.pergunta_2 || '';
+                    document.getElementById('marc-final').value = m.final || '';
                     
-                    const cons = config.fluxos.construcao || {};
-                    document.getElementById('const-pergunta1').value = cons.pergunta_1 || '';
-                    document.getElementById('const-final').value = cons.final || '';
+                    const c = config.fluxos.construcao || {};
+                    document.getElementById('cons-p1').value = c.pergunta_1 || '';
+                    document.getElementById('cons-final').value = c.final || '';
                 }
+                
+                // Intervenção
+                document.getElementById('interv-palavras').value = (config.palavras_intervencao || []).join(', ');
+                document.getElementById('interv-msg').value = config.resposta_intervencao || '';
                 
             } catch (e) {
-                mostrarStatus('Erro ao carregar configuração', 'erro');
+                console.error('Erro ao carregar:', e);
+                mostrarErro('Erro ao carregar configuração');
+            } finally {
+                document.getElementById('loading').style.display = 'none';
             }
         }
         
         function addResposta(chaves = '', resposta = '') {
             const div = document.createElement('div');
-            div.className = 'resposta-item';
+            div.className = 'item';
             div.innerHTML = `
-                <input placeholder="Palavras (ex: preço|valor|custo)" value="${chaves}">
+                <input placeholder="Palavras (ex: preço|valor)" value="${chaves}" style="margin-bottom:10px;">
                 <textarea placeholder="Resposta do robô">${resposta}</textarea>
-                <button class="btn-remove" onclick="this.parentElement.remove()">🗑️ Remover</button>
+                <button class="btn-remove" onclick="this.parentElement.remove()" style="margin-top:10px;">🗑️ Remover</button>
             `;
             document.getElementById('respostas').appendChild(div);
         }
         
-        function mostrarStatus(msg, tipo) {
-            const div = document.getElementById('status');
+        function mostrarSalvo() {
+            const div = document.getElementById('salvo');
+            div.style.display = 'block';
+            setTimeout(() => div.style.display = 'none', 5000);
+        }
+        
+        function mostrarErro(msg) {
+            const div = document.getElementById('erro');
             div.textContent = msg;
-            div.className = 'status ' + tipo;
-            setTimeout(() => div.className = 'status', 5000);
+            div.style.display = 'block';
+            setTimeout(() => div.style.display = 'none', 5000);
         }
         
         async function salvar() {
-            // Coletar dados
-            const respostas = {};
-            document.querySelectorAll('.resposta-item').forEach(item => {
-                const inputs = item.querySelectorAll('input, textarea');
-                const chaves = inputs[0].value.trim();
-                const resp = inputs[1].value.trim();
-                if (chaves && resp) {
-                    respostas[chaves] = resp;
-                }
-            });
-            
-            const config = {
-                saudacao: document.getElementById('saudacao').value,
-                respostas_rapidas: respostas,
-                fluxos: {
-                    orcamento_reforma: {
-                        pergunta_1: document.getElementById('ref-pergunta1').value,
-                        pergunta_2: document.getElementById('ref-pergunta2').value,
-                        pergunta_3: document.getElementById('ref-pergunta3').value,
-                        pergunta_4: document.getElementById('ref-pergunta4').value,
-                        final: document.getElementById('ref-final').value
-                    },
-                    marcenaria: {
-                        pergunta_1: document.getElementById('marc-pergunta1').value,
-                        pergunta_2: document.getElementById('marc-pergunta2').value,
-                        final: document.getElementById('marc-final').value
-                    },
-                    construcao: {
-                        pergunta_1: document.getElementById('const-pergunta1').value,
-                        final: document.getElementById('const-final').value
-                    }
-                },
-                palavras_intervencao: document.getElementById('palavras-intervencao').value.split(',').map(s => s.trim()).filter(s => s),
-                resposta_intervencao: document.getElementById('msg-intervencao').value
-            };
+            const btn = document.querySelector('.btn-salvar');
+            btn.textContent = '⏳ Salvando...';
+            btn.disabled = true;
             
             try {
+                // Coletar respostas rápidas
+                const respostas = {};
+                document.querySelectorAll('.item').forEach(item => {
+                    const inputs = item.querySelectorAll('input, textarea');
+                    const chave = inputs[0].value.trim();
+                    const resp = inputs[1].value.trim();
+                    if (chave && resp) {
+                        respostas[chave] = resp;
+                    }
+                });
+                
+                // Montar config
+                const config = {
+                    saudacao: document.getElementById('saudacao').value,
+                    respostas_rapidas: respostas,
+                    fluxos: {
+                        reforma: {
+                            pergunta_1: document.getElementById('ref-p1').value,
+                            pergunta_2: document.getElementById('ref-p2').value,
+                            pergunta_3: document.getElementById('ref-p3').value,
+                            pergunta_4: document.getElementById('ref-p4').value,
+                            final: document.getElementById('ref-final').value
+                        },
+                        marcenaria: {
+                            pergunta_1: document.getElementById('marc-p1').value,
+                            pergunta_2: document.getElementById('marc-p2').value,
+                            final: document.getElementById('marc-final').value
+                        },
+                        construcao: {
+                            pergunta_1: document.getElementById('cons-p1').value,
+                            final: document.getElementById('cons-final').value
+                        }
+                    },
+                    palavras_intervencao: document.getElementById('interv-palavras').value.split(',').map(s => s.trim()).filter(s => s),
+                    resposta_intervencao: document.getElementById('interv-msg').value
+                };
+                
+                // ENVIAR PARA API
                 const res = await fetch(API, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -284,13 +328,17 @@
                 const resultado = await res.json();
                 
                 if (resultado.ok) {
-                    mostrarStatus('✅ Configuração salva com sucesso! O robô já está usando as novas respostas.', 'sucesso');
+                    mostrarSalvo();
                 } else {
-                    mostrarStatus('❌ Erro: ' + (resultado.erro || 'Desconhecido'), 'erro');
+                    mostrarErro(resultado.erro || 'Erro desconhecido');
                 }
                 
             } catch (e) {
-                mostrarStatus('❌ Erro ao salvar: ' + e.message, 'erro');
+                console.error('Erro:', e);
+                mostrarErro('Erro de conexão. Tente novamente.');
+            } finally {
+                btn.textContent = '💾 SALVAR TUDO';
+                btn.disabled = false;
             }
         }
         

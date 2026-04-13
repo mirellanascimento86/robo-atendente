@@ -1,44 +1,31 @@
 {
-  "saudacao": "Olá! 👋 Sou o assistente virtual de *Reforma e Construção*.\n\nComo posso ajudar?\n\n1️⃣ *Orçamento de reforma*\n2️⃣ *Marcenaria sob medida*\n3️⃣ *Construção civil*\n4️⃣ *Falar com atendente*",
-  
+  "saudacao": "Olá! 👋 Sou o assistente de *Reforma e Construção*.\n\nComo posso ajudar?\n\n1️⃣ Orçamento de reforma\n2️⃣ Marcenaria sob medida\n3️⃣ Construção civil\n4️⃣ Falar com atendente",
   "respostas_rapidas": {
-    "preço|valor|custo|quanto": "💰 Orçamento gratuito!\n\nEnvie fotos do local e descreva o que precisa. Avaliamos sem compromisso.",
-    "prazo|tempo|demora|quando": "⏱️ Prazo varia conforme o projeto:\n• Pequenas reformas: 3-7 dias\n• Marcenaria: 15-30 dias\n• Construção: a definir em visita técnica",
-    "pagamento|paga|forma": "💳 Aceitamos:\n• Pix (5% desconto)\n• Cartão em até 12x\n• Transferência\n• 50% entrada + 50% na entrega",
-    "garantia": "✅ Garantia de 1 ano em todos os serviços\n• Mão de obra: 12 meses\n• Materiais: conforme fabricante",
-    "marcenaria|moveis|armario|cozinha": "🪚 *Marcenaria Sob Medida*\n\n• Cozinhas\n• Guarda-roupas\n• Escritórios\n• Painéis e racks\n\nEnvie medidas e fotos do espaço!",
-    "reforma|banheiro|cozinha|pintura": "🔨 *Reformas em Geral*\n\n• Banheiros\n• Cozinhas\n• Pintura\n• Elétrica e hidráulica\n• Pisos e revestimentos\n\nAgende visita técnica!",
-    "construção|casa|obra|fundacao": "🏗️ *Construção Civil*\n\n• Fundações\n• Estruturas\n• Acabamentos\n• Regularização de imóveis\n\nOrçamento detalhado após visita.",
-    "visita|tecnico|avaliacao": "📍 *Visita Técnica*\n\nValor: R$150 (deduzido do orçamento final)\n\nInforme:\n• Endereço\n• Melhor dia/horário\n• Tipo de serviço"
+    "preço|valor|custo|quanto": "💰 Orçamento gratuito!\n\nEnvie fotos do local e descreva o que precisa.",
+    "prazo|tempo|demora": "⏱️ Prazos:\n• Pequenas reformas: 3-7 dias\n• Marcenaria: 15-30 dias\n• Construção: a definir",
+    "pagamento": "💳 Pix (5% off), Cartão 12x, ou 50% entrada + 50% entrega",
+    "marcenaria|móvel|armário": "🪚 Marcenaria sob medida!\n• Cozinhas\n• Guarda-roupas\n• Escritórios\n\nEnvie medidas!",
+    "reforma": "🔨 Reformas: banheiro, cozinha, pintura, elétrica, hidráulica.\n\nAgende visita técnica!",
+    "construção|casa|obra": "🏗️ Construção civil completa.\n\nOrçamento após visita técnica."
   },
-  
   "fluxos": {
-    "orcamento_reforma": {
-      "pergunta_1": "Qual cômodo quer reformar? (banheiro, cozinha, quarto, sala, área externa)",
-      "pergunta_2": "Qual seu bairro?",
-      "pergunta_3": "Descreva o que precisa fazer ou envie fotos:",
-      "pergunta_4": "Qual seu nome e melhor horário para visita técnica?",
-      "final": "✅ *Solicitação recebida!*\n\nEm breve nosso técnico entra em contato para agendar visita.\n\n📋 Orçamento: R$150 (deduzido do serviço)\n⏰ Prazo médio: a definir\n\nObrigado pela preferência! 🙏"
+    "reforma": {
+      "pergunta_1": "Qual cômodo quer reformar? (banheiro, cozinha, quarto, área externa)",
+      "pergunta_2": "Qual bairro?",
+      "pergunta_3": "Descreva o que precisa ou envie fotos:",
+      "pergunta_4": "Seu nome e melhor horário para visita?",
+      "final": "✅ *Visita agendada!*\n\nTécnico entra em contato em 24h.\n💰 Visita: R$150 (deduzida do orçamento)\n\nObrigado! 🙏"
     },
     "marcenaria": {
-      "pergunta_1": "Qual móvel deseja? (cozinha, guarda-roupa, escritório, painel, outro)",
-      "pergunta_2": "Tem as medidas do espaço? (comprimento x altura x profundidade)",
-      "pergunta_3": "Qual material prefere? (MDF, MDP, madeira maciça)",
-      "pergunta_4": "Qual seu bairro e melhor horário para visita?",
-      "final": "✅ *Pedido de marcenaria registrado!*\n\nNosso marceneiro visita para medição precisa.\n\n🪚 Prazo médio: 20-30 dias\n💳 Orçamento sem compromisso\n\nAguarde contato! 📞"
+      "pergunta_1": "Qual móvel? (cozinha, guarda-roupa, escritório, rack)",
+      "pergunta_2": "Tem as medidas? (C x A x P)",
+      "final": "✅ *Pedido marcenaria!*\n\nMarceneiro visita para medição.\n🪚 Prazo: 20-30 dias\n\nAguarde contato! 📞"
     },
     "construcao": {
-      "pergunta_1": "Qual tipo de obra? (casa, ampliação, regularização, reforma estrutural)",
-      "pergunta_2": "Endereço do imóvel:",
-      "pergunta_3": "Possui projeto aprovado na prefeitura? (sim/não/em andamento)",
-      "pergunta_4": "Qual fase da obra? (início, estrutura, acabamento, finalização)",
-      "final": "🏗️ *Projeto de construção anotado!*\n\nNosso engenheiro avalia e apresenta proposta completa.\n\n📐 Orçamento técnico gratuito\n📋 Regularização inclusa (se necessário)\n\nEntraremos em contato em 24h! ⚡"
+      "pergunta_1": "Qual obra? (casa, ampliação, regularização)",
+      "final": "🏗️ *Projeto anotado!*\n\nEngenheiro visita em 48h.\n📐 Orçamento técnico gratuito."
     }
   },
-  
-  "palavras_intervencao": [
-    "atendente", "humano", "pessoa", "falar com", "especialista", "tirar dúvida"
-  ],
-  
-  "resposta_intervencao": "🔄 *Transferindo para atendente humano...*\n\nUm momento, por favor. Você será atendido em breve."
+  "palavras_intervencao": ["atendente", "humano", "pessoa", "falar com", "especialista"],
+  "resposta_intervencao": "🔄 *Transferindo para atendente...*\n\nUm momento, por favor."
 }

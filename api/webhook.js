@@ -1,38 +1,25 @@
-
-codigo_completo = '''// ============================================
-// CONFIGURAÇÃO DO ROBÔ
+// ============================================
+// CONFIGURAÇÃO
 // ============================================
 
-const CONFIG_ROBO = {
+const CONFIG = {
   saudacao: `Olá! Bem-vindo ao Atendimento Digital da RC. Qual serviço precisa e qual o bairro?`,
-
-  intervencao: {
-    palavras: ["atendente", "humano", "pessoa", "falar com", "4"],
-    mensagem: `🔄 Transferindo para atendente humano...`
-  },
-
-  tecnicos: [
-    {
-      nome: "João - Reformas",
-      telegram: process.env.TELEGRAM_CHAT_ID,
-      especialidade: "reforma",
-      disponivel: true
-    },
-    {
-      nome: "Maria - Marcenaria", 
-      telegram: process.env.TELEGRAM_CHAT_ID,
-      especialidade: "marcenaria",
-      disponivel: true
-    }
-  ]
+  palavrasIntervencao: ["atendente", "humano", "pessoa", "falar com", "4"],
+  msgIntervencao: `🔄 Transferindo para atendente humano...`,
+  msgs: {
+    semServicoSemBairro: `Por favor, me informe o serviço que deseja e o bairro`,
+    soBairro: `Por favor, me informe o serviço que deseja`,
+    soServico: `Por favor, me informe o bairro que deseja atendimento`,
+    completo: `Gostaria de Atendimento ainda hoje?`
+  }
 };
 
 // ============================================
-// CONFIGS
+// ENV
 // ============================================
 
-const TELEGRAM_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const TELEGRAM_CHAT = process.env.TELEGRAM_CHAT_ID;
+const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
+const WHATSAPP_PHONE_ID = process.env.WHATSAPP_PHONE_ID;
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
 const GROQ_MODEL = process.env.GROQ_MODEL || 'llama3-70b-8192';
 
@@ -40,15 +27,15 @@ const GROQ_MODEL = process.env.GROQ_MODEL || 'llama3-70b-8192';
 // MEMÓRIA
 // ============================================
 
-const memoria = {
-  conversas: {},
-  mensagens: {},
-  intervencao: {},
-  dadosColetados: {}
+const db = {
+  conversas: new Map(),
+  mensagens: new Map(),
+  intervencao: new Map(),
+  dados: new Map()
 };
 
 // ============================================
-// HANDLER PRINCIPAL
+// HANDLER
 // ============================================
 
 export default async function handler(req, res) {
@@ -57,221 +44,154 @@ export default async function handler(req, res) {
   const url = new URL(req.url, `http://${req.headers.host}`);
   const query = Object.fromEntries(url.searchParams);
   
-  // GET: Verificação Meta
-  if (req.method === 'GET' && query['hub.mode']) {
-    if (query['hub.mode'] === 'subscribe' && query['hub.verify_token'] === 'roboatendente') {
-      return res.status(200).send(query['hub.challenge']);
-    }
-    return res.status(403).send('Forbidden');
-  }
+  console.log(`\n🌐 ${req.method} ${url.pathname}`);
   
-  // GET: Listar conversas
-  if (req.method === 'GET' && query.acao === 'listar') {
-    const lista = Object.keys(memoria.conversas).map(tel => ({
-      telefone: tel,
-      nome: memoria.conversas[tel]?.nome || 'Cliente',
-      intervencao: !!memoria.intervencao[tel],
-      ultima: memoria.mensagens[tel]?.slice(-1)[0]?.texto?.substring(0, 40) + '...' || '...',
-      ultimaAtividade: memoria.conversas[tel]?.ultimaAtividade || 0
-    }));
-    return res.json(lista);
-  }
-  
-  // GET: Buscar mensagens
-  if (req.method === 'GET' && query.acao === 'mensagens') {
-    return res.json(memoria.mensagens[query.telefone] || []);
-  }
-  
-  // POST: Receber mensagem WhatsApp
-  if (req.method === 'POST' && !query.acao) {
-    try {
-      const body = req.body;
-      
-      if (body.object !== 'whatsapp_business_account') {
-        return res.status(200).send('OK');
+  try {
+    // Webhook verification
+    if (req.method === 'GET' && query['hub.mode'] === 'subscribe') {
+      if (query['hub.verify_token'] === 'roboatendente') {
+        return res.status(200).send(query['hub.challenge']);
       }
-      
-      const value = body.entry?.[0]?.changes?.[0]?.value;
-      const message = value?.messages?.[0];
-      
-      if (!message || message.type !== 'text') {
-        return res.status(200).send('OK');
-      }
-      
-      const telefone = message.from;
-      const nome = value.contacts?.[0]?.profile?.name || 'Cliente';
-      const texto = message.text.body;
-      
-      console.log(`📩 ${nome} (${telefone}): ${texto}`);
-      
-      // Inicializar se novo
-      if (!memoria.conversas[telefone]) {
-        memoria.conversas[telefone] = { 
-          nome, 
-          inicio: new Date().toISOString(),
-          ultimaAtividade: Date.now(),
-          primeiraMensagem: true
-        };
-        memoria.mensagens[telefone] = [];
-        memoria.intervencao[telefone] = false;
-        memoria.dadosColetados[telefone] = { servico: null, bairro: null };
-      }
-      
-      memoria.conversas[telefone].ultimaAtividade = Date.now();
-      
-      // Salvar mensagem do cliente
-      memoria.mensagens[telefone].push({
-        tipo: 'cliente',
-        nome: nome,
-        texto: texto,
-        hora: new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})
-      });
-      
-      // Se em intervenção, só notifica Telegram
-      if (memoria.intervencao[telefone]) {
-        await enviarTelegram(`💬 *Intervenção*\\n👤 ${nome}\\n📱 ${telefone}\\n📝 ${texto}`);
-        return res.status(200).send('OK');
-      }
-      
-      // Processar e responder
-      const resposta = await processarMensagem(tel, nome, texto);
-      
-      if (resposta) {
-        await enviarWhatsApp(telefone, resposta);
-        
-        memoria.mensagens[telefone].push({
-          tipo: 'robo',
-          nome: 'Robô',
-          texto: resposta,
-          hora: new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})
-        });
-      }
-      
-      return res.status(200).send('OK');
-      
-    } catch (erro) {
-      console.error('❌ Erro:', erro);
-      return res.status(200).send('OK');
-    }
-  }
-  
-  // POST: Ações do painel
-  if (req.method === 'POST' && query.acao) {
-    const body = req.body;
-    const tel = body.telefone;
-    
-    if (!tel || !memoria.conversas[tel]) {
-      return res.json({ erro: 'Telefone não encontrado' });
+      return res.status(403).send('Forbidden');
     }
     
-    if (query.acao === 'intervir') {
-      memoria.intervencao[tel] = true;
-      await enviarWhatsApp(tel, CONFIG_ROBO.intervencao.mensagem);
-      memoria.mensagens[tel].push({
-        tipo: 'sistema',
-        nome: 'Sistema',
-        texto: '[Atendente assumiu]',
-        hora: new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})
-      });
-      await enviarTelegram(`🚨 *INTERVENÇÃO*\\n📱 ${tel}`);
-      return res.json({ ok: true });
+    // Receber mensagem
+    if (req.method === 'POST' && !query.acao) {
+      return await receberMensagem(req, res);
     }
     
-    if (query.acao === 'liberar') {
-      memoria.intervencao[tel] = false;
-      memoria.conversas[tel].primeiraMensagem = false;
-      await enviarWhatsApp(tel, '🤖 Robô retomou. Como posso ajudar?');
-      return res.json({ ok: true });
+    // Ações do painel
+    if (req.method === 'POST' && query.acao) {
+      return await acaoPainel(req, res, query.acao);
     }
     
-    if (query.acao === 'enviar') {
-      if (!memoria.intervencao[tel]) {
-        return res.json({ erro: 'Não está em intervenção' });
-      }
-      await enviarWhatsApp(tel, body.mensagem);
-      memoria.mensagens[tel].push({
-        tipo: 'humano',
-        nome: 'Atendente',
-        texto: body.mensagem,
-        hora: new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})
-      });
-      return res.json({ ok: true });
+    // Listar conversas
+    if (req.method === 'GET' && query.acao === 'listar') {
+      const lista = Array.from(db.conversas.entries()).map(([tel, conv]) => ({
+        telefone: tel,
+        nome: conv.nome,
+        intervencao: db.intervencao.get(tel),
+        ultimaAtividade: conv.ultimaAtividade
+      }));
+      return res.json(lista);
     }
+    
+    res.status(200).send('OK');
+    
+  } catch (erro) {
+    console.error('💥 ERRO:', erro);
+    return res.status(200).send('OK');
   }
-  
-  res.status(405).end();
 }
 
 // ============================================
-// PROCESSAR MENSAGEM
+// RECEBER MENSAGEM
 // ============================================
 
-async function processarMensagem(tel, nome, texto) {
-  const t = texto.toLowerCase().trim();
-  const conversa = memoria.conversas[tel];
-  const dados = memoria.dadosColetados[tel];
+async function receberMensagem(req, res) {
+  const body = req.body;
   
-  // Verificar intervenção
-  for (const palavra of CONFIG_ROBO.intervencao.palavras) {
-    if (t.includes(palavra.toLowerCase())) {
-      memoria.intervencao[tel] = true;
-      await enviarTelegram(`🚨 *Cliente pediu humano*\\n👤 ${nome}\\n📱 ${tel}`);
-      return CONFIG_ROBO.intervencao.mensagem;
+  console.log('\n📥 WEBHOOK:', JSON.stringify(body, null, 2));
+  
+  if (!body || body.object !== 'whatsapp_business_account') {
+    return res.status(200).send('OK');
+  }
+  
+  const message = body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+  
+  if (!message || message.type !== 'text') {
+    return res.status(200).send('OK');
+  }
+  
+  const telefone = message.from;
+  const nome = body.entry[0].changes[0].value.contacts?.[0]?.profile?.name || 'Cliente';
+  const texto = message.text.body;
+  
+  console.log(`\n📨 ${nome} (${telefone}): ${texto}`);
+  
+  // Inicializar
+  if (!db.conversas.has(telefone)) {
+    db.conversas.set(telefone, {
+      nome, telefone, primeiraVez: true, ultimaAtividade: Date.now()
+    });
+    db.mensagens.set(telefone, []);
+    db.intervencao.set(telefone, false);
+    db.dados.set(telefone, { servico: null, bairro: null });
+  }
+  
+  const conversa = db.conversas.get(telefone);
+  conversa.ultimaAtividade = Date.now();
+  
+  // Salvar mensagem
+  db.mensagens.get(telefone).push({
+    tipo: 'cliente', nome, texto, hora: new Date().toLocaleTimeString('pt-BR')
+  });
+  
+  // Se em intervenção
+  if (db.intervencao.get(telefone)) {
+    return res.status(200).send('OK');
+  }
+  
+  // Processar
+  const resposta = await processarMensagem(telefone, nome, texto);
+  
+  if (resposta) {
+    const enviado = await enviarWhatsApp(telefone, resposta);
+    if (enviado) {
+      db.mensagens.get(telefone).push({
+        tipo: 'robo', nome: 'RC', texto: resposta, hora: new Date().toLocaleTimeString('pt-BR')
+      });
     }
   }
   
-  // PRIMEIRA MENSAGEM - Saudação
-  if (conversa.primeiraMensagem) {
-    conversa.primeiraMensagem = false;
-    return CONFIG_ROBO.saudacao;
+  return res.status(200).send('OK');
+}
+
+// ============================================
+// PROCESSAR
+// ============================================
+
+async function processarMensagem(telefone, nome, texto) {
+  const t = texto.toLowerCase().trim();
+  const conversa = db.conversas.get(telefone);
+  const dados = db.dados.get(telefone);
+  
+  // Intervenção
+  for (const palavra of CONFIG.palavrasIntervencao) {
+    if (t.includes(palavra)) {
+      db.intervencao.set(telefone, true);
+      return CONFIG.msgIntervencao;
+    }
+  }
+  
+  // Primeira mensagem
+  if (conversa.primeiraVez) {
+    conversa.primeiraVez = false;
+    return CONFIG.saudacao;
   }
   
   // Analisar com IA
-  try {
-    const analise = await analisarComGroq(texto);
-    
-    // Atualizar dados
-    if (analise.servico && !dados.servico) dados.servico = analise.servico;
-    if (analise.bairro && !dados.bairro) dados.bairro = analise.bairro;
-    
-    console.log('📊 Dados coletados:', dados);
-    
-    // Responder baseado no que temos
-    if (dados.servico && dados.bairro) {
-      return `Gostaria de Atendimento ainda hoje?`;
-    } else if (!dados.servico && !dados.bairro) {
-      return `Por favor, me informe o serviço que deseja e o bairro`;
-    } else if (!dados.servico && dados.bairro) {
-      return `Por favor, me informe o serviço que deseja`;
-    } else if (dados.servico && !dados.bairro) {
-      return `Por favor, me informe o bairro que deseja atendimento`;
-    }
-    
-  } catch (erro) {
-    console.error('❌ Erro IA:', erro);
-    return `Desculpe, não entendi. Pode repetir o serviço e bairro?`;
-  }
+  const analise = await analisarGroq(texto);
+  
+  if (analise.servico && !dados.servico) dados.servico = analise.servico;
+  if (analise.bairro && !dados.bairro) dados.bairro = analise.bairro;
+  
+  console.log('📊 Dados:', dados);
+  
+  // Responder
+  if (dados.servico && dados.bairro) return CONFIG.msgs.completo;
+  if (!dados.servico && !dados.bairro) return CONFIG.msgs.semServicoSemBairro;
+  if (dados.servico && !dados.bairro) return CONFIG.msgs.soServico;
+  if (!dados.servico && dados.bairro) return CONFIG.msgs.soBairro;
 }
 
 // ============================================
-// ANALISAR COM GROQ
+// GROQ
 // ============================================
 
-async function analisarComGroq(texto) {
-  if (!GROQ_API_KEY) {
-    // Fallback se não tiver API key
-    return { servico: null, bairro: null };
-  }
+async function analisarGroq(texto) {
+  if (!GROQ_API_KEY) return analiseSimples(texto);
   
-  const prompt = `Analise esta mensagem de um cliente de reforma/construção e extraia:
-1. O SERVIÇO mencionado (pintura, reforma, marcenaria, gesso, piso, banheiro, cozinha, elétrica, hidráulica, construção, etc.)
-2. O BAIRRO mencionado
-
-Responda APENAS em JSON:
-{"servico": "nome do serviço ou null", "bairro": "nome do bairro ou null"}
-
-Mensagem: "${texto}"`;
-
   try {
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
@@ -281,31 +201,51 @@ Mensagem: "${texto}"`;
       },
       body: JSON.stringify({
         model: GROQ_MODEL,
-        messages: [{ role: 'user', content: prompt }],
+        messages: [{
+          role: 'user',
+          content: `Extraia serviço e bairro da mensagem. Responda em JSON: {"servico": "...", "bairro": "..."}\n\nMensagem: "${texto}"`
+        }],
         temperature: 0.1,
         max_tokens: 150
       })
     });
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-
+    
+    if (!response.ok) throw new Error('Erro API');
+    
     const data = await response.json();
     const content = data.choices[0].message.content;
+    const json = content.match(/\{[^}]+\}/);
     
-    // Extrair JSON da resposta
-    const jsonMatch = content.match(/\\{[^}]+\\}/);
-    if (jsonMatch) {
-      return JSON.parse(jsonMatch[0]);
-    }
+    if (json) return JSON.parse(json[0]);
+    return analiseSimples(texto);
     
-    return { servico: null, bairro: null };
-    
-  } catch (erro) {
-    console.error('Erro Groq:', erro);
-    return { servico: null, bairro: null };
+  } catch (e) {
+    console.error('Erro Groq:', e.message);
+    return analiseSimples(texto);
   }
+}
+
+function analiseSimples(texto) {
+  const t = texto.toLowerCase();
+  const servicos = ['pintura', 'reforma', 'marcenaria', 'gesso', 'piso', 'banheiro', 'cozinha', 'elétrica', 'hidraulica', 'construção'];
+  const servico = servicos.find(s => t.includes(s)) || null;
+  
+  // Detectar bairro (última palavra capitalizada ou após "bairro")
+  let bairro = null;
+  const match = texto.match(/bairro[\\s:]*([^,\\.\\n]+)/i);
+  if (match) {
+    bairro = match[1].trim();
+  } else {
+    const palavras = texto.split(/\\s+/);
+    for (let i = palavras.length - 1; i >= 0; i--) {
+      if (/^[A-Z][a-z]+$/.test(palavras[i])) {
+        bairro = palavras[i];
+        break;
+      }
+    }
+  }
+  
+  return { servico, bairro };
 }
 
 // ============================================
@@ -313,11 +253,20 @@ Mensagem: "${texto}"`;
 // ============================================
 
 async function enviarWhatsApp(numero, texto) {
+  console.log(`\n📤 ENVIANDO para ${numero}: ${texto}`);
+  
+  if (!WHATSAPP_TOKEN || !WHATSAPP_PHONE_ID) {
+    console.error('❌ ERRO: Variáveis não configuradas!');
+    console.error('   WHATSAPP_TOKEN:', WHATSAPP_TOKEN ? 'OK' : 'FALTANDO');
+    console.error('   WHATSAPP_PHONE_ID:', WHATSAPP_PHONE_ID ? 'OK' : 'FALTANDO');
+    return false;
+  }
+  
   try {
-    const response = await fetch(`https://graph.facebook.com/v18.0/${process.env.WHATSAPP_PHONE_ID}/messages`, {
+    const response = await fetch(`https://graph.facebook.com/v18.0/${WHATSAPP_PHONE_ID}/messages`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${process.env.WHATSAPP_TOKEN}`,
+        'Authorization': `Bearer ${WHATSAPP_TOKEN}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -329,37 +278,55 @@ async function enviarWhatsApp(numero, texto) {
       })
     });
     
+    const data = await response.json();
+    console.log('📥 Resposta WhatsApp:', response.status, JSON.stringify(data));
+    
     if (!response.ok) {
-      const error = await response.text();
-      console.error('Erro WhatsApp API:', error);
-    } else {
-      console.log('✅ Enviado para', numero);
+      console.error('❌ ERRO ao enviar:', data);
+      return false;
     }
+    
+    console.log('✅ Enviado com sucesso!');
+    return true;
+    
   } catch (e) {
-    console.error('❌ Erro WhatsApp:', e);
+    console.error('❌ EXCEÇÃO:', e.message);
+    return false;
   }
 }
 
 // ============================================
-// ENVIAR TELEGRAM
+// PAINEL
 // ============================================
 
-async function enviarTelegram(texto) {
-  if (!TELEGRAM_TOKEN || !TELEGRAM_CHAT) return;
+async function acaoPainel(req, res, acao) {
+  const body = req.body;
+  const tel = body.telefone;
   
-  try {
-    await fetch(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chat_id: TELEGRAM_CHAT,
-        text: texto,
-        parse_mode: 'Markdown'
-      })
-    });
-  } catch (e) {
-    console.error('❌ Erro Telegram:', e);
+  if (!db.conversas.has(tel)) {
+    return res.json({ erro: 'Não encontrado' });
   }
-}'''
-
-print(codigo_completo)
+  
+  if (acao === 'intervir') {
+    db.intervencao.set(tel, true);
+    await enviarWhatsApp(tel, CONFIG.msgIntervencao);
+    return res.json({ ok: true });
+  }
+  
+  if (acao === 'liberar') {
+    db.intervencao.set(tel, false);
+    db.conversas.get(tel).primeiraVez = false;
+    await enviarWhatsApp(tel, '🤖 Robô retomou. Como posso ajudar?');
+    return res.json({ ok: true });
+  }
+  
+  if (acao === 'enviar') {
+    if (!db.intervencao.get(tel)) {
+      return res.json({ erro: 'Não em intervenção' });
+    }
+    const ok = await enviarWhatsApp(tel, body.mensagem);
+    return res.json({ ok });
+  }
+  
+  res.json({ erro: 'Ação inválida' });
+}

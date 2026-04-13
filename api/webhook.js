@@ -1,55 +1,47 @@
-// ============================================
-// CONFIGURAÇÃO DO ROBÔ - EDITE AQUI
-// ============================================
+import { redis, KEYS } from './_util/redis.js';
 
-const CONFIG_ROBO = {
-  saudacao: `Olá! Atendimento Digital de *Reforma e Construção*.
+// Cache local (memória) para performance
+let cacheConfig = null;
+let cacheHora = 0;
 
-Como posso ajudar?
-
-1️⃣ Orçamento de reforma
-2️⃣ Marcenaria sob medida  
-3️⃣ Construção civil
-4️⃣ Falar com atendente`,
-
-  respostas: {
-    "preço|valor|custo|quanto": `💰 Orçamento gratuito! Envie fotos do local.`,
-    "prazo|tempo": `⏱️ Reformas: 3-7 dias | Marcenaria: 15-30 dias`,
-    "pagamento": `💳 Pix (5% off), Cartão 12x, ou 50% + 50%`,
-    "marcenaria": `🪚 Marcenaria: cozinhas, guarda-roupas, escritórios`,
-    "reforma": `🔨 Reformas: banheiro, cozinha, pintura, elétrica`,
-    "construção": `🏗️ Construção civil completa`,
-    "visita": `📍 Visita técnica: R$150 (deduzido do orçamento)`
-  },
-
-  fluxo_reforma: {
-    p1: "Qual cômodo? (banheiro, cozinha, quarto, sala)",
-    p2: "Qual bairro?",
-    p3: "Descreva o que precisa:",
-    p4: "Seu nome e melhor horário?",
-    final: `✅ Visita agendada! Técnico entra em contato em 24h.`
-  },
-
-  intervencao: {
-    palavras: ["atendente", "humano", "pessoa", "falar com", "4"],
-    mensagem: `🔄 Transferindo para atendente humano...`
-  }
-};
-
-// ============================================
-// BANCO DE DADOS (memória)
-// ============================================
-
-const banco = {
-  conversas: {},
+// Banco em memória para mensagens (Redis é lento para chat em tempo real)
+const memoria = {
   mensagens: {},
-  intervencao: {},
-  estados: {}
+  conversas: {},
+  estados: {},
+  intervencao: {}
 };
 
-// ============================================
-// HANDLER PRINCIPAL
-// ============================================
+// Carregar config do Redis (com cache 10 segundos)
+async function getConfig() {
+  const agora = Date.now();
+  
+  // Recarregar se passou 10 segundos ou não tem cache
+  if (!cacheConfig || (agora - cacheHora) > 10000) {
+    try {
+      let config = await redis.get(KEYS.config);
+      
+      if (!config) {
+        // Se não existe no Redis, usar padrão do treinar.js
+        return null;
+      }
+      
+      if (typeof config === 'string') {
+        config = JSON.parse(config);
+      }
+      
+      cacheConfig = config;
+      cacheHora = agora;
+      
+      console.log('🔄 Config recarregada do banco');
+      
+    } catch (e) {
+      console.error('Erro carregar config:', e);
+    }
+  }
+  
+  return cacheConfig;
+}
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -65,21 +57,20 @@ export default async function handler(req, res) {
     return res.status(403).send('Forbidden');
   }
   
-  // --- GET: Listar conversas (para o painel) ---
+  // --- GET: Listar conversas ---
   if (req.method === 'GET' && query.acao === 'listar') {
-    const lista = Object.keys(banco.conversas).map(tel => ({
+    const lista = Object.keys(memoria.conversas).map(tel => ({
       telefone: tel,
-      nome: banco.conversas[tel].nome || 'Cliente',
-      intervencao: !!banco.intervencao[tel],
-      ultima: banco.mensagens[tel]?.slice(-1)[0]?.texto?.substring(0, 40) + '...' || '...'
+      nome: memoria.conversas[tel].nome || 'Cliente',
+      intervencao: !!memoria.intervencao[tel],
+      ultima: memoria.mensagens[tel]?.slice(-1)[0]?.texto?.substring(0, 40) + '...' || '...'
     }));
     return res.json(lista);
   }
   
-  // --- GET: Buscar mensagens (para o painel) ---
+  // --- GET: Buscar mensagens ---
   if (req.method === 'GET' && query.acao === 'mensagens') {
-    const tel = query.telefone;
-    return res.json(banco.mensagens[tel] || []);
+    return res.json(memoria.mensagens[query.telefone] || []);
   }
   
   // --- POST: Receber mensagem WhatsApp ---
@@ -102,34 +93,45 @@ export default async function handler(req, res) {
       const nome = value.contacts?.[0]?.profile?.name || 'Cliente';
       const texto = message.text.body;
       
-      console.log(`📩 ${nome}: ${texto}`);
+      console.log(`📩 ${nome} (${telefone}): ${texto}`);
       
-      // Inicializar
-      if (!banco.conversas[telefone]) {
-        banco.conversas[telefone] = { nome };
-        banco.mensagens[telefone] = [];
-        banco.estados[telefone] = 'inicio';
+      // Inicializar se novo
+      if (!memoria.conversas[telefone]) {
+        memoria.conversas[telefone] = { nome, inicio: new Date().toISOString() };
+        memoria.mensagens[telefone] = [];
+        memoria.estados[telefone] = 'inicio';
+        memoria.intervencao[telefone] = false; // Garantir que começa false
       }
       
-      // Salvar mensagem cliente
-      banco.mensagens[telefone].push({
+      // Salvar mensagem
+      memoria.mensagens[telefone].push({
         tipo: 'cliente',
         nome: nome,
         texto: texto,
         hora: new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})
       });
       
-      // Se em intervenção, não responde
-      if (banco.intervencao[telefone]) {
+      // Se em intervenção, não responde (mas salva a mensagem!)
+      if (memoria.intervencao[telefone]) {
+        console.log('👤 Intervenção ativa - mensagem salva, robô não responde');
         return res.status(200).send('OK');
       }
       
-      // Gerar resposta
-      const resp = processar(telefone, nome, texto);
+      // Carregar config do banco
+      const config = await getConfig();
+      
+      if (!config) {
+        // Se não tem config, usar mensagem padrão
+        await enviarWhatsApp(telefone, 'Olá! Estou em manutenção. Tente novamente em instantes.');
+        return res.status(200).send('OK');
+      }
+      
+      // Processar e responder
+      const resp = processar(telefone, nome, texto, config);
       
       if (resp) {
         await enviarWhatsApp(telefone, resp);
-        banco.mensagens[telefone].push({
+        memoria.mensagens[telefone].push({
           tipo: 'robo',
           nome: 'Robô',
           texto: resp,
@@ -140,7 +142,7 @@ export default async function handler(req, res) {
       return res.status(200).send('OK');
       
     } catch (e) {
-      console.error('Erro:', e);
+      console.error('❌ Erro:', e);
       return res.status(200).send('OK');
     }
   }
@@ -149,29 +151,68 @@ export default async function handler(req, res) {
   if (req.method === 'POST') {
     const { acao } = query;
     const body = req.body;
+    const tel = body.telefone;
     
+    if (!tel) {
+      return res.json({ erro: 'Telefone não informado' });
+    }
+    
+    // INTERVIR - Assumir controle (CORRIGIDO: não responde nada, só muda estado)
     if (acao === 'intervir') {
-      banco.intervencao[body.telefone] = true;
-      banco.estados[body.telefone] = 'inicio';
-      await enviarWhatsApp(body.telefone, CONFIG_ROBO.intervencao.mensagem);
-      return res.json({ ok: true });
+      console.log(`🚨 Intervindo em ${tel}`);
+      
+      // LIMPAR ESTADO PRIMEIRO
+      memoria.estados[tel] = 'inicio';
+      memoria.intervencao[tel] = true;
+      
+      // Carregar config para mensagem de intervenção
+      const config = await getConfig();
+      const msgIntervencao = config?.intervencao?.mensagem || 'Atendente humano assumiu.';
+      
+      // Enviar mensagem de intervenção
+      await enviarWhatsApp(tel, msgIntervencao);
+      
+      // Registrar no histórico
+      memoria.mensagens[tel].push({
+        tipo: 'sistema',
+        nome: 'Sistema',
+        texto: '[Atendente humano assumiu o controle]',
+        hora: new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})
+      });
+      
+      return res.json({ ok: true, status: 'intervencao_ativada' });
     }
     
+    // LIBERAR - Devolver ao robô (CORRIGIDO: limpa tudo)
     if (acao === 'liberar') {
-      banco.intervencao[body.telefone] = false;
-      banco.estados[body.telefone] = 'inicio';
-      await enviarWhatsApp(body.telefone, '🤖 Robô retomou. Como posso ajudar?');
-      return res.json({ ok: true });
+      console.log(`🤖 Liberando ${tel}`);
+      
+      // LIMPAR COMPLETAMENTE
+      memoria.intervencao[tel] = false;
+      memoria.estados[tel] = 'inicio';
+      
+      // Enviar mensagem
+      await enviarWhatsApp(tel, '🤖 Robô retomou o atendimento. Como posso ajudar?');
+      
+      memoria.mensagens[tel].push({
+        tipo: 'sistema',
+        nome: 'Sistema',
+        texto: '[Robô retomou o atendimento]',
+        hora: new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})
+      });
+      
+      return res.json({ ok: true, status: 'robo_ativado' });
     }
     
+    // ENVIAR - Mensagem humana
     if (acao === 'enviar') {
-      if (!banco.intervencao[body.telefone]) {
-        return res.json({ erro: 'Não está em intervenção' });
+      if (!memoria.intervencao[tel]) {
+        return res.json({ erro: 'Não está em intervenção. Clique em ASSUMIR primeiro.' });
       }
       
-      await enviarWhatsApp(body.telefone, body.mensagem);
+      await enviarWhatsApp(tel, body.mensagem);
       
-      banco.mensagens[body.telefone].push({
+      memoria.mensagens[tel].push({
         tipo: 'humano',
         nome: 'Você',
         texto: body.mensagem,
@@ -186,43 +227,73 @@ export default async function handler(req, res) {
 }
 
 // ============================================
-// PROCESSAR MENSAGEM
+// PROCESSAR MENSAGEM COM CONFIG DO BANCO
 // ============================================
 
-function processar(tel, nome, texto) {
+function processar(tel, nome, texto, config) {
   const t = texto.toLowerCase();
-  const estado = banco.estados[tel];
+  const estado = memoria.estados[tel];
   
-  // Verificar intervenção
-  for (const p of CONFIG_ROBO.intervencao.palavras) {
-    if (t.includes(p)) {
-      banco.intervencao[tel] = true;
-      return CONFIG_ROBO.intervencao.mensagem;
+  // 1. Verificar intervenção
+  for (const p of config.intervencao.palavras) {
+    if (t.includes(p.toLowerCase())) {
+      memoria.intervencao[tel] = true;
+      memoria.estados[tel] = 'inicio';
+      return config.intervencao.mensagem;
     }
   }
   
-  // Respostas rápidas
-  for (const [chaves, resp] of Object.entries(CONFIG_ROBO.respostas)) {
-    if (chaves.split('|').some(c => t.includes(c))) return resp;
+  // 2. Respostas rápidas
+  for (const [chaves, resp] of Object.entries(config.respostas)) {
+    if (chaves.split('|').some(c => t.includes(c.toLowerCase()))) {
+      return resp;
+    }
   }
   
-  // Fluxo reforma
+  // 3. Fluxo Reforma
   if (t.includes('1') || t.includes('reforma')) {
-    banco.estados[tel] = 'ref1';
-    return CONFIG_ROBO.fluxo_reforma.p1;
+    memoria.estados[tel] = 'ref1';
+    return config.fluxo_reforma.p1;
   }
   
-  if (estado === 'ref1') { banco.estados[tel] = 'ref2'; return CONFIG_ROBO.fluxo_reforma.p2; }
-  if (estado === 'ref2') { banco.estados[tel] = 'ref3'; return CONFIG_ROBO.fluxo_reforma.p3; }
-  if (estado === 'ref3') { banco.estados[tel] = 'ref4'; return CONFIG_ROBO.fluxo_reforma.p4; }
-  if (estado === 'ref4') { banco.estados[tel] = 'inicio'; return CONFIG_ROBO.fluxo_reforma.final; }
-  
-  // Saudação
-  if (t.includes('oi') || t.includes('olá') || t.includes('ola')) {
-    return CONFIG_ROBO.saudacao;
+  if (estado === 'ref1') { memoria.estados[tel] = 'ref2'; return config.fluxo_reforma.p2; }
+  if (estado === 'ref2') { memoria.estados[tel] = 'ref3'; return config.fluxo_reforma.p3; }
+  if (estado === 'ref3') { memoria.estados[tel] = 'ref4'; return config.fluxo_reforma.p4; }
+  if (estado === 'ref4') { 
+    memoria.estados[tel] = 'inicio'; 
+    return config.fluxo_reforma.final; 
   }
   
-  return `Olá ${nome}! Posso ajudar com:\n\n1️⃣ Reforma\n2️⃣ Marcenaria\n3️⃣ Construção\n4️⃣ Atendente`;
+  // 4. Fluxo Marcenaria
+  if (t.includes('2') || t.includes('marcenaria')) {
+    memoria.estados[tel] = 'marc1';
+    return config.fluxo_marcenaria.p1;
+  }
+  
+  if (estado === 'marc1') { memoria.estados[tel] = 'marc2'; return config.fluxo_marcenaria.p2; }
+  if (estado === 'marc2') { 
+    memoria.estados[tel] = 'inicio'; 
+    return config.fluxo_marcenaria.final; 
+  }
+  
+  // 5. Fluxo Construção
+  if (t.includes('3') || t.includes('construção') || t.includes('construcao')) {
+    memoria.estados[tel] = 'cons1';
+    return config.fluxo_construcao.p1;
+  }
+  
+  if (estado === 'cons1') { 
+    memoria.estados[tel] = 'inicio'; 
+    return config.fluxo_construcao.final; 
+  }
+  
+  // 6. Saudação
+  if (t.includes('oi') || t.includes('olá') || t.includes('ola') || t.includes('bom') || t.includes('boa')) {
+    return config.saudacao;
+  }
+  
+  // 7. Padrão
+  return `Olá ${nome}! 👋\n\nPosso ajudar com:\n\n1️⃣ Orçamento de reforma\n2️⃣ Marcenaria sob medida\n3️⃣ Construção civil\n4️⃣ Falar com atendente\n\nO que você precisa?`;
 }
 
 // ============================================
@@ -231,7 +302,7 @@ function processar(tel, nome, texto) {
 
 async function enviarWhatsApp(numero, texto) {
   try {
-    await fetch(`https://graph.facebook.com/v18.0/${process.env.WHATSAPP_PHONE_ID}/messages`, {
+    const res = await fetch(`https://graph.facebook.com/v18.0/${process.env.WHATSAPP_PHONE_ID}/messages`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${process.env.WHATSAPP_TOKEN}`,
@@ -244,7 +315,15 @@ async function enviarWhatsApp(numero, texto) {
         text: { body: texto }
       })
     });
+    
+    if (!res.ok) {
+      const erro = await res.json();
+      console.error('❌ Erro WhatsApp API:', erro);
+    } else {
+      console.log('📤 Enviado para', numero);
+    }
+    
   } catch (e) {
-    console.error('Erro enviar:', e);
+    console.error('❌ Erro enviar:', e);
   }
 }

@@ -2,6 +2,7 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Painel de Intervenção</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -10,7 +11,7 @@
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
             background: #f0f2f5;
             height: 100vh;
-            overflow: hidden;
+            overflow: hidden; /* Impede scroll do body */
         }
         
         .header { 
@@ -20,19 +21,23 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            flex-shrink: 0; /* Não encolhe */
         }
         
         .container { 
             display: grid; 
-            grid-template-columns: 320px 1fr; 
-            height: calc(100vh - 60px);
+            grid-template-columns: 350px 1fr; 
+            height: calc(100vh - 60px); /* Altura fixa */
+            overflow: hidden; /* Contém os filhos */
         }
         
-        /* LISTA - Estável, não pisca */
+        /* LISTA - Scroll próprio */
         .lista { 
             background: white;
             border-right: 1px solid #ddd;
-            overflow-y: auto;
+            overflow-y: auto; /* SCROLL AQUI */
+            overflow-x: hidden;
+            height: 100%; /* Ocupa altura total */
         }
         
         .conversa { 
@@ -40,6 +45,7 @@
             border-bottom: 1px solid #eee; 
             cursor: pointer;
             transition: background 0.2s;
+            position: relative;
         }
         
         .conversa:hover { background: #f5f5f5; }
@@ -48,6 +54,30 @@
             border-left: 4px solid #2196f3; 
         }
         .conversa.intervencao { border-left: 4px solid #f44336; }
+        
+        /* 🆕 SINALIZAÇÃO DE URGÊNCIA */
+        .conversa.urgente {
+            background: #ffebee !important;
+            border-left: 4px solid #f44336;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        .badge-urgente {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #f44336;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 10px;
+            font-size: 10px;
+            font-weight: bold;
+        }
         
         .tel { font-weight: bold; color: #075e54; font-size: 14px; }
         .nome { color: #666; font-size: 12px; }
@@ -64,11 +94,13 @@
         .tag.robo { background: #4caf50; color: white; }
         .tag.humano { background: #f44336; color: white; }
         
-        /* CHAT */
+        /* CHAT - Scroll próprio */
         .chat { 
             display: flex; 
             flex-direction: column;
             background: #e5ddd5;
+            height: 100%; /* Ocupa altura total */
+            overflow: hidden; /* Contém filhos */
         }
         
         .chat-header { 
@@ -78,6 +110,7 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            flex-shrink: 0; /* Não encolhe */
         }
         
         .botoes button {
@@ -94,10 +127,13 @@
         .btn-liberar { background: #4caf50; color: white; }
         .btn:disabled { opacity: 0.6; cursor: not-allowed; }
         
+        /* 🆕 ÁREA DE MENSAGENS COM SCROLL */
         .mensagens { 
-            flex: 1; 
-            overflow-y: auto; 
+            flex: 1; /* Ocupa espaço restante */
+            overflow-y: auto; /* SCROLL AQUI */
+            overflow-x: hidden;
             padding: 20px;
+            scroll-behavior: smooth; /* Scroll suave */
         }
         
         .msg { 
@@ -125,13 +161,17 @@
             text-align: center;
             font-weight: bold;
             font-size: 13px;
+            flex-shrink: 0; /* Não encolhe */
         }
         
+        /* 🆕 ÁREA DE INPUT FIXA NO FUNDO */
         .input-area {
             background: #f0f0f0;
             padding: 15px;
             display: flex;
             gap: 10px;
+            flex-shrink: 0; /* Não encolhe */
+            border-top: 1px solid #ddd;
         }
         
         .input-area input {
@@ -163,9 +203,6 @@
             color: #999;
             padding: 50px;
         }
-        
-        /* Animação suave */
-        .conversa { animation: none !important; }
     </style>
 </head>
 <body>
@@ -175,10 +212,12 @@
     </div>
     
     <div class="container">
+        <!-- LISTA COM SCROLL PRÓPRIO -->
         <div class="lista" id="lista">
             <div class="vazio">Carregando...</div>
         </div>
         
+        <!-- CHAT COM SCROLL PRÓPRIO -->
         <div class="chat">
             <div class="chat-header" id="header" style="display: none;">
                 <div>
@@ -192,10 +231,12 @@
                 🚨 VOCÊ ESTÁ NO CONTROLE - Robô não responde
             </div>
             
+            <!-- ÁREA DE MENSAGENS COM SCROLL -->
             <div class="mensagens" id="mensagens">
-                <div class="vazio">Selecione uma conversa</div>
+                <div class="vazio">Selecione uma conversa à esquerda</div>
             </div>
             
+            <!-- INPUT FIXO NO FUNDO -->
             <div class="input-area" id="input" style="display: none;">
                 <input type="text" id="campo" placeholder="Digite..." onkeypress="if(event.key==='Enter') enviar()">
                 <button onclick="enviar()" id="btn-enviar">Enviar</button>
@@ -206,19 +247,16 @@
     <script>
         const API = window.location.origin + '/api/webhook';
         
-        // Estado local
         let atual = null;
         let intervencao = false;
-        let ultimaAtividade = 0; // Para detectar novas mensagens
-        
-        // Cache de conversas (evita re-render desnecessário)
+        let ultimaAtividade = 0;
         let cacheConversas = [];
         
-        // Carregar conversas a cada 3 segundos (menos frequente)
+        // Carregar a cada 3 segundos
         setInterval(carregarConversas, 3000);
         carregarConversas();
         
-        // Carregar mensagens da conversa atual a cada 1.5s
+        // Carregar mensagens a cada 1.5s
         setInterval(() => {
             if (atual) carregarMensagens(atual);
         }, 1500);
@@ -228,14 +266,11 @@
                 const res = await fetch(API + '?acao=listar');
                 const dados = await res.json();
                 
-                // Verificar se mudou algo significativo (evita piscar)
-                const mudou = JSON.stringify(dados.map(d => d.telefone + d.intervencao + d.ultima)) !== 
-                              JSON.stringify(cacheConversas.map(d => d.telefone + d.intervencao + d.ultima));
+                // Verificar se mudou
+                const mudou = JSON.stringify(dados.map(d => d.telefone + d.intervencao + d.precisaIntervencao + d.ultima)) !== 
+                              JSON.stringify(cacheConversas.map(d => d.telefone + d.intervencao + d.precisaIntervencao + d.ultima));
                 
-                if (!mudou && cacheConversas.length > 0) {
-                    // Não mudou nada, não re-renderiza
-                    return;
-                }
+                if (!mudou && cacheConversas.length > 0) return;
                 
                 cacheConversas = dados;
                 
@@ -246,13 +281,21 @@
                     return;
                 }
                 
-                // Preservar elemento selecionado para não piscar
-                const html = dados.map(c => {
+                // Ordenar: urgentes primeiro, depois por atividade
+                dados.sort((a, b) => {
+                    if (a.precisaIntervencao && !b.precisaIntervencao) return -1;
+                    if (!a.precisaIntervencao && b.precisaIntervencao) return 1;
+                    return b.ultimaAtividade - a.ultimaAtividade;
+                });
+                
+                lista.innerHTML = dados.map(c => {
                     const isAtiva = c.telefone === atual;
-                    const classe = `conversa ${isAtiva ? 'ativa' : ''} ${c.intervencao ? 'intervencao' : ''}`;
+                    // 🆕 CLASSE URGENTE SE PRECISA DE INTERVENÇÃO
+                    const classe = `conversa ${isAtiva ? 'ativa' : ''} ${c.intervencao ? 'intervencao' : ''} ${c.precisaIntervencao ? 'urgente' : ''}`;
                     
                     return `
-                        <div class="${classe}" onclick="selecionar('${c.telefone}', '${c.nome}', ${c.intervencao}, ${c.ultimaAtividade})" data-tel="${c.telefone}">
+                        <div class="${classe}" onclick="selecionar('${c.telefone}', '${c.nome}', ${c.intervencao}, ${c.ultimaAtividade}, ${c.precisaIntervencao})" data-tel="${c.telefone}">
+                            ${c.precisaIntervencao ? '<span class="badge-urgente">🚨 URGENTE</span>' : ''}
                             <div class="tel">${c.telefone}</div>
                             <div class="nome">${c.nome}</div>
                             <div class="prev">${c.ultima}</div>
@@ -263,37 +306,32 @@
                     `;
                 }).join('');
                 
-                // Só atualizar se mudou
-                if (lista.innerHTML !== html) {
-                    lista.innerHTML = html;
-                }
-                
             } catch (e) {
-                console.log('Erro carregar:', e);
+                console.log('Erro:', e);
             }
         }
         
-        function selecionar(telefone, nome, interv, atividade) {
-            // Se já está selecionado e atividade não mudou, não faz nada
-            if (telefone === atual && atividade === ultimaAtividade) {
-                return;
-            }
+        function selecionar(telefone, nome, interv, atividade, urgente) {
+            if (telefone === atual && atividade === ultimaAtividade) return;
             
             atual = telefone;
             intervencao = interv;
             ultimaAtividade = atividade;
             
-            // Atualizar classes visuais
+            // Atualizar classes
             document.querySelectorAll('.conversa').forEach(el => {
                 el.classList.remove('ativa');
-                if (el.dataset.tel === telefone) {
-                    el.classList.add('ativa');
-                }
+                if (el.dataset.tel === telefone) el.classList.add('ativa');
             });
             
             document.getElementById('header').style.display = 'flex';
             document.getElementById('titulo').textContent = telefone;
-            document.getElementById('subtitulo').textContent = nome || 'Cliente';
+            
+            // 🆕 Mostrar se é urgente
+            const subtitulo = urgente ? '⚠️ PRECISA DE INTERVENÇÃO' : (nome || 'Cliente');
+            document.getElementById('subtitulo').textContent = subtitulo;
+            document.getElementById('subtitulo').style.color = urgente ? '#f44336' : '#666';
+            
             document.getElementById('input').style.display = 'flex';
             
             atualizarBotoes();
@@ -328,8 +366,6 @@
                 
                 const area = document.getElementById('mensagens');
                 
-                // Verificar se mudou
-                const atualHtml = area.innerHTML;
                 const novoHtml = msgs.map(m => `
                     <div class="msg ${m.tipo}">
                         ${m.texto.replace(/\n/g, '<br>')}
@@ -337,9 +373,9 @@
                     </div>
                 `).join('');
                 
-                // Só atualizar se mudou (evita flicker)
-                if (novoHtml !== atualHtml) {
+                if (novoHtml !== area.innerHTML) {
                     area.innerHTML = novoHtml;
+                    // 🆕 SCROLL AUTOMÁTICO PARA ÚLTIMA MENSAGEM
                     area.scrollTop = area.scrollHeight;
                 }
                 
@@ -366,7 +402,6 @@
                     intervencao = true;
                     atualizarBotoes();
                     carregarMensagens(atual);
-                    // Recarregar lista para mostrar mudança
                     setTimeout(carregarConversas, 500);
                 } else {
                     alert('Erro: ' + (result.erro || 'Desconhecido'));
@@ -431,7 +466,6 @@
                 const result = await res.json();
                 
                 if (result.ok) {
-                    // Aguardar um pouco e recarregar
                     setTimeout(() => carregarMensagens(atual), 300);
                 } else {
                     alert('Erro: ' + (result.erro || 'Não foi possível enviar'));

@@ -4,77 +4,187 @@
     <meta charset="UTF-8">
     <title>Treinar Robô</title>
     <style>
-        body { font-family: Arial; max-width: 1000px; margin: 50px auto; padding: 20px; }
-        textarea { width: 100%; height: 100px; margin: 10px 0; padding: 10px; }
-        .secao { background: #f5f5f5; padding: 20px; margin: 20px 0; border-radius: 10px; }
-        button { padding: 15px 30px; background: #075e54; color: white; border: none; cursor: pointer; }
-        input { width: 100%; padding: 10px; margin: 5px 0; }
+        body { 
+            font-family: Arial; 
+            max-width: 900px; 
+            margin: 30px auto; 
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        h1 { color: #075e54; text-align: center; }
+        .caixa { 
+            background: white; 
+            padding: 25px; 
+            margin: 20px 0; 
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        label { 
+            display: block; 
+            font-weight: bold; 
+            margin-bottom: 8px;
+            color: #333;
+        }
+        textarea, input { 
+            width: 100%; 
+            padding: 12px; 
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            margin-bottom: 15px;
+        }
+        textarea { height: 100px; resize: vertical; }
+        .resposta { 
+            background: #f9f9f9; 
+            padding: 15px; 
+            margin: 10px 0;
+            border-radius: 8px;
+            border-left: 4px solid #4caf50;
+        }
+        button { 
+            padding: 15px 30px; 
+            background: #075e54; 
+            color: white; 
+            border: none; 
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+        }
+        button:hover { background: #128c7e; }
+        .add { background: #2196f3; padding: 10px 20px; font-size: 14px; }
+        .remove { background: #f44336; padding: 5px 15px; font-size: 12px; margin-left: 10px; }
+        .item { margin: 15px 0; padding: 15px; background: #f9f9f9; border-radius: 8px; }
+        .preview { background: #e3f2fd; padding: 20px; border-radius: 10px; margin-top: 30px; }
+        .preview h3 { color: #1976d2; }
     </style>
 </head>
 <body>
     <h1>🧠 Treinar Robô</h1>
-    <p>Edite as respostas e fluxos do robô (sem usar IA - 100% código)</p>
+    <p style="text-align:center;color:#666">Edite as respostas sem precisar programar</p>
     
-    <div class="secao">
-        <h3>Saudação Inicial</h3>
-        <textarea id="saudacao"></textarea>
+    <div class="caixa">
+        <h3>👋 Saudação Inicial</h3>
+        <label>Mensagem que o robô envia quando alguém diz "Oi":</label>
+        <textarea id="saudacao">Olá! 👋 Sou o assistente virtual. Como posso ajudar?
+
+1️⃣ Ar condicionado
+2️⃣ Geladeira  
+3️⃣ Máquina de lavar
+4️⃣ Falar com atendente</textarea>
     </div>
     
-    <div class="secao">
-        <h3>Respostas Rápidas (palavra → resposta)</h3>
-        <div id="respostas"></div>
-        <button onclick="addResposta()">+ Adicionar</button>
+    <div class="caixa">
+        <h3>💬 Respostas Rápidas</h3>
+        <p style="color:#666;font-size:14px;margin-bottom:15px">
+            Quando o cliente falar a palavra da esquerda, o robô responde o texto da direita.
+        </p>
+        
+        <div id="respostas">
+            <div class="item">
+                <input placeholder="Palavra que o cliente fala (ex: preço)" value="preço">
+                <textarea placeholder="Resposta do robô">💰 Visita técnica: R$140
+Orçamento: Gratuito no local</textarea>
+                <button class="remove" onclick="this.parentElement.remove()">🗑️ Remover</button>
+            </div>
+            
+            <div class="item">
+                <input placeholder="Palavra que o cliente fala" value="horário">
+                <textarea placeholder="Resposta do robô">⏰ Seg-Sex: 8h-18h
+Sábado: 8h-12h</textarea>
+                <button class="remove" onclick="this.parentElement.remove()">🗑️ Remover</button>
+            </div>
+        </div>
+        
+        <button class="add" onclick="addResposta()">➕ Adicionar resposta</button>
     </div>
     
-    <div class="secao">
-        <h3>Fluxos de Conversa</h3>
-        <div id="fluxos"></div>
-        <button onclick="addFluxo()">+ Adicionar Fluxo</button>
+    <div class="caixa">
+        <h3>❄️ Fluxo: Ar Condicionado</h3>
+        <label>Pergunta sobre BTUs:</label>
+        <textarea id="ar-btus">Quantos BTUs tem o aparelho? (9.000, 12.000, etc)</textarea>
+        
+        <label>Pergunta sobre bairro:</label>
+        <textarea id="ar-bairro">Qual bairro para atendimento?</textarea>
+        
+        <label>Pergunta sobre problema:</label>
+        <textarea id="ar-problema">Qual o problema? Não gela, vazamento, barulho?</textarea>
+        
+        <label>Mensagem final (agendamento):</label>
+        <textarea id="ar-final">✅ Visita técnica: R$140
+Técnico entra em contato 30min antes.
+
+Confirmar agendamento?</textarea>
     </div>
     
-    <button onclick="salvar()">💾 Salvar Treinamento</button>
+    <div style="text-align:center;margin:30px 0;">
+        <button onclick="salvar()">💾 SALVAR TREINAMENTO</button>
+    </div>
+    
+    <div class="preview">
+        <h3>👁️ Pré-visualização</h3>
+        <p>Cliente diz: <strong>"Oi"</strong></p>
+        <div class="resposta" id="preview-saudacao"></div>
+        
+        <p style="margin-top:20px">Cliente diz: <strong>"Preço"</strong></p>
+        <div class="resposta" id="preview-preco"></div>
+    </div>
 
     <script>
-        // Carregar dados atuais
-        fetch('/data/conhecimento.json')
-            .then(r => r.json())
-            .then(dados => {
-                document.getElementById('saudacao').value = dados.saudacao || '';
-                // ... preencher outros campos
-            });
-        
         function addResposta() {
             const div = document.createElement('div');
+            div.className = 'item';
             div.innerHTML = `
-                <input placeholder="Palavras (ex: preço|valor|custo)" class="palavra">
-                <input placeholder="Resposta" class="resposta">
+                <input placeholder="Palavra que o cliente fala">
+                <textarea placeholder="Resposta do robô"></textarea>
+                <button class="remove" onclick="this.parentElement.remove()">🗑️ Remover</button>
             `;
             document.getElementById('respostas').appendChild(div);
         }
         
-        function addFluxo() {
-            const div = document.createElement('div');
-            div.innerHTML = `
-                <input placeholder="Nome do fluxo (ex: ar_condicionado)" class="fluxo-nome">
-                <input placeholder="Pergunta" class="fluxo-pergunta">
-                <input placeholder="Próximo passo" class="fluxo-proximo">
-            `;
-            document.getElementById('fluxos').appendChild(div);
+        function atualizarPreview() {
+            document.getElementById('preview-saudacao').textContent = document.getElementById('saudacao').value;
+            // Aqui você pode adicionar mais previews
         }
         
+        document.getElementById('saudacao').addEventListener('input', atualizarPreview);
+        atualizarPreview();
+        
         async function salvar() {
+            // Coletar dados
             const dados = {
                 saudacao: document.getElementById('saudacao').value,
-                // ... coletar todos os dados
+                respostas: [],
+                fluxoAr: {
+                    btus: document.getElementById('ar-btus').value,
+                    bairro: document.getElementById('ar-bairro').value,
+                    problema: document.getElementById('ar-problema').value,
+                    final: document.getElementById('ar-final').value
+                }
             };
             
-            await fetch('/api/salvar-conhecimento', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(dados)
+            // Coletar respostas rápidas
+            document.querySelectorAll('#respostas .item').forEach(item => {
+                const inputs = item.querySelectorAll('input, textarea');
+                dados.respostas.push({
+                    palavra: inputs[0].value,
+                    resposta: inputs[1].value
+                });
             });
             
-            alert('Robô treinado com sucesso!');
+            // Enviar para API (você precisa criar endpoint /api/treinar)
+            try {
+                await fetch('/api/treinar', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(dados)
+                });
+                alert('✅ Robô treinado com sucesso!');
+            } catch (e) {
+                // Por enquanto, só mostra os dados
+                console.log('Dados para salvar:', dados);
+                alert('⚠️ Dados coletados! (Você precisa criar o endpoint /api/treinar para salvar permanentemente)\n\nPor enquanto, copie esses dados e me envie que eu atualizo o código.');
+            }
         }
     </script>
 </body>

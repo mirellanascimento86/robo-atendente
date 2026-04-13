@@ -1,8 +1,9 @@
 {
-  "name": "robo-reforma",
+  "name": "robo-ia-supabase",
   "version": "1.0.0",
   "type": "module",
   "dependencies": {
-    "@upstash/redis": "^1.28.0"
+    "@supabase/supabase-js": "^2.39.0",
+    "groq-sdk": "^0.3.0"
   }
 }

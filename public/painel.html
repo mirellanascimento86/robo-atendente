@@ -2,10 +2,8 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Painel de Intervenção - Histórico</title>
+    <title>Painel de Intervenção</title>
     <style>
-        /* [Mesmo CSS anterior, já funciona] */
         * { margin: 0; padding: 0; box-sizing: border-box; }
         
         body { 
@@ -26,16 +24,15 @@
         
         .container { 
             display: grid; 
-            grid-template-columns: 350px 1fr; 
+            grid-template-columns: 320px 1fr; 
             height: calc(100vh - 60px);
-            overflow: hidden;
         }
         
+        /* LISTA - Estável, não pisca */
         .lista { 
             background: white;
             border-right: 1px solid #ddd;
             overflow-y: auto;
-            height: 100%;
         }
         
         .conversa { 
@@ -46,13 +43,15 @@
         }
         
         .conversa:hover { background: #f5f5f5; }
-        .conversa.ativa { background: #e3f2fd !important; border-left: 4px solid #2196f3; }
-        .conversa.intervencao { border-left: 4px solid #f44336; background: #ffebee; }
+        .conversa.ativa { 
+            background: #e3f2fd !important; 
+            border-left: 4px solid #2196f3; 
+        }
+        .conversa.intervencao { border-left: 4px solid #f44336; }
         
         .tel { font-weight: bold; color: #075e54; font-size: 14px; }
         .nome { color: #666; font-size: 12px; }
         .prev { color: #999; font-size: 13px; margin-top: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .data { color: #999; font-size: 11px; margin-top: 3px; }
         
         .tag { 
             display: inline-block;
@@ -65,12 +64,11 @@
         .tag.robo { background: #4caf50; color: white; }
         .tag.humano { background: #f44336; color: white; }
         
+        /* CHAT */
         .chat { 
             display: flex; 
             flex-direction: column;
             background: #e5ddd5;
-            height: 100%;
-            overflow: hidden;
         }
         
         .chat-header { 
@@ -80,7 +78,6 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            flex-shrink: 0;
         }
         
         .botoes button {
@@ -95,7 +92,7 @@
         
         .btn-intervir { background: #f44336; color: white; }
         .btn-liberar { background: #4caf50; color: white; }
-        .btn-visita { background: #2196f3; color: white; }
+        .btn:disabled { opacity: 0.6; cursor: not-allowed; }
         
         .mensagens { 
             flex: 1; 
@@ -128,7 +125,6 @@
             text-align: center;
             font-weight: bold;
             font-size: 13px;
-            flex-shrink: 0;
         }
         
         .input-area {
@@ -136,8 +132,6 @@
             padding: 15px;
             display: flex;
             gap: 10px;
-            flex-shrink: 0;
-            border-top: 1px solid #ddd;
         }
         
         .input-area input {
@@ -159,33 +153,30 @@
             font-weight: bold;
         }
         
+        .input-area button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
         .vazio {
             text-align: center;
             color: #999;
             padding: 50px;
         }
         
-        .btn-marcar {
-            background: #ff9800;
-            color: white;
-            padding: 8px 15px;
-            border: none;
-            border-radius: 15px;
-            cursor: pointer;
-            font-size: 12px;
-            margin-left: 10px;
-        }
+        /* Animação suave */
+        .conversa { animation: none !important; }
     </style>
 </head>
 <body>
     <div class="header">
-        <h2>🤖 Painel de Intervenção (IA + Histórico)</h2>
-        <span>🟢 Online</span>
+        <h2>🤖 Painel de Intervenção</h2>
+        <span id="status-geral">🟢 Online</span>
     </div>
     
     <div class="container">
         <div class="lista" id="lista">
-            <div class="vazio">Carregando histórico...</div>
+            <div class="vazio">Carregando...</div>
         </div>
         
         <div class="chat">
@@ -198,69 +189,107 @@
             </div>
             
             <div id="aviso" class="aviso" style="display: none;">
-                🚨 VOCÊ ESTÁ NO CONTROLE - IA não responde
+                🚨 VOCÊ ESTÁ NO CONTROLE - Robô não responde
             </div>
             
             <div class="mensagens" id="mensagens">
-                <div class="vazio">Selecione uma conversa para ver histórico</div>
+                <div class="vazio">Selecione uma conversa</div>
             </div>
             
             <div class="input-area" id="input" style="display: none;">
                 <input type="text" id="campo" placeholder="Digite..." onkeypress="if(event.key==='Enter') enviar()">
                 <button onclick="enviar()" id="btn-enviar">Enviar</button>
-                <button class="btn-marcar" onclick="marcarVisita()" id="btn-visita">📅 Marcar Visita</button>
             </div>
         </div>
     </div>
 
     <script>
         const API = window.location.origin + '/api/webhook';
+        
+        // Estado local
         let atual = null;
         let intervencao = false;
-        let nomeAtual = '';
+        let ultimaAtividade = 0; // Para detectar novas mensagens
         
-        // Carregar a cada 3 segundos
+        // Cache de conversas (evita re-render desnecessário)
+        let cacheConversas = [];
+        
+        // Carregar conversas a cada 3 segundos (menos frequente)
         setInterval(carregarConversas, 3000);
         carregarConversas();
         
+        // Carregar mensagens da conversa atual a cada 1.5s
         setInterval(() => {
             if (atual) carregarMensagens(atual);
-        }, 2000);
+        }, 1500);
         
         async function carregarConversas() {
             try {
                 const res = await fetch(API + '?acao=listar');
                 const dados = await res.json();
                 
-                const lista = document.getElementById('lista');
+                // Verificar se mudou algo significativo (evita piscar)
+                const mudou = JSON.stringify(dados.map(d => d.telefone + d.intervencao + d.ultima)) !== 
+                              JSON.stringify(cacheConversas.map(d => d.telefone + d.intervencao + d.ultima));
                 
-                if (dados.length === 0) {
-                    lista.innerHTML = '<div class="vazio" style="padding:40px">Nenhuma conversa no histórico.</div>';
+                if (!mudou && cacheConversas.length > 0) {
+                    // Não mudou nada, não re-renderiza
                     return;
                 }
                 
-                lista.innerHTML = dados.map(c => `
-                    <div class="conversa ${c.telefone === atual ? 'ativa' : ''} ${c.intervencao ? 'intervencao' : ''}" 
-                         onclick="selecionar('${c.telefone}', '${c.nome}', ${c.intervencao})">
-                        <div class="tel">${c.telefone}</div>
-                        <div class="nome">${c.nome}</div>
-                        <div class="prev">${c.ultima}</div>
-                        <div class="data">${c.data}</div>
-                        <span class="tag ${c.intervencao ? 'humano' : 'robo'}">
-                            ${c.intervencao ? '🔴 VOCÊ' : '🟢 IA'}
-                        </span>
-                    </div>
-                `).join('');
+                cacheConversas = dados;
+                
+                const lista = document.getElementById('lista');
+                
+                if (dados.length === 0) {
+                    lista.innerHTML = '<div class="vazio" style="padding:40px">Nenhuma conversa.<br>Envie mensagem de teste.</div>';
+                    return;
+                }
+                
+                // Preservar elemento selecionado para não piscar
+                const html = dados.map(c => {
+                    const isAtiva = c.telefone === atual;
+                    const classe = `conversa ${isAtiva ? 'ativa' : ''} ${c.intervencao ? 'intervencao' : ''}`;
+                    
+                    return `
+                        <div class="${classe}" onclick="selecionar('${c.telefone}', '${c.nome}', ${c.intervencao}, ${c.ultimaAtividade})" data-tel="${c.telefone}">
+                            <div class="tel">${c.telefone}</div>
+                            <div class="nome">${c.nome}</div>
+                            <div class="prev">${c.ultima}</div>
+                            <span class="tag ${c.intervencao ? 'humano' : 'robo'}">
+                                ${c.intervencao ? '🔴 VOCÊ' : '🟢 ROBÔ'}
+                            </span>
+                        </div>
+                    `;
+                }).join('');
+                
+                // Só atualizar se mudou
+                if (lista.innerHTML !== html) {
+                    lista.innerHTML = html;
+                }
                 
             } catch (e) {
-                console.log('Erro:', e);
+                console.log('Erro carregar:', e);
             }
         }
         
-        async function selecionar(telefone, nome, interv) {
+        function selecionar(telefone, nome, interv, atividade) {
+            // Se já está selecionado e atividade não mudou, não faz nada
+            if (telefone === atual && atividade === ultimaAtividade) {
+                return;
+            }
+            
             atual = telefone;
-            nomeAtual = nome;
             intervencao = interv;
+            ultimaAtividade = atividade;
+            
+            // Atualizar classes visuais
+            document.querySelectorAll('.conversa').forEach(el => {
+                el.classList.remove('ativa');
+                if (el.dataset.tel === telefone) {
+                    el.classList.add('ativa');
+                }
+            });
             
             document.getElementById('header').style.display = 'flex';
             document.getElementById('titulo').textContent = telefone;
@@ -268,7 +297,7 @@
             document.getElementById('input').style.display = 'flex';
             
             atualizarBotoes();
-            await carregarMensagens(telefone);
+            carregarMensagens(telefone);
         }
         
         function atualizarBotoes() {
@@ -276,22 +305,19 @@
             const aviso = document.getElementById('aviso');
             const campo = document.getElementById('campo');
             const btn = document.getElementById('btn-enviar');
-            const btnVisita = document.getElementById('btn-visita');
             
             if (intervencao) {
-                div.innerHTML = '<button class="btn-liberar" onclick="liberar()">🤖 LIBERAR IA</button>';
+                div.innerHTML = '<button class="btn-liberar" onclick="liberar()">🤖 LIBERAR ROBÔ</button>';
                 aviso.style.display = 'block';
-                campo.placeholder = 'Você no controle...';
+                campo.placeholder = 'Você no controle - digite sua mensagem...';
                 campo.disabled = false;
                 btn.disabled = false;
-                btnVisita.style.display = 'inline-block';
             } else {
                 div.innerHTML = '<button class="btn-intervir" onclick="intervir()">🚨 ASSUMIR CONTROLE</button>';
                 aviso.style.display = 'none';
-                campo.placeholder = 'Clique em ASSUMIR primeiro...';
+                campo.placeholder = 'Clique em ASSUMIR CONTROLE primeiro...';
                 campo.disabled = true;
                 btn.disabled = true;
-                btnVisita.style.display = 'none';
             }
         }
         
@@ -302,19 +328,20 @@
                 
                 const area = document.getElementById('mensagens');
                 
-                if (msgs.length === 0) {
-                    area.innerHTML = '<div class="vazio">Sem mensagens no histórico</div>';
-                    return;
-                }
-                
-                area.innerHTML = msgs.map(m => `
+                // Verificar se mudou
+                const atualHtml = area.innerHTML;
+                const novoHtml = msgs.map(m => `
                     <div class="msg ${m.tipo}">
                         ${m.texto.replace(/\n/g, '<br>')}
-                        <div class="hora">${m.nome} • ${m.hora}${m.data ? ' • ' + m.data : ''}</div>
+                        <div class="hora">${m.nome} • ${m.hora}</div>
                     </div>
                 `).join('');
                 
-                area.scrollTop = area.scrollHeight;
+                // Só atualizar se mudou (evita flicker)
+                if (novoHtml !== atualHtml) {
+                    area.innerHTML = novoHtml;
+                    area.scrollTop = area.scrollHeight;
+                }
                 
             } catch (e) {}
         }
@@ -322,38 +349,63 @@
         async function intervir() {
             if (!atual) return;
             
+            const btn = document.querySelector('.btn-intervir');
+            btn.textContent = '⏳...';
+            btn.disabled = true;
+            
             try {
-                await fetch(API + '?acao=intervir', {
+                const res = await fetch(API + '?acao=intervir', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ telefone: atual })
                 });
                 
-                intervencao = true;
-                atualizarBotoes();
-                carregarMensagens(atual);
+                const result = await res.json();
+                
+                if (result.ok) {
+                    intervencao = true;
+                    atualizarBotoes();
+                    carregarMensagens(atual);
+                    // Recarregar lista para mostrar mudança
+                    setTimeout(carregarConversas, 500);
+                } else {
+                    alert('Erro: ' + (result.erro || 'Desconhecido'));
+                    btn.textContent = '🚨 ASSUMIR CONTROLE';
+                    btn.disabled = false;
+                }
                 
             } catch (e) {
-                alert('Erro');
+                alert('Erro de conexão');
+                btn.textContent = '🚨 ASSUMIR CONTROLE';
+                btn.disabled = false;
             }
         }
         
         async function liberar() {
             if (!atual) return;
             
+            const btn = document.querySelector('.btn-liberar');
+            btn.textContent = '⏳...';
+            btn.disabled = true;
+            
             try {
-                await fetch(API + '?acao=liberar', {
+                const res = await fetch(API + '?acao=liberar', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ telefone: atual })
                 });
                 
-                intervencao = false;
-                atualizarBotoes();
-                carregarMensagens(atual);
+                const result = await res.json();
+                
+                if (result.ok) {
+                    intervencao = false;
+                    atualizarBotoes();
+                    carregarMensagens(atual);
+                    setTimeout(carregarConversas, 500);
+                }
                 
             } catch (e) {
-                alert('Erro');
+                alert('Erro de conexão');
             }
         }
         
@@ -370,52 +422,25 @@
             campo.value = '';
             
             try {
-                await fetch(API + '?acao=enviar', {
+                const res = await fetch(API + '?acao=enviar', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ telefone: atual, mensagem: texto })
                 });
                 
-                setTimeout(() => carregarMensagens(atual), 500);
+                const result = await res.json();
+                
+                if (result.ok) {
+                    // Aguardar um pouco e recarregar
+                    setTimeout(() => carregarMensagens(atual), 300);
+                } else {
+                    alert('Erro: ' + (result.erro || 'Não foi possível enviar'));
+                    campo.value = texto;
+                }
                 
             } catch (e) {
-                alert('Erro');
+                alert('Erro de conexão');
                 campo.value = texto;
-            }
-        }
-        
-        async function marcarVisita() {
-            if (!atual || !intervencao) {
-                alert('Assuma o controle primeiro!');
-                return;
-            }
-            
-            const servico = prompt('Qual serviço? (Reforma/Marcenaria/Construção)');
-            if (!servico) return;
-            
-            const endereco = prompt('Endereço completo:');
-            if (!endereco) return;
-            
-            const data = prompt('Data da visita (DD/MM/AAAA):');
-            if (!data) return;
-            
-            try {
-                await fetch(API + '?acao=visita', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        telefone: atual,
-                        nome: nomeAtual,
-                        servico: servico,
-                        endereco: endereco,
-                        data: data
-                    })
-                });
-                
-                alert('Visita marcada! Notificação enviada ao Telegram.');
-                
-            } catch (e) {
-                alert('Erro ao marcar visita');
             }
         }
     </script>

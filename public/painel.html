@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Painel de Controle</title>
+    <title>Painel de Intervenção</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         
@@ -25,11 +25,11 @@
         
         .container { 
             display: grid; 
-            grid-template-columns: 320px 1fr; 
+            grid-template-columns: 350px 1fr; 
             height: calc(100vh - 60px);
         }
         
-        /* LISTA DE CONVERSAS */
+        /* Lista */
         .lista { 
             background: white;
             border-right: 1px solid #ddd;
@@ -45,7 +45,7 @@
         
         .conversa:hover { background: #f5f5f5; }
         .conversa.ativa { background: #e3f2fd; border-left: 4px solid #2196f3; }
-        .conversa.intervencao { border-left: 4px solid #f44336; }
+        .conversa.intervencao { border-left: 4px solid #f44336; background: #ffebee; }
         
         .tel { font-weight: bold; color: #075e54; font-size: 14px; }
         .nome { color: #666; font-size: 12px; }
@@ -62,7 +62,7 @@
         .tag.robo { background: #4caf50; color: white; }
         .tag.humano { background: #f44336; color: white; }
         
-        /* ÁREA DO CHAT */
+        /* Chat */
         .chat { 
             display: flex; 
             flex-direction: column;
@@ -78,8 +78,8 @@
             align-items: center;
         }
         
-        .info h3 { color: #075e54; }
-        .info p { color: #666; font-size: 13px; margin-top: 5px; }
+        .info h3 { color: #075e54; margin-bottom: 5px; }
+        .info p { color: #666; font-size: 13px; }
         
         .botoes button {
             padding: 10px 20px;
@@ -88,11 +88,12 @@
             cursor: pointer;
             font-weight: bold;
             margin-left: 10px;
+            font-size: 13px;
         }
         
-        .btn-vermelho { background: #f44336; color: white; }
-        .btn-verde { background: #4caf50; color: white; }
-        .btn-cinza { background: #ccc; cursor: not-allowed; }
+        .btn-intervir { background: #f44336; color: white; }
+        .btn-liberar { background: #4caf50; color: white; }
+        .btn-desabilitado { background: #ccc; cursor: not-allowed; opacity: 0.6; }
         
         .mensagens { 
             flex: 1; 
@@ -100,15 +101,16 @@
             padding: 20px;
             display: flex;
             flex-direction: column;
-            gap: 10px;
+            gap: 8px;
         }
         
         .msg { 
             max-width: 75%; 
-            padding: 12px 15px; 
-            border-radius: 10px;
+            padding: 10px 14px; 
+            border-radius: 8px;
             font-size: 14px;
             line-height: 1.4;
+            word-wrap: break-word;
         }
         
         .msg.cliente { 
@@ -130,10 +132,18 @@
             border-top-right-radius: 2px;
         }
         
+        .msg.sistema {
+            background: #fff3cd;
+            align-self: center;
+            font-size: 12px;
+            color: #856404;
+            padding: 5px 10px;
+        }
+        
         .hora {
             font-size: 11px;
             color: #999;
-            margin-top: 5px;
+            margin-top: 4px;
             text-align: right;
         }
         
@@ -170,12 +180,13 @@
             cursor: not-allowed;
         }
         
-        .aviso {
-            background: #fff3cd;
-            border-left: 4px solid #ffc107;
-            padding: 15px;
-            margin: 20px;
-            border-radius: 5px;
+        .aviso-intervencao {
+            background: #ff6b6b;
+            color: white;
+            padding: 10px;
+            text-align: center;
+            font-size: 13px;
+            font-weight: bold;
         }
         
         .vazio {
@@ -187,17 +198,15 @@
 </head>
 <body>
     <div class="header">
-        <h2>🤖 Painel de Controle</h2>
-        <span>🟢 Online</span>
+        <h2>🤖 Painel de Intervenção</h2>
+        <span id="status-geral">🟢 Online</span>
     </div>
     
     <div class="container">
-        <!-- LISTA -->
         <div class="lista" id="lista">
-            <div class="vazio">Nenhuma conversa ainda.<br>Envie uma mensagem de teste.</div>
+            <div class="vazio">Carregando...</div>
         </div>
         
-        <!-- CHAT -->
         <div class="chat">
             <div class="chat-header" id="header" style="display: none;">
                 <div class="info">
@@ -207,8 +216,12 @@
                 <div class="botoes" id="botoes"></div>
             </div>
             
+            <div id="aviso" style="display: none;" class="aviso-intervencao">
+                🚨 VOCÊ ESTÁ NO CONTROLE - Robô não está respondendo
+            </div>
+            
             <div class="mensagens" id="mensagens">
-                <div class="vazio">Clique em uma conversa à esquerda</div>
+                <div class="vazio">Selecione uma conversa à esquerda</div>
             </div>
             
             <div class="input-area" id="input" style="display: none;">
@@ -223,32 +236,44 @@
         let atual = null;
         let intervencaoAtiva = false;
         
-        // Carregar conversas a cada 2 segundos
+        // Carregar a cada 2 segundos
         setInterval(carregar, 2000);
         carregar();
         
-        // Se tiver conversa selecionada, recarregar mensagens
+        // Recarregar mensagens se tiver conversa selecionada
         setInterval(() => {
             if (atual) carregarMensagens(atual);
         }, 1500);
         
         async function carregar() {
             try {
-                const res = await fetch(`${API}?acao=conversas`);
+                const res = await fetch(`${API}?acao=listar`);
                 const dados = await res.json();
                 
                 const lista = document.getElementById('lista');
                 
                 if (dados.length === 0) {
-                    lista.innerHTML = '<div class="vazio">Nenhuma conversa ainda.<br>Envie uma mensagem de teste.</div>';
+                    lista.innerHTML = '<div class="vazio" style="padding:40px">Nenhuma conversa ainda.<br>Envie uma mensagem de teste.</div>';
                     return;
+                }
+                
+                // Manter seleção atual se existir
+                const temAtual = dados.find(d => d.telefone === atual);
+                if (!temAtual && atual) {
+                    // Conversa sumiu, resetar
+                    atual = null;
+                    intervencaoAtiva = false;
+                    document.getElementById('header').style.display = 'none';
+                    document.getElementById('input').style.display = 'none';
+                    document.getElementById('aviso').style.display = 'none';
                 }
                 
                 lista.innerHTML = '';
                 dados.forEach(c => {
                     const div = document.createElement('div');
-                    div.className = `conversa ${c.telefone === atual ? 'ativa' : ''} ${c.intervencao ? 'intervencao' : ''}`;
-                    div.onclick = () => abrir(c.telefone, c.nome, c.intervencao);
+                    const isAtiva = c.telefone === atual;
+                    div.className = `conversa ${isAtiva ? 'ativa' : ''} ${c.intervencao ? 'intervencao' : ''}`;
+                    div.onclick = () => selecionar(c.telefone, c.nome, c.intervencao);
                     
                     div.innerHTML = `
                         <div class="tel">${c.telefone}</div>
@@ -263,11 +288,11 @@
                 });
                 
             } catch (e) {
-                console.log('Erro ao carregar:', e);
+                console.log('Erro carregar:', e);
             }
         }
         
-        function abrir(telefone, nome, intervencao) {
+        function selecionar(telefone, nome, intervencao) {
             atual = telefone;
             intervencaoAtiva = intervencao;
             
@@ -282,20 +307,26 @@
         
         function atualizarBotoes() {
             const div = document.getElementById('botoes');
+            const aviso = document.getElementById('aviso');
             
             if (intervencaoAtiva) {
                 div.innerHTML = `
-                    <button class="btn-verde" onclick="liberar()">
+                    <button class="btn-liberar" onclick="liberar()">
                         🤖 LIBERAR ROBÔ
                     </button>
                 `;
-                document.getElementById('subtitulo').innerHTML += ' <span style="color:#f44336;font-weight:bold">(VOCÊ ESTÁ NO CONTROLE)</span>';
+                aviso.style.display = 'block';
+                document.getElementById('campo').placeholder = 'Você no controle - digite sua mensagem...';
+                document.getElementById('btn-enviar').disabled = false;
             } else {
                 div.innerHTML = `
-                    <button class="btn-vermelho" onclick="intervir()">
+                    <button class="btn-intervir" onclick="intervir()">
                         🚨 ASSUMIR CONTROLE
                     </button>
                 `;
+                aviso.style.display = 'none';
+                document.getElementById('campo').placeholder = 'Clique em ASSUMIR CONTROLE para responder...';
+                document.getElementById('btn-enviar').disabled = true;
             }
         }
         
@@ -325,53 +356,76 @@
                 area.scrollTop = area.scrollHeight;
                 
             } catch (e) {
-                console.log('Erro mensagens:', e);
+                console.error('Erro mensagens:', e);
             }
         }
         
         async function intervir() {
             if (!atual) return;
             
+            const btn = document.querySelector('.btn-intervir');
+            btn.textContent = '⏳...';
+            btn.disabled = true;
+            
             try {
-                await fetch(`${API}?acao=intervir`, {
+                const res = await fetch(`${API}?acao=intervir`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ telefone: atual })
                 });
                 
-                intervencaoAtiva = true;
-                atualizarBotoes();
-                carregarMensagens(atual);
+                const result = await res.json();
+                
+                if (result.ok) {
+                    intervencaoAtiva = true;
+                    atualizarBotoes();
+                    carregarMensagens(atual);
+                } else {
+                    alert('Erro: ' + (result.erro || 'Desconhecido'));
+                }
                 
             } catch (e) {
-                alert('Erro ao assumir controle');
+                alert('Erro de conexão');
+            } finally {
+                if (!intervencaoAtiva) {
+                    btn.textContent = '🚨 ASSUMIR CONTROLE';
+                    btn.disabled = false;
+                }
             }
         }
         
         async function liberar() {
             if (!atual) return;
             
+            const btn = document.querySelector('.btn-liberar');
+            btn.textContent = '⏳...';
+            btn.disabled = true;
+            
             try {
-                await fetch(`${API}?acao=liberar`, {
+                const res = await fetch(`${API}?acao=liberar`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ telefone: atual })
                 });
                 
-                intervencaoAtiva = false;
-                atualizarBotoes();
-                carregarMensagens(atual);
+                const result = await res.json();
+                
+                if (result.ok) {
+                    intervencaoAtiva = false;
+                    atualizarBotoes();
+                    carregarMensagens(atual);
+                }
                 
             } catch (e) {
-                alert('Erro ao liberar');
+                alert('Erro de conexão');
             }
         }
         
         async function enviar() {
-            if (!atual) return;
-            
-            if (!intervencaoAtiva) {
-                alert('⚠️ Clique em "ASSUMIR CONTROLE" primeiro!');
+            if (!atual || !intervencaoAtiva) {
+                if (!intervencaoAtiva) {
+                    alert('⚠️ Clique em ASSUMIR CONTROLE primeiro!');
+                }
                 return;
             }
             
@@ -380,8 +434,11 @@
             
             if (!texto) return;
             
+            // Limpar campo imediatamente para UX
+            campo.value = '';
+            
             try {
-                await fetch(`${API}?acao=enviar`, {
+                const res = await fetch(`${API}?acao=enviar`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
@@ -390,11 +447,19 @@
                     })
                 });
                 
-                campo.value = '';
-                carregarMensagens(atual);
+                const result = await res.json();
+                
+                if (result.ok) {
+                    // Recarregar mensagens para mostrar a enviada
+                    setTimeout(() => carregarMensagens(atual), 500);
+                } else {
+                    alert('Erro: ' + (result.erro || 'Não foi possível enviar'));
+                    campo.value = texto; // Devolver texto
+                }
                 
             } catch (e) {
-                alert('Erro ao enviar');
+                alert('Erro de conexão');
+                campo.value = texto; // Devolver texto
             }
         }
     </script>

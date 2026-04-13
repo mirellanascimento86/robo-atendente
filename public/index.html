@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Robô Atendente</title>
+    <style>
+        body { 
+            font-family: Arial; 
+            max-width: 600px; 
+            margin: 50px auto; 
+            padding: 20px;
+            text-align: center;
+        }
+        .ok { 
+            background: #d4edda; 
+            color: #155724; 
+            padding: 30px; 
+            border-radius: 10px;
+        }
+        code { 
+            background: #f4f4f4; 
+            padding: 5px 10px; 
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        .info {
+            text-align: left;
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="ok">
+        <h1>🤖 Robô Atendente</h1>
+        <h2>✅ ONLINE</h2>
+    </div>
+    
+    <div class="info">
+        <h3>📋 Configurar na Meta:</h3>
+        <p><strong>URL do webhook:</strong></p>
+        <code id="url">https://SEU-LINK.vercel.app/api/webhook</code>
+        
+        <p><strong>Token de verificação:</strong></p>
+        <code>roboatendente</code>
+        
+        <p style="margin-top: 20px;">
+            <button onclick="copiar()">📋 Copiar URL</button>
+        </p>
+    </div>
+    
+    <script>
+        const url = window.location.origin + '/api/webhook';
+        document.getElementById('url').textContent = url;
+        
+        function copiar() {
+            navigator.clipboard.writeText(url);
+            alert('URL copiada!');
+        }
+    </script>
+</body>
+</html>

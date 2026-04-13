@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Treinar Robô</title>
+    <style>
+        body { font-family: Arial; max-width: 1000px; margin: 50px auto; padding: 20px; }
+        textarea { width: 100%; height: 100px; margin: 10px 0; padding: 10px; }
+        .secao { background: #f5f5f5; padding: 20px; margin: 20px 0; border-radius: 10px; }
+        button { padding: 15px 30px; background: #075e54; color: white; border: none; cursor: pointer; }
+        input { width: 100%; padding: 10px; margin: 5px 0; }
+    </style>
+</head>
+<body>
+    <h1>🧠 Treinar Robô</h1>
+    <p>Edite as respostas e fluxos do robô (sem usar IA - 100% código)</p>
+    
+    <div class="secao">
+        <h3>Saudação Inicial</h3>
+        <textarea id="saudacao"></textarea>
+    </div>
+    
+    <div class="secao">
+        <h3>Respostas Rápidas (palavra → resposta)</h3>
+        <div id="respostas"></div>
+        <button onclick="addResposta()">+ Adicionar</button>
+    </div>
+    
+    <div class="secao">
+        <h3>Fluxos de Conversa</h3>
+        <div id="fluxos"></div>
+        <button onclick="addFluxo()">+ Adicionar Fluxo</button>
+    </div>
+    
+    <button onclick="salvar()">💾 Salvar Treinamento</button>
+
+    <script>
+        // Carregar dados atuais
+        fetch('/data/conhecimento.json')
+            .then(r => r.json())
+            .then(dados => {
+                document.getElementById('saudacao').value = dados.saudacao || '';
+                // ... preencher outros campos
+            });
+        
+        function addResposta() {
+            const div = document.createElement('div');
+            div.innerHTML = `
+                <input placeholder="Palavras (ex: preço|valor|custo)" class="palavra">
+                <input placeholder="Resposta" class="resposta">
+            `;
+            document.getElementById('respostas').appendChild(div);
+        }
+        
+        function addFluxo() {
+            const div = document.createElement('div');
+            div.innerHTML = `
+                <input placeholder="Nome do fluxo (ex: ar_condicionado)" class="fluxo-nome">
+                <input placeholder="Pergunta" class="fluxo-pergunta">
+                <input placeholder="Próximo passo" class="fluxo-proximo">
+            `;
+            document.getElementById('fluxos').appendChild(div);
+        }
+        
+        async function salvar() {
+            const dados = {
+                saudacao: document.getElementById('saudacao').value,
+                // ... coletar todos os dados
+            };
+            
+            await fetch('/api/salvar-conhecimento', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(dados)
+            });
+            
+            alert('Robô treinado com sucesso!');
+        }
+    </script>
+</body>
+</html>

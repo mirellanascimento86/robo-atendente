@@ -1,64 +1,107 @@
 <!DOCTYPE html>
-<html>
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>Robô Atendente</title>
+    <title>Robô Reforma - Painel de Controle</title>
     <style>
-        body { 
-            font-family: Arial; 
-            max-width: 600px; 
-            margin: 50px auto; 
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
             padding: 20px;
-            text-align: center;
+            background: #f5f5f5;
         }
-        .ok { 
-            background: #d4edda; 
-            color: #155724; 
-            padding: 30px; 
+        .card {
+            background: white;
+            padding: 30px;
+            margin: 20px 0;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        h1 { color: #075e54; text-align: center; }
+        .status {
+            background: #d4edda;
+            color: #155724;
+            padding: 20px;
             border-radius: 10px;
+            text-align: center;
+            margin: 20px 0;
         }
-        code { 
-            background: #f4f4f4; 
-            padding: 5px 10px; 
-            border-radius: 5px;
-            font-size: 14px;
+        .links {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 30px;
+        }
+        a {
+            display: block;
+            padding: 20px;
+            background: #075e54;
+            color: white;
+            text-decoration: none;
+            border-radius: 10px;
+            text-align: center;
+            font-weight: bold;
+            transition: 0.3s;
+        }
+        a:hover {
+            background: #128c7e;
+            transform: translateY(-2px);
         }
         .info {
-            text-align: left;
-            background: #f8f9fa;
+            background: #e3f2fd;
             padding: 20px;
             border-radius: 10px;
-            margin-top: 20px;
+            margin: 20px 0;
+        }
+        code {
+            background: #f4f4f4;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-family: monospace;
         }
     </style>
 </head>
 <body>
-    <div class="ok">
-        <h1>🤖 Robô Atendente</h1>
-        <h2>✅ ONLINE</h2>
+    <h1>🤖 Robô de Reforma e Construção</h1>
+    
+    <div class="status">
+        <h2>✅ Sistema Online</h2>
+        <p>Robô treinado e pronto para atender</p>
     </div>
     
-    <div class="info">
-        <h3>📋 Configurar na Meta:</h3>
-        <p><strong>URL do webhook:</strong></p>
-        <code id="url">https://SEU-LINK.vercel.app/api/webhook</code>
-        
-        <p><strong>Token de verificação:</strong></p>
-        <code>roboatendente</code>
-        
-        <p style="margin-top: 20px;">
-            <button onclick="copiar()">📋 Copiar URL</button>
-        </p>
+    <div class="card">
+        <h3>📋 Configuração Meta (Webhook)</h3>
+        <div class="info">
+            <p><strong>URL do Webhook:</strong></p>
+            <code id="webhook">https://robo-atendente.vercel.app/api/webhook</code>
+            
+            <p style="margin-top:15px"><strong>Token de verificação:</strong></p>
+            <code>roboatendente</code>
+        </div>
     </div>
     
+    <div class="card">
+        <h3>🎮 Acesse os painéis:</h3>
+        <div class="links">
+            <a href="/treinar.html">🧠 Treinar Robô</a>
+            <a href="/painel.html">💬 Intervir no Chat</a>
+        </div>
+    </div>
+    
+    <div class="card">
+        <h3>📱 Como testar:</h3>
+        <ol>
+            <li>Configure o webhook na Meta (dados acima)</li>
+            <li>Envie mensagem de teste pelo Meta</li>
+            <li>O robô responde automaticamente</li>
+            <li>Use <strong>"Treinar Robô"</strong> para editar respostas</li>
+            <li>Use <strong>"Intervir no Chat"</strong> para assumir conversas</li>
+        </ol>
+    </div>
+
     <script>
-        const url = window.location.origin + '/api/webhook';
-        document.getElementById('url').textContent = url;
-        
-        function copiar() {
-            navigator.clipboard.writeText(url);
-            alert('URL copiada!');
-        }
+        document.getElementById('webhook').textContent = window.location.origin + '/api/webhook';
     </script>
 </body>
 </html>

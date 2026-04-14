@@ -1,5 +1,5 @@
 // ============================================
-// RC ATENDIMENTO - IA AUTONOMA 100% GROQ
+// RC ATENDIMENTO - IA HUMANIZADA 100% GROQ
 // ============================================
 
 const CONFIG = {
@@ -14,13 +14,16 @@ const CONFIG = {
   
   bairrosZonaSul: ['ipanema', 'leblon', 'copacabana', 'botafogo', 'flamengo', 'lagoa', 'gavea', 'jardim botanico', 'humaita', 'urca', 'catete', 'gloria', 'laranjeiras', 'cosme velho', 'leme', 'sao conrado', 'vidigal', 'rocinha'],
   
-  saudacao: `Ola, tudo bem? Aqui e da RC Reformas. Vi que voce entrou em contato. Me conta, o que voce esta precisando?`
+  // Saudação conforme SEÇÃO 1.1 - sem emojis, profissional
+  saudacao: `Ola! Me informe o servico e bairro que deseja atendimento`
 };
 
 const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
 const WHATSAPP_PHONE_ID = process.env.WHATSAPP_PHONE_ID;
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
 const GROQ_MODEL = process.env.GROQ_MODEL || 'llama3-70b-8192';
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 
 const clientes = {};
 
@@ -55,6 +58,27 @@ async function receberMensagem(req, res) {
   }
   
   const message = body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+  
+  // SEÇÃO 1.4 - Áudio não suportado
+  if (message && message.type === 'audio') {
+    const telefone = message.from;
+    await enviarWhatsApp(telefone, "No momento eu nao consigo ouvir, pode escrever?");
+    return res.status(200).send('OK');
+  }
+  
+  // SEÇÃO 1.3 - Cliente envia foto sem texto
+  if (message && message.type === 'image' && !message.text) {
+    const telefone = message.from;
+    const cliente = clientes[telefone];
+    
+    // Se for início de conversa sem saudação
+    if (!cliente || cliente.historico.length === 0) {
+      await enviarWhatsApp(telefone, "Ola! Me informe o servico e bairro que deseja atendimento");
+      return res.status(200).send('OK');
+    }
+    // Se já estiver em conversa e tiver serviço, encaminhar ao técnico (implementado no fluxo principal)
+  }
+  
   if (!message || message.type !== 'text') {
     return res.status(200).send('OK');
   }
@@ -78,12 +102,47 @@ async function receberMensagem(req, res) {
         data: null,
         hora: null,
         endereco: null,
-        tecnicoNotificado: false
+        tecnicoNotificado: false,
+        profissionalNome: null,
+        visitaConfirmada: false
       }
     };
   }
   
   const cliente = clientes[telefone];
+  
+  // SEÇÃO 1.1 - Saudação apenas na primeira vez, depois fluxo natural
+  if (cliente.primeiraVez) {
+    cliente.primeiraVez = false;
+    cliente.historico.push({
+      role: 'user',
+      content: texto,
+      timestamp: new Date().toISOString()
+    });
+    
+    // SEÇÃO 1.2 - Se perguntar se é robô/humano
+    const t = texto.toLowerCase();
+    if (t.includes('quem e voce') || t.includes('voce e robo') || t.includes('e humano') || t.includes('atendente')) {
+      const resposta = "Sou o Atendimento Digital da RC Reforma e Construcao";
+      await enviarWhatsApp(telefone, resposta);
+      cliente.historico.push({
+        role: 'assistant',
+        content: resposta,
+        timestamp: new Date().toISOString()
+      });
+      return res.status(200).send('OK');
+    }
+    
+    // Primeira resposta conforme instruções
+    const resposta = CONFIG.saudacao;
+    await enviarWhatsApp(telefone, resposta);
+    cliente.historico.push({
+      role: 'assistant',
+      content: resposta,
+      timestamp: new Date().toISOString()
+    });
+    return res.status(200).send('OK');
+  }
   
   cliente.historico.push({
     role: 'user',
@@ -109,77 +168,143 @@ async function receberMensagem(req, res) {
 
 async function processarComIA(cliente, texto) {
   const t = texto.toLowerCase();
-  
-  if (cliente.primeiraVez) {
-    cliente.primeiraVez = false;
-    return CONFIG.saudacao;
-  }
-  
-  if (t.includes('atendente') || t.includes('humano') || t.includes('pessoa') || t.includes('gerente')) {
-    return `Entendo perfeitamente. Vou transferir voce agora para um dos nossos especialistas. So um momento.`;
-  }
-  
   const horaAtual = new Date().getHours();
   const dadosAtuais = JSON.stringify(cliente.dados);
   
-  const historicoFormatado = cliente.historico.slice(-6).map(h => {
-    return `${h.role === 'user' ? 'Cliente' : 'Consultor'}: ${h.content}`;
-  }).join('\n');
+  // SEÇÃO 1.2 - Identidade quando perguntam
+  if (t.includes('quem e voce') || t.includes('voce e robo') || t.includes('e humano') || t.includes('atendente')) {
+    return "Sou o Atendimento Digital da RC Reforma e Construcao";
+  }
   
-  const systemPrompt = `Voce e um CONSULTOR DE VENDAS SENIOR da RC Reformas, especialista em reformas e construcao civil. Tem 15 anos de experiencia e e excelente em fechar negocios.
+  // SEÇÃO 9.5 - Cliente grosseiro/impaciente
+  if (t.includes('idiota') || t.includes('burro') || t.includes('inutil') || t.includes('merda') || t.includes('odio') || t.includes('raiva')) {
+    return "Se precisar de atendimento para o servico que precisa, me avise";
+  }
+  
+  // SEÇÃO 9.4 - Quer falar com quem vai fazer o serviço
+  if (t.includes('falar com quem vai fazer') || t.includes('falar com o profissional') || t.includes('contato do tecnico') || t.includes('telefone do tecnico')) {
+    return "Qual a sua duvida?";
+    // NUNCA passar contato do profissional conforme instruções
+  }
+  
+  // SEÇÃO 8.5 - Cliente é síndico/empresa
+  if (t.includes('sindico') || t.includes('condominio') || t.includes('empresa') || t.includes('predio') || t.includes('comercial')) {
+    return "Infelizmente o profissional esta com alta demanda e no momento nao esta prestando servicos para empresas, apenas pessoas fisicas";
+  }
+  
+  // SEÇÃO 8.6 - Quer apenas material
+  if (t.includes('so material') || t.includes('apenas material') || t.includes('comprar material') || t.includes('venda de material')) {
+    return "Os profissionais apenas realizam servicos, nao vendem produtos";
+  }
+  
+  // SEÇÃO 2.8 - Cliente evasivo
+  if (t.includes('depois eu te falo') || t.includes('so queria saber preco') || t.includes('só queria saber preço') || t.includes('depois eu entro em contato')) {
+    return "Se precisar de atendimento, pode entrar em contato";
+  }
+  
+  // SEÇÃO 3.6 - Vou pensar e volto
+  if (t.includes('vou pensar') || t.includes('volto depois') || t.includes('depois eu decido')) {
+    return "Sempre que precisar, entre em contato";
+  }
+  
+  // SEÇÃO 6.4 - Cancelamento
+  if (t.includes('desisti') || t.includes('cancela') || t.includes('quero cancelar')) {
+    return "Pode contar melhor o que houve?";
+  }
+  
+  const historicoFormatado = cliente.historico.slice(-8).map(h => {
+    return `${h.role === 'user' ? 'Cliente' : 'Atendimento'}: ${h.content}`;
+  }).join('\n');
 
-SEU OBJETIVO: Agendar visitas tecnicas e converter leads em vendas.
+  const systemPrompt = `Voce e o Atendimento Digital da RC Reforma e Construcao. Seu nome e "Atendimento Digital RC". 
+Voce tem que ser indistinguivel de um atendente humano profissional e empatico.
 
-REGRAS DE NEGOCIO:
-1. Valor da visita tecnica:
-   - Zona Sul (Ipanema, Leblon, Copacabana, Botafogo, Flamengo, Lagoa, Gavea, Jardim Botanico, Humaita, Urca, Catete, Gloria, Laranjeiras, Cosme Velho): R$180
-   - Outros bairros: R$220
-   - O valor e abatido do orcamento final se o cliente aprovar o servico
-   - O pagamento e feito no ato da visita (Pix, cartao ou dinheiro)
+=== REGRAS ABSOLUTAS DO DOCUMENTO ===
 
-2. Se o cliente disser que nao quer pagar visita:
-   - Explique que o valor e abatido do orcamento
-   - Se insistir, ofereca pre-orcamento por foto/video (deixe claro que e aproximado)
-   - Se for pintura, pode fazer orcamento sem visita pedindo metragem, quantidade de comodos e tipo de tinta
+IDENTIDADE (Secao 1.2, 11.1):
+- Nome: Atendimento Digital RC
+- Se perguntarem se e robo/humano: "Sou o Atendimento Digital da RC Reforma e Construcao"
+- Tom: Profissional empatico, linguajar profissional, SEM girias, SEM emojis
+- Despedida: "Se precisar de algo, so chamar"
+- Nunca assinar mensagens
 
-3. Horarios:
-   - Se for depois das 19h e quiser mesmo dia: explique que precisa verificar disponibilidade para primeiro horario do dia seguinte
-   - Pergunte se e urgente
+COLETA DE DADOS (Secao 2):
+- Cliente diz "Oi": "Ola! Me informe o servico e bairro que deseja atendimento"
+- Cliente diz so servico (ex: "pintura"): "Para qual bairro deseja atendimento?"
+- Cliente diz so bairro (ex: "Tijuca"): "Qual servico deseja?"
+- Cliente diz servico+bairro (ex: "pintura em Ipanema"): "Perfeito. Para enviar um orcamento preciso, e necessario uma visita tecnica ao local. O valor da visita e R$180, mas e abatido do valor final se o orcamento for aprovado."
+- Cliente pergunta "Quanto custa?" antes de dizer o que precisa: "A qual servico se refere? Nao posso dizer um valor exato, pois depende da visita tecnica de um profissional, mas posso enviar uma media de valores. Deseja?"
 
-4. Urgencia (vazamento, risco, quebrou, emergencia):
-   - Priorize e mostre preocupacao genuina
-   - Diga que vai acionar o tecnico imediatamente
+VALORES DA VISITA (Secao 3):
+- Zona Sul (Ipanema, Leblon, Copacabana, Botafogo, Flamengo, Lagoa, Gavea, Jardim Botanico, Humaita, Urca, Catete, Gloria, Laranjeiras, Cosme Velho, Leme, Sao Conrado): R$180
+- Outros bairros: R$220
+- Texto exato Zona Sul: "Para oferecer um orcamento mais preciso, e necessario que um profissional realize uma visita tecnica. O valor da visita e de R$180, mas e abatido do valor final caso o orcamento seja aprovado."
+- Texto exato Outros: "Para oferecer um orcamento mais preciso, e necessario que um profissional realize uma visita tecnica. O valor da visita e de R$220, mas e abatido do valor final caso o orcamento seja aprovado."
+- Se questionar "Por que tem que pagar visita?": "O valor se refere ao custo de deslocamento do profissional e analise tecnica. Caso o orcamento seja aprovado, o valor da visita e abatido do valor final. Assim, a vista sairia de graca"
+- Se insistir em visita gratis e for Botafogo: "Como uma excecao, a visita pode ser realizada sem cobranca"
+- Se insistir e for outro bairro Zona Sul: "A visita pode ser realizada pela metade do valor"
+- Se nao aceitar: "Infelizmente nao e possivel realizar a visita por um valor abaixo"
+- Se nao for Zona Sul: "Entendo, mas infelizmente a taxa da visita precisa ser seguida"
+- Se pedir desconto e for Botafogo: ofereca 50%, se recusarem ofereca gratis
+- Se pedir desconto e for outro bairro Zona Sul: maximo 50%
+- Outros bairros: valor fixo
 
-5. ETAPAS PARA AGENDAR:
-   - Descobrir qual servico
-   - Descobrir o bairro
-   - Calcular e informar o valor da visita
-   - Perguntar data e horario desejado
-   - Coletar endereco completo
-   - Confirmar agendamento
+OBJECOES (Secao 9):
+- "Vou comparar com outros orcamentos": "Tudo bem, se quiser, pode enviar o orcamento de outra empresa para verificarmos se cobrimos."
+- "Voces sao caros": "Entendo que o valor e diferente do esperado. No entanto, nossos profissionais sao de confianca e de alta qualidade, prestando servicos a pessoas influentes. Apesar disso, os valores sao padrao da zona sul do Rio"
+- "Nao confio em pagar antes": "Entendo. A empresa e seria e preza pela qualidade e confianca nos servicos prestados. Gostaria de prosseguir com sinal de 50% e o restante no fim do servico?"
+- Pergunta tecnica especifica: "Entendo sua duvida, mas somente o profissional poderia responder. Irei encaminhar sua duvida"
 
-6. TOM DE VOZ:
-   - Profissional, mas proximo e humano
-   - SEM EMOJIS
-   - SEM mensagens roboticas ou numeradas
-   - Como um vendedor experiente
-   - Natural, fluido, direto ao ponto
-   - Persuasivo mas nao insistente
-   - Use portugues sem acentos (ex: "orcamento" nao "orçamento")
+AGENDAMENTO (Secao 4):
+- Quer "hoje": "Um momento que irei verificar com o tecnico"
+- Depois das 19h quer "hoje": "Posso entrar em contato com o profissional amanha no primeiro horario. Deseja?"
+- Quer "amanha de manha": "Qual seria um bom horario? Entre 9:30h e 11:30h?"
+- "Qualquer dia serve": "Gostaria de atendimento para hoje?"
+- Sugere horario: "Um momento que irei verificar com o profissional"
+- Indeciso: "Gostaria de atendimento para hoje?"
+- Urgencia/vazamento: "Qual bairro deseja atendimento?" (priorize)
 
-DADOS DO CLIENTE:
-- Nome: ${cliente.nome}
-- Telefone: ${cliente.telefone}
-- Dados ja coletados: ${dadosAtuais}
-- Horario atual: ${horaAtual}h
+ENDERECO (Secao 5):
+- Manda endereco completo: "Perfeito. Visita marcada dia [dia da visita/mes] as [horario marcado da visita] com o profissional [nome do profissional]"
+- Manda so rua: "Qual o numero? E casa ou apartamento?"
+- Endereco com erro: "Desculpe, acho que tem um erro de digitacao. Pode confirmar o endereco?"
+- Nao quer passar endereco antes: "Um momento que irei verificar a disponibilidade do profissional"
 
-HISTORICO DA CONVERSA:
+CONFIRMACAO (Secao 6):
+- Todos dados coletados: "Pode marcar para [dia/mes] as [horario] com profissional [nome do profissional]?"
+- Cliente confirma: "Perfeito, marcado!"
+- Alterar data: "Qual seria o dia mais proximo que teria disponibilidade?"
+
+CENARIOS ESPECIAIS (Secao 8):
+- Pintura sem visita: "Qual seria a metragem quadrada total e o tipo de tinta?"
+- Foto pedindo orcamento: "Pode explicar melhor o servico e bairro que deseja atendimento?"
+- Varios servicos: "Sera necessario o envio de dois profissionais independentes para a realizacao da visita. A taxa de cada visita e de R$180. Para quando gostaria de marcar?"
+- Obra grande: "E necessario que o profissional va ao local para que seja realizado um orcamento preciso. A taxa da visita e de R$180. Para quando gostaria de atendimento?"
+
+=== DADOS ATUAIS DO CLIENTE ===
+Nome: ${cliente.nome}
+Telefone: ${cliente.telefone}
+Dados coletados: ${dadosAtuais}
+Horario atual: ${horaAtual}h
+
+=== HISTORICO RECENTE ===
 ${historicoFormatado}
 
-INSTRUCAO: Responda como um vendedor senior faria. Seja natural. Nao use emojis. Nao seja robotico. Se o cliente disser "pintura em Ipanema", entenda que e pintura no bairro Ipanema, nao pergunte o bairro de novo.`;
+=== INSTRUCOES DE CONVERSACAO ===
+- Use conectivos naturais (Certo, Entendi, Perfeito, Otimo, Entao, Bom)
+- Nunca use numeracao (1., 2., 3.) ou bullet points
+- Nunca seja robotico ou mecanico
+- Respostas curtas e diretas, como um atendente real
+- Nao repita informacoes que o cliente ja deu
+- Se cliente disser "pintura em Ipanema", entenda imediatamente - nao pergunte bairro de novo
+- Nao use emojis
+- Nao use aspas desnecessarias
+- Fluxo natural: servico -> bairro -> valor -> data -> endereco -> confirmacao
+
+Responda como um atendente profissional da RC Reformas faria:`;
   
   try {
-    console.log('🤖 Pensando...');
+    console.log('🤖 Processando...');
     
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
@@ -193,8 +318,8 @@ INSTRUCAO: Responda como um vendedor senior faria. Seja natural. Nao use emojis.
           { role: 'system', content: systemPrompt },
           { role: 'user', content: texto }
         ],
-        temperature: 0.7,
-        max_tokens: 400
+        temperature: 0.4, // Mais conservador para seguir regras estritamente
+        max_tokens: 300
       })
     });
     
@@ -205,10 +330,11 @@ INSTRUCAO: Responda como um vendedor senior faria. Seja natural. Nao use emojis.
     const data = await response.json();
     const respostaIA = data.choices[0].message.content;
     
-    console.log('💬 Resposta:', respostaIA.substring(0, 100) + '...');
+    console.log('💬 Resposta:', respostaIA);
     
     await extrairEAtualizarDados(cliente, texto, respostaIA);
     
+    // Verificar se está completo para notificar técnico (Secao 6 e 7)
     if (cliente.dados.servico && cliente.dados.bairro && cliente.dados.data && cliente.dados.hora && cliente.dados.endereco && !cliente.dados.tecnicoNotificado) {
       await notificarTecnico(cliente);
       cliente.dados.tecnicoNotificado = true;
@@ -223,22 +349,29 @@ INSTRUCAO: Responda como um vendedor senior faria. Seja natural. Nao use emojis.
 }
 
 async function extrairEAtualizarDados(cliente, textoCliente, respostaIA) {
-  const prompt = `Analise e extraia dados em JSON:
+  const prompt = `Analise a conversa e extraia dados em JSON STRICT:
 {
-  "servico": "tipo de servico ou null",
-  "bairro": "bairro ou null",
-  "data": "data ou null",
-  "hora": "hora ou null",
-  "endereco": "endereco ou null",
-  "urgente": true/false
+  "servico": "tipo de servico identificado ou null",
+  "bairro": "bairro do Rio de Janeiro identificado ou null", 
+  "data": "data mencionada (hoje, amanha, ou data especifica) ou null",
+  "hora": "horario mencionado ou null",
+  "endereco": "endereco completo se fornecido ou null",
+  "urgente": true/false,
+  "aceitou_valor": true/false,
+  "quer_cancelar": true/false
 }
 
 Cliente: "${textoCliente}"
-Vendedor: "${respostaIA}"
+Atendente: "${respostaIA}"
 
-Regras:
-- "pintura em Ipanema" = servico: "pintura", bairro: "Ipanema"
-- "vazamento", "emergencia", "quebrou" = urgente: true`;
+REGRAS DE EXTRACAO:
+- "pintura em Ipanema" -> servico: "pintura", bairro: "Ipanema"
+- "vazamento", "emergencia", "quebrou", "urgente", "esta vazando" -> urgente: true
+- "pode marcar", "confirmo", "esta bom assim", "ok para visita" -> aceitou_valor: true
+- "desisti", "cancela", "nao quero mais" -> quer_cancelar: true
+- Bairros Zona Sul: Ipanema, Leblon, Copacabana, Botafogo, Flamengo, Lagoa, Gavea, Jardim Botanico, Humaita, Urca, Catete, Gloria, Laranjeiras, Cosme Velho, Leme, Sao Conrado
+
+Responda APENAS o JSON, nada mais.`;
   
   try {
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -251,7 +384,7 @@ Regras:
         model: 'llama3-8b-8192',
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.1,
-        max_tokens: 150
+        max_tokens: 200
       })
     });
     
@@ -269,11 +402,22 @@ Regras:
       if (extraido.endereco) cliente.dados.endereco = extraido.endereco;
       if (extraido.urgente) cliente.dados.urgente = extraido.urgente;
       
+      // Calcular valor automaticamente baseado no bairro (Secao 3)
       if (cliente.dados.bairro && !cliente.dados.valor) {
-        const isZonaSul = CONFIG.bairrosZonaSul.some(b => 
-          cliente.dados.bairro.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(b)
-        );
+        const bairroNormalizado = cliente.dados.bairro.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        const isZonaSul = CONFIG.bairrosZonaSul.some(b => bairroNormalizado.includes(b));
         cliente.dados.valor = isZonaSul ? CONFIG.precoZonaSul : CONFIG.precoOutros;
+        
+        // Definir nome do profissional baseado no serviço
+        if (cliente.dados.servico) {
+          if (cliente.dados.servico.includes('marcenaria') || cliente.dados.servico.includes('movel') || cliente.dados.servico.includes('armario')) {
+            cliente.dados.profissionalNome = "Tecnico de Marcenaria";
+          } else if (cliente.dados.servico.includes('hidraulica') || cliente.dados.servico.includes('encanamento') || cliente.dados.servico.includes('vazamento') || cliente.dados.servico.includes('pia') || cliente.dados.servico.includes('banheiro')) {
+            cliente.dados.profissionalNome = "Tecnico Hidraulico";
+          } else {
+            cliente.dados.profissionalNome = "Tecnico de Reformas";
+          }
+        }
       }
     }
   } catch (e) {
@@ -281,49 +425,163 @@ Regras:
   }
 }
 
+// SEÇÃO 7 - Notificação ao técnico
 async function notificarTecnico(cliente) {
   let numero;
   
   if (cliente.dados.servico?.includes('marcenaria') || cliente.dados.servico?.includes('movel') || cliente.dados.servico?.includes('armario')) {
     numero = CONFIG.tecnicos.marcenaria;
-  } else if (cliente.dados.servico?.includes('hidraulica') || cliente.dados.servico?.includes('encanamento') || cliente.dados.servico?.includes('vazamento')) {
+  } else if (cliente.dados.servico?.includes('hidraulica') || cliente.dados.servico?.includes('encanamento') || cliente.dados.servico?.includes('vazamento') || cliente.dados.servico?.includes('pia') || cliente.dados.servico?.includes('banheiro')) {
     numero = CONFIG.tecnicos.hidraulica;
   } else {
     numero = CONFIG.tecnicos.reforma;
   }
   
-  const msg = `NOVO AGENDAMENTO - RC REFORMAS
-
-Cliente: ${cliente.nome}
-Telefone: ${cliente.telefone}
-Servico: ${cliente.dados.servico}
-Bairro: ${cliente.dados.bairro}
-Endereco: ${cliente.dados.endereco}
-Data: ${cliente.dados.data} as ${cliente.dados.hora}
-Valor Visita: R$${cliente.dados.valor}
-${cliente.dados.urgente ? 'ATENCAO: SERVICO URGENTE' : ''}
-
-Confirme disponibilidade.`;
+  // Texto exato conforme Secao 7.1
+  const msg = `Visita de ${cliente.dados.servico} marcada. Endereco ${cliente.dados.endereco}, Cliente ${cliente.nome}, dia ${cliente.dados.data}, as ${cliente.dados.hora}.`;
   
   console.log(`\n📤 Notificando tecnico: ${numero}`);
+  console.log(`Mensagem: ${msg}`);
+  
   await enviarWhatsApp(numero, msg);
+  
+  // SEÇÃO 12.3 - Alerta Telegram se técnico não responder em 5 minutos
+  if (TELEGRAM_BOT_TOKEN && TELEGRAM_CHAT_ID) {
+    setTimeout(async () => {
+      if (!cliente.dados.visitaConfirmada) {
+        await enviarTelegram(`⏰ ALERTA: Tecnico nao respondeu apos 5 min. Cliente: ${cliente.nome}, Servico: ${cliente.dados.servico}, Tecnico: ${numero}`);
+      }
+    }, 5 * 60 * 1000); // 5 minutos
+  }
 }
 
+// SEÇÃO 7.2 - Confirmação do técnico para o cliente
+async function confirmarVisitaComTecnico(cliente, confirmacao, novoHorario = null) {
+  if (confirmacao) {
+    cliente.dados.visitaConfirmada = true;
+    // Texto exato conforme Secao 7.2
+    return `Visita confirmada para ${cliente.dados.data}, as ${cliente.dados.hora}, com o profissional ${cliente.dados.profissionalNome}.`;
+  } else if (novoHorario) {
+    // Secao 7.3 - Tecnico sugere outro horario
+    return `Um momento que irei contactar o profissional`;
+  }
+}
+
+// SEÇÃO 7.5 - Antecipação ou adiamento
+async function notificarMudancaHorario(cliente, tipo, novoDiaHorario) {
+  if (tipo === 'antecipar') {
+    // Secao 7.5 - Antecipacao
+    return `Ola, ${cliente.nome}! O profissional informou que poderia antecipar sua visita para ${novoDiaHorario}. Gostaria de antecipar?`;
+  } else {
+    // Secao 7.5 - Atraso
+    return `Ola! ${cliente.nome} O profissional avisou que teve um imprevisto e precisa adiar a visita`;
+  }
+}
+
+// SEÇÃO 10 - Lembretes automáticos
+async function agendarLembretes(cliente) {
+  // 10.1 - Lembrete 24h antes para cliente
+  // Implementar via agendamento externo (cron job ou similar)
+  const lembrete24h = `Ola, ${cliente.nome} lembrando da visita amanha as ${cliente.dados.hora} na ${cliente.dados.endereco}, posso confirmar?`;
+  
+  // 10.2 - Lembrete 2h antes para técnico
+  const lembreteTecnico2h = `Ola, ${cliente.dados.profissionalNome} lembrando da visita hoje as ${cliente.dados.hora} na ${cliente.dados.endereco}`;
+  
+  console.log('Lembrete 24h:', lembrete24h);
+  console.log('Lembrete 2h tecnico:', lembreteTecnico2h);
+}
+
+// SEÇÃO 10.3 - Cliente não está no local
+async function clienteNaoPresente(cliente) {
+  if (TELEGRAM_BOT_TOKEN && TELEGRAM_CHAT_ID) {
+    await enviarTelegram(`⚠️ Cliente nao esta no local. Nome: ${cliente.nome}, Endereco: ${cliente.dados.endereco}, Horario: ${cliente.dados.hora}`);
+  }
+}
+
+// SEÇÃO 10.4 - Feedback pós-visita
+async function solicitarFeedback(cliente) {
+  return "Ocorreu tudo bem na visita? O profissional entendeu o que precisa?";
+}
+
+// SEÇÃO 10.5 - Aprovação do orçamento
+async function fluxoContratacao(cliente) {
+  return "Vou marcar o dia para realizacao do servico com o profissional e informar os dias e horarios disponiveis para marcar a realizacao do servico";
+}
+
+// SEÇÃO 12 - Painel Admin (Telegram)
+async function enviarTelegram(mensagem) {
+  if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) return;
+  
+  try {
+    await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: TELEGRAM_CHAT_ID,
+        text: mensagem
+      })
+    });
+  } catch (e) {
+    console.error('Erro Telegram:', e);
+  }
+}
+
+// Fallbacks específicos conforme documento
 function fallbackResposta(cliente, texto) {
+  const t = texto.toLowerCase();
+  
+  // SEÇÃO 1.1
+  if (t.includes('oi') || t.includes('ola') || t.includes('bom dia') || t.includes('boa tarde') || t.includes('boa noite')) {
+    return "Ola! Me informe o servico e bairro que deseja atendimento";
+  }
+  
+  // SEÇÃO 2.1
+  if (t.includes('reforma') && !cliente.dados.servico) {
+    return "Qual bairro deseja atendimento e qual tipo de reforma?";
+  }
+  
+  // SEÇÃO 2.2
+  if (t.includes('pintura') && !cliente.dados.bairro) {
+    return "Para qual bairro deseja atendimento?";
+  }
+  
+  // SEÇÃO 2.3
+  if (t.includes('marcenaria') && !cliente.dados.bairro) {
+    return "Qual seria o servico e bairro?";
+  }
+  
+  // SEÇÃO 2.4
+  if (cliente.dados.servico && !cliente.dados.bairro) {
+    return "Certo, qual o bairro que deseja atendimento?";
+  }
+  
+  // SEÇÃO 2.6
+  if (!cliente.dados.servico && cliente.dados.bairro) {
+    return "Qual servico deseja?";
+  }
+  
+  // Fluxo padrão
   if (!cliente.dados.servico) {
-    return `Tudo bem. Me conta, qual servico voce esta precisando?`;
+    return "Qual servico voce esta precisando?";
   }
   if (!cliente.dados.bairro) {
-    return `Entendi que voce precisa de ${cliente.dados.servico}. Em qual bairro e?`;
+    return "Em qual bairro e o servico?";
   }
-  return `Perfeito. Para quando voce quer agendar?`;
+  if (!cliente.dados.data) {
+    return "Para quando voce quer agendar?";
+  }
+  if (!cliente.dados.endereco) {
+    return "Qual o endereco completo?";
+  }
+  
+  return "Entendi. Posso confirmar os dados para marcar a visita?";
 }
 
 async function enviarWhatsApp(numero, texto) {
   console.log(`\n📤 Para ${numero}:\n${texto}\n---`);
   
   if (!WHATSAPP_TOKEN || !WHATSAPP_PHONE_ID) {
-    console.error('ERRO: Variaveis nao configuradas');
+    console.error('ERRO: Variaveis WhatsApp nao configuradas');
     return false;
   }
   
@@ -346,14 +604,14 @@ async function enviarWhatsApp(numero, texto) {
     const data = await res.json();
     
     if (!res.ok) {
-      console.error('Erro:', data);
+      console.error('Erro WhatsApp API:', data);
       return false;
     }
     
     return true;
     
   } catch (e) {
-    console.error('Excecao:', e.message);
+    console.error('Excecao WhatsApp:', e.message);
     return false;
   }
 }

@@ -30,8 +30,16 @@ const processadas = new Set();
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  
+  // Tratamento de preflight CORS
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
   
   try {
+    // Verificação do webhook (Meta)
     if (req.method === 'GET' && req.query['hub.mode'] === 'subscribe') {
       if (req.query['hub.verify_token'] === 'roboatendente') {
         return res.status(200).send(req.query['hub.challenge']);
@@ -39,6 +47,7 @@ export default async function handler(req, res) {
       return res.status(403).send('Forbidden');
     }
     
+    // Recebimento de mensagens
     if (req.method === 'POST') {
       return await receber(req, res);
     }
@@ -66,24 +75,32 @@ async function receber(req, res) {
   const msg = changes.messages?.[0];
   if (!msg || !msg.id) return res.status(200).send('OK');
   
+  // Evita processar mensagem duplicada
   if (processadas.has(msg.id)) return res.status(200).send('OK');
   processadas.add(msg.id);
+  
+  // Limpa cache após 1 hora para evitar memory leak
+  setTimeout(() => processadas.delete(msg.id), 3600000);
   
   const telefone = msg.from;
   const nome = changes.contacts?.[0]?.profile?.name || 'Cliente';
   
+  // Ignora mensagens do próprio RC
   if (telefone === CONFIG.numeroRC) return res.status(200).send('OK');
   
+  // Não processa áudio
   if (msg.type === 'audio') {
     await enviar(telefone, "No momento não consigo ouvir áudios. Pode escrever, por favor?");
     return res.status(200).send('OK');
   }
   
+  // Só processa texto
   if (msg.type !== 'text') return res.status(200).send('OK');
   
   const texto = msg.text.body;
-  console.log(`\n📨 ${nome}: ${texto}`);
+  console.log(`\n📨 ${nome} (${telefone}): ${texto}`);
   
+  // Inicializa ou recupera cliente
   if (!clientes[telefone]) {
     clientes[telefone] = { nome, etapa: 'INICIO', dados: {} };
   }
@@ -405,7 +422,7 @@ function etapaConfirmar(cli, t, original) {
                 d.servico?.match(/hidráulica|hidraulica/) ? CONFIG.tecnicos.hidraulica :
                 CONFIG.tecnicos.reforma;
     
-    enviar(num, `Visita de ${d.servico} marcada. Endereço: ${d.endereco}, Cliente: ${cli.nome}, Dia: ${d.data}, Horário: ${d.hora}.`);
+    enviar(num, `📋 NOVA VISITA AGENDADA\nServiço: ${d.servico}\nEndereço: ${d.endereco}\nCliente: ${cli.nome}\nDia: ${d.data}\nHorário: ${d.hora}\nValor visita: R$${d.valor || 0}`);
     
     cli.etapa = 'AGENDADO';
     return `Perfeito, está marcado! O técnico confirmará em breve. Se precisar de mais alguma coisa, é só chamar.`;
@@ -446,8 +463,13 @@ function extrair(t, txt) {
   return { servico, bairro };
 }
 
-function extrairServico(t) { return extrair(t, '').servico; }
-function extrairBairro(t, txt) { return extrair(t, txt).bairro; }
+function extrairServico(t) { 
+  return extrair(t, '').servico; 
+}
+
+function extrairBairro(t, txt) { 
+  return extrair(t, txt).bairro; 
+}
 
 function extrairHora(txt) {
   const m = txt.match(/(\d{1,2})[:h]?(\d{2})?/);
@@ -490,16 +512,11 @@ async function enviar(numero, texto) {
       return false;
     }
     
-    console.log('✅ Enviado');
+    console.log('✅ Enviado com sucesso');
     return true;
     
   } catch (e) {
     console.error('❌ Exceção:', e.message);
     return false;
-  }
-}
-    
-    default:
-      return res.status(400).json({ erro: 'Ação desconhecida' });
   }
 }

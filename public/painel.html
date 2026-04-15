@@ -64,23 +64,6 @@
         @keyframes spin { to { transform: rotate(360deg); } }
         #loading p { color: white; font-size: 16px; }
         
-        /* Debug Panel */
-        #debugPanel {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            background: #ff4444;
-            color: white;
-            padding: 10px;
-            font-size: 12px;
-            z-index: 10000;
-            display: none;
-            max-height: 200px;
-            overflow-y: auto;
-        }
-        #debugPanel.show { display: block; }
-        
         /* App Container - Mobile First */
         #app {
             display: flex;
@@ -224,17 +207,6 @@
             flex-shrink: 0;
             position: relative;
         }
-        .chat-avatar.online::after {
-            content: '';
-            position: absolute;
-            bottom: 2px;
-            right: 2px;
-            width: 12px;
-            height: 12px;
-            background: var(--accent);
-            border-radius: 50%;
-            border: 2px solid var(--sidebar-bg);
-        }
         
         .chat-info {
             flex: 1;
@@ -259,7 +231,6 @@
             color: var(--accent);
             flex-shrink: 0;
         }
-        .chat-item:not(.unread) .chat-time { color: var(--text-secondary); }
         
         .chat-preview {
             display: flex;
@@ -270,22 +241,6 @@
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-        }
-        .chat-preview.typing { color: var(--accent); font-style: italic; }
-        
-        .unread-badge {
-            background: var(--accent);
-            color: white;
-            font-size: 12px;
-            font-weight: 600;
-            min-width: 20px;
-            height: 20px;
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 0 6px;
-            margin-left: 8px;
         }
         
         .status-indicator {
@@ -384,9 +339,7 @@
             white-space: nowrap;
         }
         .action-btn.intervene { background: var(--danger); color: white; }
-        .action-btn.intervene:hover { background: #d94a5b; }
         .action-btn.release { background: var(--accent); color: #111; }
-        .action-btn.release:hover { background: #20c05a; }
         .action-btn:disabled { opacity: 0.5; cursor: not-allowed; }
         
         /* Intervention Banner */
@@ -484,40 +437,6 @@
             margin: 16px 0;
             text-transform: uppercase;
             letter-spacing: 0.5px;
-        }
-        
-        /* Typing Indicator */
-        .typing-container {
-            display: none;
-            padding: 12px 16px;
-            margin-bottom: 8px;
-        }
-        .typing-container.active { display: block; }
-        
-        .typing-bubble {
-            background: var(--incoming);
-            padding: 14px 20px;
-            border-radius: 16px;
-            border-top-left-radius: 4px;
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            width: fit-content;
-        }
-        
-        .typing-dot {
-            width: 8px;
-            height: 8px;
-            background: var(--text-secondary);
-            border-radius: 50%;
-            animation: typingBounce 1.4s infinite ease-in-out both;
-        }
-        .typing-dot:nth-child(1) { animation-delay: -0.32s; }
-        .typing-dot:nth-child(2) { animation-delay: -0.16s; }
-        
-        @keyframes typingBounce {
-            0%, 80%, 100% { transform: scale(0.6); opacity: 0.5; }
-            40% { transform: scale(1); opacity: 1; }
         }
         
         /* Input Area */
@@ -629,10 +548,6 @@
     </style>
 </head>
 <body>
-    <!-- Debug Panel (pressione Ctrl+D para mostrar) -->
-    <div id="debugPanel"></div>
-    
-    <!-- Loading -->
     <div id="loading">
         <div class="spinner"></div>
         <p>Conectando ao painel...</p>
@@ -650,9 +565,6 @@
                 </h1>
                 <div class="header-actions">
                     <span class="connection-badge" id="connectionBadge">Conectando...</span>
-                    <button class="icon-btn" onclick="app.toggleDebug()" title="Debug">
-                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
-                    </button>
                 </div>
             </div>
             
@@ -700,14 +612,6 @@
                 </div>
 
                 <div class="messages-container" id="messagesContainer"></div>
-                
-                <div class="typing-container" id="typingContainer">
-                    <div class="typing-bubble">
-                        <div class="typing-dot"></div>
-                        <div class="typing-dot"></div>
-                        <div class="typing-dot"></div>
-                    </div>
-                </div>
 
                 <div class="input-container">
                     <div class="input-wrapper">
@@ -724,290 +628,337 @@
 
     <script>
         // ==========================================
-        // CONFIGURAÇÃO - AJUSTE AQUI SEU WEBHOOK
+        // CONFIGURAÇÃO
         // ==========================================
         const CONFIG = {
-            // URL do seu webhook RC Reforma
-            WEBHOOK_URL: '/api/webhook',
-            
-            // Intervalo de polling (2 segundos para lista, 1.5s para chat aberto)
-            POLL_INTERVAL: 2000,
-            CHAT_POLL_INTERVAL: 1500,
-            
-            // Chave do localStorage
-            STORAGE_KEY: 'rc_reforma_panel',
-            
-            // Para testar sem webhook, mude para true
-            USE_MOCK_DATA: false
+            WEBHOOK_URL: window.location.origin + '/api/webhook',
+            POLL_INTERVAL: 3000,      // 3 segundos para lista (igual ao seu código funcional)
+            CHAT_POLL_INTERVAL: 1500, // 1.5 segundos para mensagens (igual ao seu código funcional)
+            STORAGE_KEY: 'whatsapp_panel_v3'
         };
 
         // ==========================================
-        // CLASSE PRINCIPAL - CONECTADA AO SEU WEBHOOK
+        // APLICAÇÃO - LÓGICA CORRIGIDA (SEM BUG DE PISCAR)
         // ==========================================
         class WhatsAppPanel {
             constructor() {
                 this.conversations = new Map(); // telefone -> dados
                 this.currentPhone = null;
-                this.pollingTimer = null;
-                this.chatPollingTimer = null;
-                this.isOnline = true;
-                this.debugMode = false;
+                this.intervention = false;
+                this.lastActivity = 0;
+                this.cacheConversations = []; // Cache para evitar re-render desnecessário
                 
                 this.init();
             }
 
-            async init() {
-                console.log('[Painel] Inicializando...');
-                
-                // Carregar do cache imediatamente
-                this.loadFromCache();
-                this.renderList();
+            init() {
+                console.log('[Painel] Iniciando...');
                 
                 // Esconder loading
                 setTimeout(() => {
                     document.getElementById('loading').classList.add('fade-out');
                 }, 500);
                 
-                // Iniciar
-                if (CONFIG.USE_MOCK_DATA) {
-                    this.loadMockData();
-                } else {
-                    this.startPolling();
-                }
+                // Iniciar polling (igual ao seu código funcional)
+                this.loadConversations();
+                setInterval(() => this.loadConversations(), CONFIG.POLL_INTERVAL);
                 
-                // Debug com Ctrl+D
-                document.addEventListener('keydown', (e) => {
-                    if (e.ctrlKey && e.key === 'd') {
-                        e.preventDefault();
-                        this.toggleDebug();
-                    }
-                });
-            }
-
-            log(msg, type = 'info') {
-                console.log(`[Painel] ${msg}`);
-                if (this.debugMode) {
-                    const panel = document.getElementById('debugPanel');
-                    const time = new Date().toLocaleTimeString();
-                    const color = type === 'error' ? '#ff6b6b' : (type === 'success' ? '#4caf50' : 'white');
-                    panel.innerHTML += `<div style="color: ${color}; border-bottom: 1px solid rgba(255,255,255,0.1); padding: 2px 0;">[${time}] ${msg}</div>`;
-                    panel.scrollTop = panel.scrollHeight;
-                }
-            }
-
-            toggleDebug() {
-                this.debugMode = !this.debugMode;
-                document.getElementById('debugPanel').classList.toggle('show', this.debugMode);
-                this.log('Debug: ' + (this.debugMode ? 'ON' : 'OFF'));
-            }
-
-            loadMockData() {
-                // Dados de teste
-                const mockConvs = [
-                    {
-                        telefone: "5511999999999",
-                        nome: "João Teste",
-                        etapa: "INICIO",
-                        emIntervencao: false,
-                        ultimaAtividade: new Date().toISOString(),
-                        resumo: "Olá, quero uma reforma"
-                    }
-                ];
-                
-                mockConvs.forEach(c => {
-                    c.messages = [
-                        { tipo: 'cliente', mensagem: 'Olá, quero uma reforma', data: new Date().toISOString() }
-                    ];
-                    this.conversations.set(c.telefone, c);
-                });
-                
-                this.saveToCache();
-                this.renderList();
-                this.updateConnection('online');
-                this.log('Dados de teste carregados', 'success');
-            }
-
-            loadFromCache() {
-                try {
-                    const cached = localStorage.getItem(CONFIG.STORAGE_KEY);
-                    if (cached) {
-                        const data = JSON.parse(cached);
-                        if (data.conversations) {
-                            data.conversations.forEach(c => this.conversations.set(c.telefone, c));
-                            this.log(`Cache: ${this.conversations.size} conversas`);
-                        }
-                    }
-                } catch (e) {
-                    this.log('Erro cache: ' + e.message, 'error');
-                }
-            }
-
-            saveToCache() {
-                try {
-                    const data = {
-                        conversations: Array.from(this.conversations.values()),
-                        savedAt: new Date().toISOString()
-                    };
-                    localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify(data));
-                } catch (e) {
-                    this.log('Erro ao salvar: ' + e.message, 'error');
-                }
-            }
-
-            startPolling() {
-                this.fetchConversations(); // Primeira imediata
-                this.pollingTimer = setInterval(() => this.fetchConversations(), CONFIG.POLL_INTERVAL);
-            }
-
-            stopPolling() {
-                if (this.pollingTimer) clearInterval(this.pollingTimer);
-            }
-
-            startChatPolling(phone) {
-                if (this.chatPollingTimer) clearInterval(this.chatPollingTimer);
-                this.chatPollingTimer = setInterval(() => {
-                    if (this.currentPhone === phone) {
-                        this.fetchMessages(phone);
+                // Polling de mensagens do chat atual (igual ao seu código funcional)
+                setInterval(() => {
+                    if (this.currentPhone) {
+                        this.loadMessages(this.currentPhone);
                     }
                 }, CONFIG.CHAT_POLL_INTERVAL);
             }
 
-            stopChatPolling() {
-                if (this.chatPollingTimer) {
-                    clearInterval(this.chatPollingTimer);
-                    this.chatPollingTimer = null;
-                }
-            }
-
             // ==========================================
-            // BUSCAR CONVERSAS DO SEU WEBHOOK
+            // CARREGAR CONVERSAS (LÓGICA DO SEU CÓDIGO FUNCIONAL)
             // ==========================================
-            async fetchConversations() {
+            async loadConversations() {
                 try {
                     this.updateConnection('connecting');
                     
-                    const response = await fetch(`${CONFIG.WEBHOOK_URL}?action=list&_t=${Date.now()}`);
-                    
-                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                    
+                    const response = await fetch(`${CONFIG.WEBHOOK_URL}?acao=listar&_t=${Date.now()}`);
                     const data = await response.json();
-                    this.log('Recebido do webhook: ' + JSON.stringify(data).substring(0, 200), 'success');
                     
-                    // Seu webhook retorna { conversas: [...] }
-                    const conversas = data.conversas || [];
+                    console.log('[Painel] Conversas recebidas:', data.length);
                     
-                    let hasChanges = false;
+                    // VERIFICAÇÃO CRÍTICA: Só re-renderiza se mudou algo (evita piscar)
+                    const currentHash = JSON.stringify(this.cacheConversations.map(d => 
+                        d.telefone + (d.intervencao ? '1' : '0') + d.ultima
+                    ));
                     
-                    conversas.forEach(conv => {
-                        const existing = this.conversations.get(conv.telefone);
-                        
-                        // Criar ou atualizar
-                        if (!existing) {
-                            // Nova conversa
-                            this.conversations.set(conv.telefone, {
-                                ...conv,
-                                messages: [],
-                                unread: true
+                    const newHash = JSON.stringify(data.map(d => 
+                        d.telefone + (d.intervencao ? '1' : '0') + d.ultima
+                    ));
+                    
+                    // Se não mudou nada e já temos dados, não re-renderiza (SEM BUG DE PISCAR)
+                    if (currentHash === newHash && this.cacheConversations.length > 0) {
+                        return;
+                    }
+                    
+                    // Atualizar cache
+                    this.cacheConversations = data;
+                    
+                    // Atualizar mapa de conversas
+                    data.forEach(c => {
+                        if (!this.conversations.has(c.telefone)) {
+                            this.conversations.set(c.telefone, {
+                                ...c,
+                                messages: []
                             });
-                            hasChanges = true;
-                            this.log('Nova conversa: ' + conv.telefone);
                         } else {
-                            // Verificar mudanças
-                            const changed = 
-                                existing.etapa !== conv.etapa ||
-                                existing.emIntervencao !== conv.emIntervencao ||
-                                existing.ultimaAtividade !== conv.ultimaAtividade;
-                            
-                            if (changed) {
-                                Object.assign(existing, conv);
-                                hasChanges = true;
-                            }
-                            
-                            // Se é o chat atual, buscar mensagens
-                            if (this.currentPhone === conv.telefone) {
-                                this.fetchMessages(conv.telefone);
-                            }
+                            // Atualizar apenas campos necessários
+                            const existing = this.conversations.get(c.telefone);
+                            existing.nome = c.nome;
+                            existing.intervencao = c.intervencao;
+                            existing.ultima = c.ultima;
+                            existing.ultimaAtividade = c.ultimaAtividade;
                         }
                     });
                     
-                    if (hasChanges) {
-                        this.saveToCache();
-                        this.renderList();
-                    }
-                    
+                    this.renderList();
                     this.updateConnection('online');
-                    this.isOnline = true;
                     
                 } catch (error) {
-                    this.log('Erro: ' + error.message, 'error');
+                    console.error('[Painel] Erro:', error);
                     this.updateConnection('offline');
-                    this.isOnline = false;
                 }
             }
 
             // ==========================================
-            // BUSCAR MENSAGENS DO SEU WEBHOOK
+            // CARREGAR MENSAGENS (LÓGICA DO SEU CÓDIGO FUNCIONAL)
             // ==========================================
-            async fetchMessages(phone) {
-                if (!phone) return;
+            async loadMessages(phone) {
+                try {
+                    const response = await fetch(`${CONFIG.WEBHOOK_URL}?acao=mensagens&telefone=${encodeURIComponent(phone)}&_t=${Date.now()}`);
+                    const messages = await response.json();
+                    
+                    const container = document.getElementById('messagesContainer');
+                    
+                    // VERIFICAÇÃO CRÍTICA: Comparar HTML atual com novo (evita piscar)
+                    const currentHtml = container.innerHTML;
+                    
+                    const newHtml = messages.map(m => {
+                        // Determinar tipo baseado no seu webhook
+                        let type = 'incoming';
+                        if (m.tipo === 'robo' || m.tipo === 'bot') type = 'outgoing';
+                        else if (m.tipo === 'humano' || m.tipo === 'me') type = 'outgoing';
+                        else if (m.tipo === 'sistema' || m.tipo === 'system') type = 'system';
+                        else if (m.tipo === 'cliente') type = 'incoming';
+                        
+                        const content = this.escapeHtml(m.texto || m.mensagem || m.content || '');
+                        const time = m.hora || this.formatTime(m.data);
+                        const sender = m.nome || (type === 'outgoing' ? 'Você' : 'Cliente');
+                        
+                        return `
+                            <div class="message ${type}">
+                                <div class="message-content">${content}</div>
+                                <div class="message-meta">${sender} • ${time}</div>
+                            </div>
+                        `;
+                    }).join('');
+                    
+                    // SÓ ATUALIZAR SE MUDOU (SEM BUG DE PISCAR)
+                    if (newHtml !== currentHtml) {
+                        container.innerHTML = newHtml;
+                        this.scrollToBottom();
+                    }
+                    
+                    // Atualizar dados da conversa atual
+                    const conv = this.conversations.get(phone);
+                    if (conv) {
+                        conv.messages = messages;
+                        // Atualizar preview na lista se necessário
+                        if (messages.length > 0) {
+                            const last = messages[messages.length - 1];
+                            conv.ultima = last.texto || last.mensagem || 'Nova mensagem';
+                        }
+                    }
+                    
+                } catch (error) {
+                    console.error('[Painel] Erro mensagens:', error);
+                }
+            }
+
+            // ==========================================
+            // ABRIR CHAT (LÓGICA DO SEU CÓDIGO FUNCIONAL)
+            // ==========================================
+            openChat(phone, nome, interv, atividade) {
+                // Se já está selecionado e atividade não mudou, não faz nada (SEM BUG)
+                if (phone === this.currentPhone && atividade === this.lastActivity) {
+                    return;
+                }
+                
+                this.currentPhone = phone;
+                this.intervention = interv;
+                this.lastActivity = atividade;
+                
+                // Atualizar classes visuais na lista
+                document.querySelectorAll('.chat-item').forEach(el => {
+                    el.classList.remove('active');
+                    if (el.dataset.phone === phone) {
+                        el.classList.add('active');
+                    }
+                });
+                
+                // Mostrar chat
+                document.getElementById('sidebar').classList.add('hidden-mobile');
+                document.getElementById('chatArea').classList.add('active', 'has-chat');
+                document.getElementById('chatPlaceholder').style.display = 'none';
+                document.getElementById('activeChat').style.display = 'flex';
+                
+                // Header
+                const conv = this.conversations.get(phone);
+                document.getElementById('chatName').textContent = nome || phone;
+                document.getElementById('chatAvatar').textContent = this.getInitials(nome);
+                
+                this.updateButtons();
+                this.loadMessages(phone);
+            }
+
+            closeChat() {
+                this.currentPhone = null;
+                
+                document.getElementById('sidebar').classList.remove('hidden-mobile');
+                document.getElementById('chatArea').classList.remove('active', 'has-chat');
+                document.getElementById('chatPlaceholder').style.display = 'flex';
+                document.getElementById('activeChat').style.display = 'none';
+            }
+
+            updateButtons() {
+                const actions = document.getElementById('chatActions');
+                const banner = document.getElementById('interventionBanner');
+                const input = document.getElementById('messageInput');
+                const sendBtn = document.getElementById('sendBtn');
+                const status = document.getElementById('chatStatus');
+                
+                if (this.intervention) {
+                    actions.innerHTML = '<button class="action-btn release" onclick="app.release()">🤖 Liberar Robô</button>';
+                    banner.classList.add('active');
+                    input.disabled = false;
+                    sendBtn.disabled = false;
+                    input.placeholder = 'Digite uma mensagem...';
+                    input.focus();
+                    status.textContent = 'Você está no controle';
+                } else {
+                    actions.innerHTML = '<button class="action-btn intervene" onclick="app.intervene()">🚨 Assumir Controle</button>';
+                    banner.classList.remove('active');
+                    input.disabled = true;
+                    sendBtn.disabled = true;
+                    input.placeholder = 'Assuma o controle para responder';
+                    status.textContent = 'Robô ativo';
+                }
+            }
+
+            // ==========================================
+            // AÇÕES (LÓGICA DO SEU CÓDIGO FUNCIONAL)
+            // ==========================================
+            async intervene() {
+                if (!this.currentPhone) return;
+                
+                const btn = document.querySelector('.action-btn');
+                btn.textContent = '⏳...';
+                btn.disabled = true;
                 
                 try {
-                    const response = await fetch(`${CONFIG.WEBHOOK_URL}?action=messages&phone=${encodeURIComponent(phone)}&_t=${Date.now()}`);
+                    const response = await fetch(`${CONFIG.WEBHOOK_URL}?acao=intervir`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ telefone: this.currentPhone })
+                    });
                     
-                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    const result = await response.json();
                     
-                    const data = await response.json();
-                    
-                    // Seu webhook retorna { mensagens: [...], nome, etapa, emIntervencao, ... }
-                    const msgs = data.mensagens || [];
-                    
-                    const conv = this.conversations.get(phone);
-                    if (!conv) return;
-                    
-                    // Atualizar dados da conversa
-                    if (data.nome) conv.nome = data.nome;
-                    if (data.etapa) conv.etapa = data.etapa;
-                    if (data.emIntervencao !== undefined) conv.emIntervencao = data.emIntervencao;
-                    
-                    // Verificar se há mensagens novas
-                    const currentCount = conv.messages?.length || 0;
-                    
-                    if (msgs.length !== currentCount) {
-                        conv.messages = msgs;
-                        this.saveToCache();
-                        
-                        // Se é o chat atual, renderizar
-                        if (this.currentPhone === phone) {
-                            this.renderMessages(msgs);
-                        }
-                        
-                        // Atualizar preview na lista
-                        if (msgs.length > 0) {
-                            const last = msgs[msgs.length - 1];
-                            conv.resumo = last.mensagem || last.content || 'Nova mensagem';
-                            conv.ultimaAtividade = last.data || new Date().toISOString();
-                            this.renderList();
-                        }
+                    if (result.ok) {
+                        this.intervention = true;
+                        this.updateButtons();
+                        this.loadMessages(this.currentPhone);
+                        // Recarregar lista após 500ms
+                        setTimeout(() => this.loadConversations(), 500);
+                    } else {
+                        alert('Erro: ' + (result.erro || 'Desconhecido'));
+                        btn.textContent = '🚨 Assumir Controle';
+                        btn.disabled = false;
                     }
                     
                 } catch (error) {
-                    this.log(`Erro mensagens ${phone}: ${error.message}`, 'error');
+                    alert('Erro de conexão');
+                    btn.textContent = '🚨 Assumir Controle';
+                    btn.disabled = false;
                 }
             }
 
-            updateConnection(status) {
-                const badge = document.getElementById('connectionBadge');
-                badge.className = 'connection-badge ' + status;
+            async release() {
+                if (!this.currentPhone) return;
                 
-                switch(status) {
-                    case 'online': badge.textContent = '🟢 Online'; break;
-                    case 'offline': badge.textContent = '🔴 Offline'; break;
-                    case 'connecting': badge.textContent = '🟡 Atualizando...'; break;
+                const btn = document.querySelector('.action-btn');
+                btn.textContent = '⏳...';
+                btn.disabled = true;
+                
+                try {
+                    const response = await fetch(`${CONFIG.WEBHOOK_URL}?acao=liberar`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ telefone: this.currentPhone })
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.ok) {
+                        this.intervention = false;
+                        this.updateButtons();
+                        this.loadMessages(this.currentPhone);
+                        setTimeout(() => this.loadConversations(), 500);
+                    }
+                    
+                } catch (error) {
+                    alert('Erro de conexão');
+                    btn.textContent = '🤖 Liberar Robô';
+                    btn.disabled = false;
+                }
+            }
+
+            async sendMessage() {
+                if (!this.currentPhone || !this.intervention) {
+                    alert('Assuma o controle primeiro!');
+                    return;
+                }
+                
+                const input = document.getElementById('messageInput');
+                const text = input.value.trim();
+                if (!text) return;
+                
+                input.value = '';
+                
+                try {
+                    const response = await fetch(`${CONFIG.WEBHOOK_URL}?acao=enviar`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            telefone: this.currentPhone, 
+                            mensagem: text 
+                        })
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.ok) {
+                        // Aguardar e recarregar
+                        setTimeout(() => this.loadMessages(this.currentPhone), 300);
+                    } else {
+                        alert('Erro: ' + (result.erro || 'Não foi possível enviar'));
+                        input.value = text;
+                    }
+                    
+                } catch (error) {
+                    alert('Erro de conexão');
+                    input.value = text;
                 }
             }
 
             // ==========================================
-            // RENDERIZAR LISTA DE CONVERSAS
+            // RENDERIZAR LISTA (COM CACHE SEM PISCAR)
             // ==========================================
             renderList() {
                 const container = document.getElementById('chatList');
@@ -1018,9 +969,9 @@
                         (c.nome?.toLowerCase().includes(searchTerm)) || 
                         c.telefone.includes(searchTerm))
                     .sort((a, b) => {
-                        // Intervenções primeiro, depois por data
-                        if (a.emIntervencao && !b.emIntervencao) return -1;
-                        if (!a.emIntervencao && b.emIntervencao) return 1;
+                        // Intervenções primeiro
+                        if (a.intervencao && !b.intervencao) return -1;
+                        if (!a.intervencao && b.intervencao) return 1;
                         return new Date(b.ultimaAtividade || 0) - new Date(a.ultimaAtividade || 0);
                     });
 
@@ -1028,282 +979,42 @@
                     container.innerHTML = `
                         <div class="empty-list">
                             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg>
-                            <p>${this.isOnline ? 'Nenhuma conversa ativa' : 'Modo offline'}</p>
+                            <p>Nenhuma conversa.<br>Envie mensagem de teste.</p>
                         </div>
                     `;
                     return;
                 }
 
-                container.innerHTML = convs.map(conv => {
-                    const isActive = conv.telefone === this.currentPhone;
-                    const isUnread = conv.unread && !isActive;
-                    const time = this.formatTime(conv.ultimaAtividade);
-                    const preview = conv.resumo || 'Sem mensagens';
-                    const isIntervention = conv.emIntervencao;
+                const html = convs.map(c => {
+                    const isActive = c.telefone === this.currentPhone;
+                    const isIntervention = c.intervencao;
                     
                     return `
-                        <div class="chat-item ${isActive ? 'active' : ''} ${isUnread ? 'unread' : ''}" 
-                             onclick="app.openChat('${conv.telefone}')"
-                             data-phone="${conv.telefone}">
-                            <div class="chat-avatar">${this.getInitials(conv.nome)}</div>
+                        <div class="chat-item ${isActive ? 'active' : ''}" 
+                             onclick="app.openChat('${c.telefone}', '${c.nome}', ${c.intervencao}, ${c.ultimaAtividade})"
+                             data-phone="${c.telefone}">
+                            <div class="chat-avatar">${this.getInitials(c.nome)}</div>
                             <div class="chat-info">
                                 <div class="chat-header-row">
-                                    <span class="chat-name">${conv.nome || conv.telefone}</span>
-                                    <span class="chat-time">${time}</span>
+                                    <span class="chat-name">${c.nome || c.telefone}</span>
+                                    <span class="chat-time">${this.formatTime(c.ultimaAtividade)}</span>
                                 </div>
                                 <div class="chat-preview">
                                     <span style="flex: 1; overflow: hidden; text-overflow: ellipsis;">
-                                        ${isIntervention ? '🔴 ' : ''}${this.escapeHtml(preview.substring(0, 50))}
+                                        ${this.escapeHtml(c.ultima || 'Sem mensagens')}
                                     </span>
                                     <span class="status-indicator ${isIntervention ? 'human' : 'bot'}">
-                                        ${isIntervention ? 'VOCÊ' : 'BOT'}
+                                        ${isIntervention ? '🔴 VOCÊ' : '🤖 BOT'}
                                     </span>
                                 </div>
                             </div>
                         </div>
                     `;
                 }).join('');
-            }
-
-            // ==========================================
-            // ABRIR CHAT
-            // ==========================================
-            async openChat(phone) {
-                this.log('Abrindo: ' + phone);
-                this.currentPhone = phone;
-                const conv = this.conversations.get(phone);
                 
-                if (!conv) {
-                    this.log('Conversa não encontrada!', 'error');
-                    return;
-                }
-
-                // UI
-                document.getElementById('sidebar').classList.add('hidden-mobile');
-                document.getElementById('chatArea').classList.add('active', 'has-chat');
-                document.getElementById('chatPlaceholder').style.display = 'none';
-                document.getElementById('activeChat').style.display = 'flex';
-
-                // Header
-                document.getElementById('chatName').textContent = conv.nome || phone;
-                document.getElementById('chatAvatar').textContent = this.getInitials(conv.nome);
-                this.updateChatStatus(conv);
-
-                // Renderizar mensagens do cache imediatamente
-                if (conv.messages && conv.messages.length > 0) {
-                    this.renderMessages(conv.messages);
-                } else {
-                    document.getElementById('messagesContainer').innerHTML = '';
-                }
-
-                // Buscar mensagens atualizadas
-                await this.fetchMessages(phone);
-
-                // Marcar como lida
-                conv.unread = false;
-                this.renderList();
-
-                // Iniciar polling rápido
-                this.startChatPolling(phone);
-
-                // Focar se em intervenção
-                if (conv.emIntervencao) {
-                    setTimeout(() => document.getElementById('messageInput').focus(), 100);
-                }
-            }
-
-            closeChat() {
-                this.currentPhone = null;
-                this.stopChatPolling();
-                
-                document.getElementById('sidebar').classList.remove('hidden-mobile');
-                document.getElementById('chatArea').classList.remove('active', 'has-chat');
-                document.getElementById('chatPlaceholder').style.display = 'flex';
-                document.getElementById('activeChat').style.display = 'none';
-            }
-
-            updateChatStatus(conv) {
-                const statusText = conv.emIntervencao ? 
-                    '⚠️ Você está no controle' : 
-                    `Etapa: ${conv.etapa || 'Início'}`;
-                document.getElementById('chatStatus').textContent = statusText;
-                
-                const banner = document.getElementById('interventionBanner');
-                const input = document.getElementById('messageInput');
-                const sendBtn = document.getElementById('sendBtn');
-                const actions = document.getElementById('chatActions');
-                
-                if (conv.emIntervencao) {
-                    banner.classList.add('active');
-                    input.disabled = false;
-                    sendBtn.disabled = false;
-                    input.placeholder = 'Digite uma mensagem';
-                    actions.innerHTML = `
-                        <button class="action-btn release" onclick="app.toggleIntervention(false)">
-                            🤖 Liberar Robô
-                        </button>
-                    `;
-                } else {
-                    banner.classList.remove('active');
-                    input.disabled = true;
-                    sendBtn.disabled = true;
-                    input.placeholder = 'Assuma o controle para responder';
-                    actions.innerHTML = `
-                        <button class="action-btn intervene" onclick="app.toggleIntervention(true)">
-                            🚨 Assumir Controle
-                        </button>
-                    `;
-                }
-            }
-
-            // ==========================================
-            // RENDERIZAR MENSAGENS
-            // ==========================================
-            renderMessages(messages) {
-                const container = document.getElementById('messagesContainer');
-                
-                if (!messages || messages.length === 0) {
-                    container.innerHTML = '<div style="text-align: center; color: #8696a0; padding: 40px;">Nenhuma mensagem</div>';
-                    return;
-                }
-
-                let lastDate = null;
-                let html = '';
-                
-                messages.forEach((msg, index) => {
-                    const msgDate = new Date(msg.data || msg.timestamp || Date.now()).toDateString();
-                    
-                    if (msgDate !== lastDate) {
-                        html += `<div class="date-separator">${this.formatDate(msg.data || msg.timestamp)}</div>`;
-                        lastDate = msgDate;
-                    }
-                    
-                    // Determinar tipo baseado no seu webhook
-                    // Seu webhook retorna: tipo: 'cliente' | 'bot' | 'humano' | 'system'
-                    let type = 'incoming';
-                    let sender = 'Cliente';
-                    
-                    const tipo = msg.tipo || msg.from;
-                    
-                    if (tipo === 'bot') {
-                        type = 'outgoing';
-                        sender = 'Robô';
-                    } else if (tipo === 'humano' || tipo === 'me') {
-                        type = 'outgoing';
-                        sender = 'Você';
-                    } else if (tipo === 'system') {
-                        type = 'system';
-                        sender = 'Sistema';
-                    }
-                    
-                    const time = this.formatTime(msg.data || msg.timestamp);
-                    const content = this.escapeHtml(msg.mensagem || msg.content || msg.text || '');
-                    
-                    html += `
-                        <div class="message ${type}" data-id="${msg.id || index}">
-                            <div class="message-content">${content}</div>
-                            <div class="message-meta">${time}</div>
-                        </div>
-                    `;
-                });
-                
-                // Só atualizar se mudou
+                // Só atualizar se mudou (evita flicker)
                 if (container.innerHTML !== html) {
                     container.innerHTML = html;
-                    this.scrollToBottom();
-                }
-            }
-
-            // ==========================================
-            // AÇÕES: INTERVENÇÃO E ENVIAR
-            // ==========================================
-            async toggleIntervention(takeControl) {
-                if (!this.currentPhone) return;
-                
-                const action = takeControl ? 'intervene' : 'release';
-                const btn = document.querySelector('.action-btn');
-                
-                this.log(`${action}: ${this.currentPhone}`);
-                btn.disabled = true;
-                btn.textContent = '⏳...';
-                
-                try {
-                    const response = await fetch(`${CONFIG.WEBHOOK_URL}?action=${action}`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ phone: this.currentPhone })
-                    });
-                    
-                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                    
-                    const result = await response.json();
-                    this.log('Sucesso: ' + JSON.stringify(result), 'success');
-                    
-                    // Atualizar localmente
-                    const conv = this.conversations.get(this.currentPhone);
-                    conv.emIntervencao = takeControl;
-                    this.saveToCache();
-                    this.updateChatStatus(conv);
-                    this.renderList();
-                    
-                } catch (error) {
-                    this.log('Erro: ' + error.message, 'error');
-                    alert('Erro ao alterar controle');
-                    btn.disabled = false;
-                    btn.textContent = takeControl ? '🚨 Assumir Controle' : '🤖 Liberar Robô';
-                }
-            }
-
-            async sendMessage() {
-                if (!this.currentPhone) return;
-                
-                const input = document.getElementById('messageInput');
-                const text = input.value.trim();
-                if (!text) return;
-                
-                const conv = this.conversations.get(this.currentPhone);
-                if (!conv.emIntervencao) {
-                    alert('Assuma o controle primeiro!');
-                    return;
-                }
-                
-                input.value = '';
-                
-                // Adicionar localmente (otimista)
-                const newMsg = {
-                    tipo: 'humano',
-                    mensagem: text,
-                    data: new Date().toISOString()
-                };
-                
-                if (!conv.messages) conv.messages = [];
-                conv.messages.push(newMsg);
-                this.renderMessages(conv.messages);
-                this.saveToCache();
-                
-                // Enviar para servidor
-                try {
-                    const response = await fetch(`${CONFIG.WEBHOOK_URL}?action=send`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            phone: this.currentPhone,
-                            mensagem: text
-                        })
-                    });
-                    
-                    if (!response.ok) throw new Error('Falha ao enviar');
-                    
-                    // Atualizar preview
-                    conv.resumo = text;
-                    conv.ultimaAtividade = new Date().toISOString();
-                    this.renderList();
-                    
-                    this.log('Mensagem enviada', 'success');
-                    
-                } catch (error) {
-                    this.log('Erro ao enviar: ' + error.message, 'error');
-                    alert('Erro ao enviar. Salvo localmente.');
                 }
             }
 
@@ -1314,6 +1025,16 @@
             scrollToBottom() {
                 const container = document.getElementById('messagesContainer');
                 container.scrollTop = container.scrollHeight;
+            }
+
+            updateConnection(status) {
+                const badge = document.getElementById('connectionBadge');
+                badge.className = 'connection-badge ' + status;
+                switch(status) {
+                    case 'online': badge.textContent = '🟢 Online'; break;
+                    case 'offline': badge.textContent = '🔴 Offline'; break;
+                    case 'connecting': badge.textContent = '🟡 Atualizando...'; break;
+                }
             }
 
             getInitials(name) {
@@ -1327,23 +1048,11 @@
                 return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
             }
 
-            formatDate(date) {
-                if (!date) return '';
-                const d = new Date(date);
-                const today = new Date();
-                const yesterday = new Date(today);
-                yesterday.setDate(yesterday.getDate() - 1);
-                
-                if (d.toDateString() === today.toDateString()) return 'Hoje';
-                if (d.toDateString() === yesterday.toDateString()) return 'Ontem';
-                return d.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' });
-            }
-
             escapeHtml(text) {
                 if (!text) return '';
                 const div = document.createElement('div');
                 div.textContent = text;
-                return div.innerHTML.replace(/\n/g, '<br>');
+                return div.innerHTML;
             }
         }
 

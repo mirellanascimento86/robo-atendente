@@ -1056,7 +1056,7 @@
             }
 
             // ==========================================
-            // ENVIAR MENSAGEM
+            // ENVIAR MENSAGEM - CORRIGIDO: usa 'telefone' e 'mensagem'
             // ==========================================
             async sendMessage() {
                 if (!this.currentPhone) return;
@@ -1097,12 +1097,13 @@
                 this.saveToStorage();
                 
                 try {
+                    // CORREÇÃO: Usar 'telefone' e 'mensagem' (português) em vez de 'phone' e 'message'
                     const response = await fetch(`${CONFIG.WEBHOOK_URL}?action=send`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
-                            phone: this.currentPhone,
-                            message: text,
+                            telefone: this.currentPhone,
+                            mensagem: text,
                             tipo: 'humano'
                         })
                     });

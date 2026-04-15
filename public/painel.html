@@ -368,11 +368,6 @@
             line-height: 1.4;
             word-wrap: break-word;
             position: relative;
-            animation: messageIn 0.3s ease;
-        }
-        @keyframes messageIn {
-            from { opacity: 0; transform: translateY(20px) scale(0.9); }
-            to { opacity: 1; transform: translateY(0) scale(1); }
         }
         
         .message.incoming {
@@ -618,8 +613,6 @@
                 this.chats = new Map();
                 this.currentPhone = null;
                 this.isLoadingMessages = false;
-                this.messageCache = new Map();
-                this.interventionState = new Map();
                 
                 this.loadFromStorage();
                 this.init();
@@ -633,20 +626,16 @@
                 this.fetchConversations();
                 setInterval(() => this.fetchConversations(), CONFIG.POLL_INTERVAL);
                 
-                // Poll de mensagens apenas quando necessário
-                this.startMessagePolling();
+                // Poll de mensagens
+                setInterval(() => {
+                    if (this.currentPhone && !this.isLoadingMessages) {
+                        this.fetchMessages(this.currentPhone);
+                    }
+                }, CONFIG.CHAT_POLL_INTERVAL);
                 
                 window.addEventListener('beforeunload', () => {
                     this.saveToStorage();
                 });
-            }
-
-            startMessagePolling() {
-                setInterval(() => {
-                    if (this.currentPhone && !this.isLoadingMessages) {
-                        this.fetchMessages(this.currentPhone, true);
-                    }
-                }, CONFIG.CHAT_POLL_INTERVAL);
             }
 
             // ==========================================
@@ -656,7 +645,6 @@
                 try {
                     const data = {
                         chats: Array.from(this.chats.entries()),
-                        interventionState: Array.from(this.interventionState.entries()),
                         timestamp: Date.now()
                     };
                     localStorage.setItem('gloriapp_panel_data', JSON.stringify(data));
@@ -672,9 +660,6 @@
                         const data = JSON.parse(saved);
                         if (data.chats && Array.isArray(data.chats)) {
                             this.chats = new Map(data.chats);
-                        }
-                        if (data.interventionState && Array.isArray(data.interventionState)) {
-                            this.interventionState = new Map(data.interventionState);
                         }
                     }
                 } catch (e) {
@@ -707,24 +692,18 @@
                         const phone = conv.telefone;
                         const existing = this.chats.get(phone);
                         
-                        // Preservar estado de intervenção local se existir
-                        const localIntervention = this.interventionState.get(phone);
-                        
                         if (!existing) {
                             this.chats.set(phone, {
                                 ...conv,
-                                messages: [],
-                                emIntervencao: localIntervention !== undefined ? localIntervention : (conv.emIntervencao || false)
+                                messages: []
                             });
                         } else {
+                            // Atualizar apenas dados da conversa, NUNCA tocar nas mensagens
                             existing.nome = conv.nome || existing.nome;
                             existing.etapa = conv.etapa;
                             existing.ultimaAtividade = conv.ultimaAtividade;
                             existing.ultima = conv.ultima || existing.ultima;
-                            // Não sobrescrever emIntervencao do servidor se tivermos estado local
-                            if (localIntervention === undefined) {
-                                existing.emIntervencao = conv.emIntervencao !== undefined ? conv.emIntervencao : existing.emIntervencao;
-                            }
+                            existing.emIntervencao = conv.emIntervencao !== undefined ? conv.emIntervencao : existing.emIntervencao;
                         }
                     });
                     
@@ -740,7 +719,7 @@
             // ==========================================
             // BUSCAR MENSAGENS
             // ==========================================
-            async fetchMessages(phone, silent = false) {
+            async fetchMessages(phone) {
                 if (this.isLoadingMessages) return;
                 this.isLoadingMessages = true;
                 
@@ -767,34 +746,22 @@
                     }
                     
                     // Processar mensagens do servidor
-                    const processedMessages = mensagens.map(msg => ({
-                        id: msg.id || msg._id || `${phone}_${msg.data || Date.now()}_${Math.random()}`,
+                    chat.messages = mensagens.map(msg => ({
+                        id: msg.id || msg._id || `${phone}_${Date.now()}_${Math.random()}`,
                         mensagem: msg.mensagem || msg.texto || msg.content || msg.message || '',
                         tipo: (msg.tipo || msg.from || 'cliente').toLowerCase(),
                         data: msg.data || msg.timestamp || msg.created_at || new Date().toISOString(),
-                        nome: msg.nome || msg.sender || (msg.tipo === 'bot' || msg.from === 'bot' ? 'Robô' : 'Cliente'),
-                        fromServer: true
+                        nome: msg.nome || msg.sender || (msg.tipo === 'bot' || msg.from === 'bot' ? 'Robô' : 'Cliente')
                     }));
-                    
-                    // Mesclar com mensagens pendentes locais
-                    const pendingMessages = (chat.messages || []).filter(m => m.pending && !m.fromServer);
-                    
-                    // Criar mapa de mensagens existentes para evitar duplicatas
-                    const existingIds = new Set(processedMessages.map(m => m.id));
-                    const uniquePending = pendingMessages.filter(m => !existingIds.has(m.id));
-                    
-                    chat.messages = [...processedMessages, ...uniquePending];
                     
                     // Ordenar por data
                     chat.messages.sort((a, b) => {
-                        const dateA = new Date(a.data || 0);
-                        const dateB = new Date(b.data || 0);
-                        return dateA - dateB;
+                        return new Date(a.data || 0) - new Date(b.data || 0);
                     });
                     
-                    // Renderizar se é o chat atual (sem piscar)
+                    // Renderizar se é o chat atual
                     if (this.currentPhone === phone) {
-                        this.renderMessages(chat.messages, silent);
+                        this.renderMessages(chat.messages);
                     }
                     
                     // Atualizar preview
@@ -871,7 +838,6 @@
             selectChat(phone) {
                 // Evitar re-selecionar o mesmo chat
                 if (this.currentPhone === phone) {
-                    // Apenas atualizar UI mobile
                     if (window.innerWidth < 900) {
                         document.getElementById('sidebar').classList.add('hidden-mobile');
                         document.getElementById('chatArea').classList.add('active', 'has-chat');
@@ -884,7 +850,7 @@
                 
                 if (!chat) return;
 
-                // UI - sem recriar elementos, apenas mostrar
+                // UI
                 document.getElementById('sidebar').classList.add('hidden-mobile');
                 document.getElementById('chatArea').classList.add('active', 'has-chat');
                 document.getElementById('chatPlaceholder').style.display = 'none';
@@ -894,18 +860,19 @@
                 document.getElementById('chatName').textContent = chat.nome || phone;
                 document.getElementById('chatAvatar').textContent = this.getInitials(chat.nome);
                 
-                this.updateUI(chat);
+                // Atualizar UI de intervenção
+                this.updateInterventionUI(chat);
                 
-                // Renderizar mensagens do cache primeiro (instantâneo)
+                // Renderizar mensagens se existirem
                 if (chat.messages && chat.messages.length > 0) {
-                    this.renderMessages(chat.messages, false);
+                    this.renderMessages(chat.messages);
                 } else {
                     document.getElementById('messagesContainer').innerHTML = 
                         '<div style="text-align:center;color:#a0a0b0;padding:40px;">Carregando mensagens...</div>';
                 }
                 
-                // Buscar mensagens atualizadas em background
-                this.fetchMessages(phone, true);
+                // Buscar mensagens atualizadas
+                this.fetchMessages(phone);
                 
                 // Re-renderizar lista
                 this.renderList();
@@ -920,14 +887,16 @@
                 this.renderList();
             }
 
-            updateUI(chat) {
+            // ==========================================
+            // ATUALIZAR UI DE INTERVENÇÃO - APENAS UI, NÃO MENSAGENS
+            // ==========================================
+            updateInterventionUI(chat) {
                 const banner = document.getElementById('interventionBanner');
                 const input = document.getElementById('messageInput');
                 const sendBtn = document.getElementById('sendBtn');
                 const actions = document.getElementById('chatActions');
                 const status = document.getElementById('chatStatus');
                 
-                // Garantir que emIntervencao é booleano
                 const emIntervencao = chat.emIntervencao === true || chat.emIntervencao === 'true' || chat.emIntervencao === 1;
                 
                 if (emIntervencao) {
@@ -935,9 +904,9 @@
                     input.disabled = false;
                     sendBtn.disabled = false;
                     input.placeholder = 'Digite uma mensagem...';
-                    setTimeout(() => input.focus(), 100);
                     actions.innerHTML = `<button class="action-btn release" onclick="app.release('${chat.telefone}')">🤖 Liberar Robô</button>`;
                     status.textContent = 'Você está no controle';
+                    setTimeout(() => input.focus(), 100);
                 } else {
                     banner.classList.remove('active');
                     input.disabled = true;
@@ -949,26 +918,15 @@
             }
 
             // ==========================================
-            // RENDERIZAR MENSAGENS (sem piscar)
+            // RENDERIZAR MENSAGENS
             // ==========================================
-            renderMessages(messages, silent = false) {
+            renderMessages(messages) {
                 const container = document.getElementById('messagesContainer');
                 
                 if (!messages || messages.length === 0) {
                     container.innerHTML = '<div style="text-align:center;color:#a0a0b0;padding:40px;">Nenhuma mensagem</div>';
                     return;
                 }
-
-                // Criar chave do cache atual
-                const cacheKey = messages.map(m => m.id || m.data).join('|');
-                const lastCacheKey = this.messageCache.get(this.currentPhone);
-                
-                // Se for a mesma lista de mensagens e for silencioso, não re-renderizar
-                if (silent && cacheKey === lastCacheKey) {
-                    return;
-                }
-                
-                this.messageCache.set(this.currentPhone, cacheKey);
 
                 let lastDate = null;
                 let html = '';
@@ -981,7 +939,6 @@
                         lastDate = msgDate;
                     }
                     
-                    // Determinar tipo de mensagem
                     const tipo = (msg.tipo || '').toLowerCase();
                     const from = (msg.from || '').toLowerCase();
                     
@@ -1003,31 +960,20 @@
                         sender = msg.nome || (tipo === 'humano' || from === 'humano' ? 'Você' : 'Robô');
                     }
                     
-                    const pendingClass = msg.pending ? ' style="opacity:0.7"' : '';
-                    
                     html += `
-                        <div class="message ${type}"${pendingClass}>
+                        <div class="message ${type}">
                             <div class="message-content">${content}</div>
-                            <div class="message-meta">${sender} • ${time}${msg.pending ? ' • Enviando...' : ''}</div>
+                            <div class="message-meta">${sender} • ${time}</div>
                         </div>
                     `;
                 });
                 
-                // Preservar scroll
-                const scrollTop = container.scrollTop;
-                const scrollHeight = container.scrollHeight;
-                const clientHeight = container.clientHeight;
-                const wasAtBottom = scrollTop + clientHeight >= scrollHeight - 50;
-                
                 container.innerHTML = html;
-                
-                if (wasAtBottom || !silent) {
-                    this.scrollToBottom();
-                }
+                this.scrollToBottom();
             }
 
             // ==========================================
-            // AÇÕES
+            // INTERVENÇÃO - APENAS MUDA ESTADO, NÃO TOCA EM MENSAGENS
             // ==========================================
             async intervene(phone) {
                 const btn = document.querySelector('.action-btn');
@@ -1050,12 +996,11 @@
                     const result = await response.json();
                     console.log('Intervenção resposta:', result);
                     
-                    // Atualizar local imediatamente
+                    // Apenas atualizar estado local - NÃO recarregar mensagens
                     const chat = this.chats.get(phone);
                     if (chat) {
                         chat.emIntervencao = true;
-                        this.interventionState.set(phone, true);
-                        this.updateUI(chat);
+                        this.updateInterventionUI(chat);
                         this.renderList();
                         this.saveToStorage();
                     }
@@ -1091,12 +1036,11 @@
                     const result = await response.json();
                     console.log('Release resposta:', result);
                     
-                    // Atualizar local imediatamente
+                    // Apenas atualizar estado local - NÃO recarregar mensagens
                     const chat = this.chats.get(phone);
                     if (chat) {
                         chat.emIntervencao = false;
-                        this.interventionState.set(phone, false);
-                        this.updateUI(chat);
+                        this.updateInterventionUI(chat);
                         this.renderList();
                         this.saveToStorage();
                     }
@@ -1111,6 +1055,9 @@
                 }
             }
 
+            // ==========================================
+            // ENVIAR MENSAGEM
+            // ==========================================
             async sendMessage() {
                 if (!this.currentPhone) return;
                 
@@ -1134,21 +1081,18 @@
                 // Limpar input
                 input.value = '';
                 
-                // Criar mensagem local com ID único
-                const tempId = 'local_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-                const tempMessage = {
-                    id: tempId,
+                // Adicionar mensagem localmente imediatamente
+                const newMessage = {
+                    id: 'local_' + Date.now(),
                     mensagem: text,
                     tipo: 'humano',
                     from: 'humano',
                     data: new Date().toISOString(),
-                    nome: 'Você',
-                    pending: true
+                    nome: 'Você'
                 };
                 
-                // Adicionar localmente
                 if (!chat.messages) chat.messages = [];
-                chat.messages.push(tempMessage);
+                chat.messages.push(newMessage);
                 this.renderMessages(chat.messages);
                 this.saveToStorage();
                 
@@ -1171,32 +1115,19 @@
                     const result = await response.json();
                     console.log('Mensagem enviada:', result);
                     
-                    // Marcar como enviada
-                    const msg = chat.messages.find(m => m.id === tempId);
-                    if (msg) {
-                        msg.pending = false;
-                        if (result.id || result.messageId) {
-                            msg.id = result.id || result.messageId;
-                        }
-                    }
-                    this.saveToStorage();
+                    // Atualizar preview
+                    chat.ultima = text;
+                    this.renderList();
                     
-                    // Recarregar mensagens após um delay
+                    // Recarregar mensagens após 1 segundo
                     setTimeout(() => {
-                        this.fetchMessages(this.currentPhone, true);
-                    }, 1500);
+                        this.fetchMessages(this.currentPhone);
+                    }, 1000);
                     
                 } catch (error) {
                     console.error('Erro enviar:', error);
                     alert('Erro ao enviar: ' + error.message);
-                    
-                    // Restaurar input
                     input.value = text;
-                    
-                    // Remover mensagem pendente
-                    chat.messages = chat.messages.filter(m => m.id !== tempId);
-                    this.renderMessages(chat.messages);
-                    this.saveToStorage();
                 }
             }
 

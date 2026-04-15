@@ -1028,6 +1028,1136 @@
                 }
             }
 
+            <!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#075e54">
+    <title>RC Reforma - Painel de Atendimento</title>
+    <style>
+        * { 
+            margin: 0; 
+            padding: 0; 
+            box-sizing: border-box; 
+            -webkit-tap-highlight-color: transparent;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+        
+        :root {
+            --primary: #075e54;
+            --primary-dark: #054d44;
+            --secondary: #128c7e;
+            --accent: #25d366;
+            --bg: #dadbd3;
+            --sidebar-bg: #ffffff;
+            --chat-bg: #e5ddd5;
+            --incoming: #ffffff;
+            --outgoing: #dcf8c6;
+            --text: #111b21;
+            --text-secondary: #667781;
+            --border: #d1d7db;
+            --danger: #ea4335;
+            --warning: #ffa500;
+            --rc-blue: #0066cc;
+        }
+        
+        body {
+            background: var(--bg);
+            color: var(--text);
+            height: 100vh;
+            height: 100dvh;
+            overflow: hidden;
+        }
+        
+        /* Loading */
+        #loading {
+            position: fixed;
+            inset: 0;
+            background: var(--primary);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            transition: opacity 0.5s;
+        }
+        #loading.fade-out { opacity: 0; pointer-events: none; }
+        .spinner {
+            width: 60px;
+            height: 60px;
+            border: 4px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        #loading p { color: white; font-size: 16px; }
+        
+        /* App Layout */
+        #app {
+            display: flex;
+            height: 100%;
+            width: 100%;
+        }
+        
+        /* Sidebar */
+        .sidebar {
+            width: 100%;
+            height: 100%;
+            background: var(--sidebar-bg);
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.3s ease;
+        }
+        
+        .sidebar.hidden-mobile {
+            transform: translateX(-100%);
+            position: absolute;
+        }
+        
+        @media (min-width: 900px) {
+            .sidebar {
+                width: 380px;
+                border-right: 1px solid var(--border);
+                position: relative;
+                transform: none !important;
+            }
+            .sidebar.hidden-mobile {
+                transform: none;
+                position: relative;
+            }
+        }
+        
+        /* Header */
+        .header {
+            background: var(--primary);
+            color: white;
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .header h1 { 
+            font-size: 18px; 
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .header-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        
+        .connection-badge {
+            font-size: 11px;
+            padding: 4px 10px;
+            border-radius: 12px;
+            background: var(--accent);
+            color: white;
+            font-weight: 600;
+        }
+        .connection-badge.offline { background: var(--danger); }
+        .connection-badge.connecting { background: var(--warning); color: #000; }
+        
+        /* Search */
+        .search-container {
+            padding: 8px 12px;
+            background: #f0f2f5;
+            border-bottom: 1px solid var(--border);
+        }
+        .search-box {
+            background: white;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            padding: 8px 12px;
+            gap: 10px;
+            border: 1px solid var(--border);
+        }
+        .search-box input {
+            flex: 1;
+            border: none;
+            background: transparent;
+            color: var(--text);
+            font-size: 15px;
+            outline: none;
+        }
+        
+        /* Chat List */
+        .chat-list {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+        
+        .chat-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 16px;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .chat-item:hover { background: #f5f5f5; }
+        .chat-item.active { background: #e3f2fd; }
+        .chat-item.intervention { border-left: 4px solid var(--danger); }
+        .chat-item.intervention.active { border-left: 4px solid var(--danger); background: #ffebee; }
+        
+        .chat-avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            font-weight: 600;
+            color: white;
+            margin-right: 12px;
+            flex-shrink: 0;
+        }
+        
+        .chat-info {
+            flex: 1;
+            min-width: 0;
+        }
+        .chat-header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 4px;
+        }
+        .chat-name {
+            font-weight: 600;
+            font-size: 16px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .chat-time {
+            font-size: 12px;
+            color: var(--text-secondary);
+            flex-shrink: 0;
+        }
+        
+        .chat-preview {
+            font-size: 14px;
+            color: var(--text-secondary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .status-badge.bot { background: #e8f5e9; color: #2e7d32; }
+        .status-badge.human { background: #ffebee; color: #c62828; }
+        .status-badge.intervention { background: var(--danger); color: white; animation: pulse 2s infinite; }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        /* Chat Area */
+        .chat-area {
+            flex: 1;
+            display: none;
+            flex-direction: column;
+            background: var(--chat-bg);
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+        .chat-area.active { display: flex; }
+        
+        @media (min-width: 900px) {
+            .chat-area { display: flex; }
+        }
+        
+        .chat-bg {
+            position: absolute;
+            inset: 0;
+            opacity: 0.05;
+            background-image: url("data:image/svg+xml,%3Csvg width='400' height='400' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 0h400v400H0z' fill='%23000'/%3E%3C/svg%3E");
+            pointer-events: none;
+        }
+        
+        .chat-header {
+            background: var(--primary);
+            color: white;
+            padding: 10px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            min-height: 60px;
+            z-index: 10;
+        }
+        
+        .chat-header-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .back-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: none;
+            background: rgba(255,255,255,0.2);
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            margin: -8px;
+        }
+        @media (min-width: 900px) { .back-btn { display: none; } }
+        
+        .chat-title { flex: 1; min-width: 0; }
+        .chat-title h3 {
+            font-size: 17px;
+            font-weight: 600;
+            margin-bottom: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .chat-title p {
+            font-size: 13px;
+            opacity: 0.9;
+        }
+        
+        .chat-actions {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .action-btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+        }
+        .action-btn.intervene { background: var(--danger); color: white; }
+        .action-btn.release { background: var(--accent); color: #111; }
+        .action-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        
+        /* Intervention Banner */
+        .intervention-banner {
+            background: linear-gradient(90deg, var(--danger), #ff6b6b);
+            color: white;
+            padding: 12px 16px;
+            text-align: center;
+            font-size: 14px;
+            font-weight: 600;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            z-index: 10;
+        }
+        .intervention-banner.active { display: flex; }
+        
+        /* Messages */
+        .messages-container {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .message {
+            max-width: 85%;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 14.5px;
+            line-height: 1.4;
+            word-wrap: break-word;
+            position: relative;
+            animation: messageIn 0.3s ease;
+        }
+        @keyframes messageIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .message.incoming {
+            background: var(--incoming);
+            align-self: flex-start;
+            border-top-left-radius: 2px;
+        }
+        .message.outgoing {
+            background: var(--outgoing);
+            align-self: flex-end;
+            border-top-right-radius: 2px;
+        }
+        .message.system {
+            background: rgba(255, 193, 7, 0.2);
+            align-self: center;
+            font-size: 12px;
+            padding: 6px 12px;
+            color: #856404;
+            border-radius: 16px;
+        }
+        
+        .message-sender {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--primary);
+            margin-bottom: 2px;
+        }
+        .message.outgoing .message-sender { color: #1b5e20; }
+        
+        .message-content { margin-bottom: 4px; }
+        
+        .message-meta {
+            font-size: 11px;
+            color: var(--text-secondary);
+            text-align: right;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 4px;
+        }
+        
+        .date-separator {
+            align-self: center;
+            background: rgba(0,0,0,0.1);
+            color: var(--text-secondary);
+            padding: 6px 12px;
+            border-radius: 16px;
+            font-size: 12px;
+            margin: 8px 0;
+            font-weight: 500;
+        }
+        
+        /* Input */
+        .input-container {
+            background: #f0f0f0;
+            padding: 10px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            z-index: 10;
+        }
+        .input-wrapper {
+            flex: 1;
+            background: white;
+            border-radius: 20px;
+            padding: 10px 16px;
+        }
+        .input-wrapper input {
+            width: 100%;
+            border: none;
+            outline: none;
+            font-size: 15px;
+        }
+        .input-wrapper input:disabled { opacity: 0.5; }
+        
+        .send-btn {
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            border: none;
+            background: var(--secondary);
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .send-btn:disabled { background: #ccc; }
+        
+        /* Empty States */
+        .empty-list {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-secondary);
+        }
+        .empty-chat {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-secondary);
+            text-align: center;
+            padding: 40px;
+        }
+        
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.2); border-radius: 3px; }
+        
+        /* Mobile */
+        @media (max-width: 899px) {
+            .message { max-width: 90%; font-size: 15px; }
+            .chat-avatar { width: 48px; height: 48px; }
+        }
+    </style>
+</head>
+<body>
+    <div id="loading">
+        <div class="spinner"></div>
+        <p>Conectando ao RC Reforma...</p>
+    </div>
+
+    <div id="app">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="header">
+                <h1>🏗️ RC Reforma</h1>
+                <div class="header-actions">
+                    <span class="connection-badge" id="connectionBadge">Conectando...</span>
+                </div>
+            </div>
+            
+            <div class="search-container">
+                <div class="search-box">
+                    <span>🔍</span>
+                    <input type="text" id="searchInput" placeholder="Pesquisar conversas..." oninput="app.search(this.value)">
+                </div>
+            </div>
+            
+            <div class="chat-list" id="chatList">
+                <div class="empty-list">
+                    <p>Carregando atendimentos...</p>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Chat Area -->
+        <main class="chat-area" id="chatArea">
+            <div class="chat-bg"></div>
+            
+            <div id="emptyChat" class="empty-chat">
+                <h2>Selecione uma conversa</h2>
+                <p>Clique em um atendimento ao lado para visualizar as mensagens</p>
+            </div>
+
+            <div id="activeChat" style="display: none; flex-direction: column; height: 100%;">
+                <div class="chat-header">
+                    <div class="chat-header-info">
+                        <button class="back-btn" onclick="app.closeChat()">←</button>
+                        <div class="chat-avatar" id="chatAvatar">👤</div>
+                        <div class="chat-title">
+                            <h3 id="chatName">-</h3>
+                            <p id="chatStatus">-</p>
+                        </div>
+                    </div>
+                    <div class="chat-actions" id="chatActions"></div>
+                </div>
+
+                <div class="intervention-banner" id="interventionBanner">
+                    <span>⚠️</span>
+                    <span>Você assumiu o controle - Robô desativado</span>
+                </div>
+
+                <div class="messages-container" id="messagesContainer"></div>
+
+                <div class="input-container">
+                    <div class="input-wrapper">
+                        <input type="text" id="messageInput" placeholder="Digite uma mensagem..." 
+                               onkeypress="if(event.key==='Enter') app.sendMessage()" disabled>
+                    </div>
+                    <button class="send-btn" id="sendBtn" onclick="app.sendMessage()" disabled>
+                        ➤
+                    </button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // ==========================================
+        // CONFIGURAÇÃO - AJUSTE AQUI SEU WEBHOOK
+        // ==========================================
+        const CONFIG = {
+            // URL do seu webhook na Vercel
+            WEBHOOK_URL: '/api/webhook', // Ou: 'https://seu-projeto.vercel.app/api/webhook'
+            
+            // Intervalo de atualização (ms)
+            POLL_INTERVAL: 2000,      // 2 segundos para lista de conversas
+            CHAT_POLL_INTERVAL: 1500, // 1.5 segundos para chat aberto
+            
+            // Chave do localStorage
+            STORAGE_KEY: 'rc_reforma_panel'
+        };
+
+        // ==========================================
+        // CLASSE PRINCIPAL
+        // ==========================================
+        class RCPanel {
+            constructor() {
+                this.conversations = new Map(); // Mapa de telefone -> dados
+                this.currentPhone = null;
+                this.pollingTimer = null;
+                this.chatPollingTimer = null;
+                this.isOnline = true;
+                
+                this.init();
+            }
+
+            async init() {
+                console.log('[RC Panel] Inicializando...');
+                
+                // Carregar cache imediatamente
+                this.loadFromCache();
+                this.renderList();
+                
+                // Esconder loading
+                setTimeout(() => {
+                    document.getElementById('loading').classList.add('fade-out');
+                }, 500);
+                
+                // Iniciar polling
+                this.startPolling();
+                
+                // Primeira carga
+                await this.fetchConversations();
+            }
+
+            // Carregar do cache
+            loadFromCache() {
+                try {
+                    const cached = localStorage.getItem(CONFIG.STORAGE_KEY);
+                    if (cached) {
+                        const data = JSON.parse(cached);
+                        if (data.conversations) {
+                            data.conversations.forEach(c => {
+                                this.conversations.set(c.telefone, c);
+                            });
+                            console.log(`[RC Panel] ${this.conversations.size} conversas do cache`);
+                        }
+                    }
+                } catch (e) {
+                    console.error('[RC Panel] Erro cache:', e);
+                }
+            }
+
+            // Salvar no cache
+            saveToCache() {
+                try {
+                    const data = {
+                        conversations: Array.from(this.conversations.values()),
+                        savedAt: new Date().toISOString()
+                    };
+                    localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify(data));
+                } catch (e) {
+                    console.error('[RC Panel] Erro ao salvar:', e);
+                }
+            }
+
+            // Polling principal
+            startPolling() {
+                this.fetchConversations();
+                this.pollingTimer = setInterval(() => this.fetchConversations(), CONFIG.POLL_INTERVAL);
+            }
+
+            stopPolling() {
+                if (this.pollingTimer) clearInterval(this.pollingTimer);
+            }
+
+            // Buscar conversas do webhook
+            async fetchConversations() {
+                try {
+                    this.updateConnection('connecting');
+                    
+                    const response = await fetch(`${CONFIG.WEBHOOK_URL}?action=list&_t=${Date.now()}`);
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+                    
+                    const data = await response.json();
+                    console.log('[RC Panel] Recebido:', data);
+                    
+                    if (!data.conversas || !Array.isArray(data.conversas)) {
+                        throw new Error('Formato inválido - esperado {conversas: []}');
+                    }
+                    
+                    let hasChanges = false;
+                    const currentPhones = new Set();
+                    
+                    data.conversas.forEach(conv => {
+                        currentPhones.add(conv.telefone);
+                        const existing = this.conversations.get(conv.telefone);
+                        
+                        // Se é nova ou mudou
+                        if (!existing) {
+                            this.conversations.set(conv.telefone, {
+                                ...conv,
+                                messages: [],
+                                unread: true
+                            });
+                            hasChanges = true;
+                            console.log(`[RC Panel] Nova conversa: ${conv.telefone}`);
+                        } else {
+                            // Verificar mudanças
+                            const changed = 
+                                existing.etapa !== conv.etapa ||
+                                existing.emIntervencao !== conv.emIntervencao ||
+                                existing.ultimaAtividade !== conv.ultimaAtividade;
+                            
+                            if (changed) {
+                                Object.assign(existing, conv);
+                                hasChanges = true;
+                            }
+                            
+                            // Se tem chat aberto, marcar como não nova
+                            if (this.currentPhone === conv.telefone) {
+                                existing.unread = false;
+                            }
+                        }
+                    });
+                    
+                    // Remover conversas antigas não mais presentes (opcional)
+                    // this.conversations.forEach((_, phone) => {
+                    //     if (!currentPhones.has(phone)) {
+                    //         this.conversations.delete(phone);
+                    //         hasChanges = true;
+                    //     }
+                    // });
+                    
+                    if (hasChanges) {
+                        this.saveToCache();
+                        this.renderList();
+                        
+                        // Se tem chat aberto, atualizar mensagens
+                        if (this.currentPhone) {
+                            this.fetchMessages(this.currentPhone);
+                        }
+                    }
+                    
+                    this.updateConnection('online');
+                    this.isOnline = true;
+                    
+                } catch (error) {
+                    console.error('[RC Panel] Erro:', error);
+                    this.updateConnection('offline');
+                    this.isOnline = false;
+                }
+            }
+
+            // Buscar mensagens de uma conversa
+            async fetchMessages(phone) {
+                if (!phone) return;
+                
+                try {
+                    const response = await fetch(`${CONFIG.WEBHOOK_URL}?action=messages&phone=${encodeURIComponent(phone)}&_t=${Date.now()}`);
+                    
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    
+                    const data = await response.json();
+                    console.log(`[RC Panel] Mensagens ${phone}:`, data.mensagens?.length || 0);
+                    
+                    const conv = this.conversations.get(phone);
+                    if (!conv) return;
+                    
+                    // Atualizar dados da conversa
+                    if (data.nome) conv.nome = data.nome;
+                    if (data.etapa) conv.etapa = data.etapa;
+                    conv.emIntervencao = data.emIntervencao;
+                    
+                    // Atualizar mensagens se houver
+                    if (data.mensagens && Array.isArray(data.mensagens)) {
+                        const currentCount = conv.messages?.length || 0;
+                        const newCount = data.mensagens.length;
+                        
+                        if (newCount !== currentCount) {
+                            conv.messages = data.mensagens;
+                            this.saveToCache();
+                            
+                            // Se é o chat atual, renderizar
+                            if (this.currentPhone === phone) {
+                                this.renderMessages(data.mensagens);
+                            }
+                            
+                            // Atualizar preview na lista
+                            const lastMsg = data.mensagens[data.mensagens.length - 1];
+                            if (lastMsg) {
+                                conv.ultimaMensagem = lastMsg.mensagem || lastMsg.texto || lastMsg.content;
+                                conv.ultimaAtividade = lastMsg.data || new Date().toISOString();
+                                this.renderList();
+                            }
+                        }
+                    }
+                    
+                } catch (error) {
+                    console.error(`[RC Panel] Erro mensagens ${phone}:`, error);
+                }
+            }
+
+            // Renderizar lista de conversas
+            renderList() {
+                const container = document.getElementById('chatList');
+                const searchTerm = (document.getElementById('searchInput')?.value || '').toLowerCase();
+                
+                const convs = Array.from(this.conversations.values())
+                    .filter(c => !searchTerm || 
+                        (c.nome?.toLowerCase().includes(searchTerm)) || 
+                        c.telefone.includes(searchTerm))
+                    .sort((a, b) => {
+                        // Ordenar: intervenções primeiro, depois por data
+                        if (a.emIntervencao && !b.emIntervencao) return -1;
+                        if (!a.emIntervencao && b.emIntervencao) return 1;
+                        return new Date(b.ultimaAtividade || 0) - new Date(a.ultimaAtividade || 0);
+                    });
+
+                if (convs.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-list">
+                            <p>${this.isOnline ? 'Nenhuma conversa ativa' : 'Modo offline - sem dados'}</p>
+                            <p style="font-size: 12px; margin-top: 10px; opacity: 0.7;">
+                                Aguardando novos atendimentos...
+                            </p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                container.innerHTML = convs.map(conv => {
+                    const isActive = conv.telefone === this.currentPhone;
+                    const isIntervention = conv.emIntervencao;
+                    const lastMsg = conv.ultimaMensagem || conv.resumo || 'Sem mensagens';
+                    const time = this.formatTime(conv.ultimaAtividade);
+                    
+                    return `
+                        <div class="chat-item ${isActive ? 'active' : ''} ${isIntervention ? 'intervention' : ''}" 
+                             onclick="app.openChat('${conv.telefone}')"
+                             data-phone="${conv.telefone}">
+                            <div class="chat-avatar">${this.getInitials(conv.nome)}</div>
+                            <div class="chat-info">
+                                <div class="chat-header-row">
+                                    <span class="chat-name">${conv.nome || conv.telefone}</span>
+                                    <span class="chat-time">${time}</span>
+                                </div>
+                                <div class="chat-preview">
+                                    <span style="flex: 1; overflow: hidden; text-overflow: ellipsis;">
+                                        ${isIntervention ? '🔴 ' : ''}${this.escapeHtml(lastMsg.substring(0, 50))}
+                                    </span>
+                                    <span class="status-badge ${isIntervention ? 'intervention' : 'bot'}">
+                                        ${isIntervention ? '⚠️ INTERVENÇÃO' : '🤖 BOT'}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            // Abrir chat
+            async openChat(phone) {
+                console.log(`[RC Panel] Abrindo: ${phone}`);
+                this.currentPhone = phone;
+                const conv = this.conversations.get(phone);
+                
+                if (!conv) {
+                    console.error(`[RC Panel] Conversa não encontrada: ${phone}`);
+                    return;
+                }
+
+                // UI
+                document.getElementById('sidebar').classList.add('hidden-mobile');
+                document.getElementById('chatArea').classList.add('active');
+                document.getElementById('emptyChat').style.display = 'none';
+                document.getElementById('activeChat').style.display = 'flex';
+
+                // Header
+                document.getElementById('chatName').textContent = conv.nome || phone;
+                document.getElementById('chatAvatar').textContent = this.getInitials(conv.nome);
+                this.updateChatStatus(conv);
+
+                // Renderizar mensagens do cache imediatamente
+                if (conv.messages && conv.messages.length > 0) {
+                    this.renderMessages(conv.messages);
+                } else {
+                    document.getElementById('messagesContainer').innerHTML = '';
+                }
+
+                // Buscar mensagens atualizadas
+                await this.fetchMessages(phone);
+
+                // Iniciar polling rápido para este chat
+                this.startChatPolling(phone);
+
+                // Marcar como lida
+                conv.unread = false;
+                this.renderList();
+            }
+
+            // Polling específico do chat
+            startChatPolling(phone) {
+                if (this.chatPollingTimer) clearInterval(this.chatPollingTimer);
+                this.chatPollingTimer = setInterval(() => {
+                    if (this.currentPhone === phone) {
+                        this.fetchMessages(phone);
+                    }
+                }, CONFIG.CHAT_POLL_INTERVAL);
+            }
+
+            stopChatPolling() {
+                if (this.chatPollingTimer) {
+                    clearInterval(this.chatPollingTimer);
+                    this.chatPollingTimer = null;
+                }
+            }
+
+            // Fechar chat
+            closeChat() {
+                this.currentPhone = null;
+                this.stopChatPolling();
+                
+                document.getElementById('sidebar').classList.remove('hidden-mobile');
+                document.getElementById('chatArea').classList.remove('active');
+                document.getElementById('emptyChat').style.display = 'flex';
+                document.getElementById('activeChat').style.display = 'none';
+            }
+
+            // Atualizar status do chat
+            updateChatStatus(conv) {
+                const statusText = conv.emIntervencao ? 
+                    '⚠️ Você está no controle' : 
+                    `Etapa: ${conv.etapa || 'Início'}`;
+                document.getElementById('chatStatus').textContent = statusText;
+                
+                const banner = document.getElementById('interventionBanner');
+                const input = document.getElementById('messageInput');
+                const sendBtn = document.getElementById('sendBtn');
+                const actions = document.getElementById('chatActions');
+                
+                if (conv.emIntervencao) {
+                    banner.classList.add('active');
+                    input.disabled = false;
+                    sendBtn.disabled = false;
+                    input.placeholder = 'Digite sua mensagem...';
+                    input.focus();
+                    actions.innerHTML = `
+                        <button class="action-btn release" onclick="app.toggleIntervention(false)">
+                            🤖 Liberar Robô
+                        </button>
+                    `;
+                } else {
+                    banner.classList.remove('active');
+                    input.disabled = true;
+                    sendBtn.disabled = true;
+                    input.placeholder = 'Assuma o controle para responder';
+                    input.blur();
+                    actions.innerHTML = `
+                        <button class="action-btn intervene" onclick="app.toggleIntervention(true)">
+                            🚨 Assumir Controle
+                        </button>
+                    `;
+                }
+            }
+
+            // Renderizar mensagens
+            renderMessages(messages) {
+                const container = document.getElementById('messagesContainer');
+                
+                if (!messages || messages.length === 0) {
+                    container.innerHTML = '<div style="text-align: center; color: #666; padding: 40px;">Nenhuma mensagem</div>';
+                    return;
+                }
+
+                let lastDate = null;
+                let html = '';
+                
+                messages.forEach((msg, index) => {
+                    const msgDate = new Date(msg.data || msg.timestamp || Date.now()).toDateString();
+                    
+                    if (msgDate !== lastDate) {
+                        html += `<div class="date-separator">${this.formatDate(msg.data || msg.timestamp)}</div>`;
+                        lastDate = msgDate;
+                    }
+                    
+                    // Determinar tipo
+                    let type = 'incoming';
+                    let sender = 'Cliente';
+                    
+                    if (msg.tipo === 'bot' || msg.from === 'bot') {
+                        type = 'outgoing';
+                        sender = 'Robô';
+                    } else if (msg.tipo === 'humano' || msg.from === 'humano' || msg.tipo === 'me') {
+                        type = 'outgoing';
+                        sender = 'Você';
+                    } else if (msg.tipo === 'system') {
+                        type = 'system';
+                        sender = 'Sistema';
+                    }
+                    
+                    const time = this.formatTime(msg.data || msg.timestamp);
+                    const content = this.escapeHtml(msg.mensagem || msg.content || msg.text || '');
+                    
+                    html += `
+                        <div class="message ${type}" data-id="${msg.id || index}">
+                            ${type !== 'system' ? `<div class="message-sender">${sender}</div>` : ''}
+                            <div class="message-content">${content}</div>
+                            <div class="message-meta">${time}</div>
+                        </div>
+                    `;
+                });
+                
+                // Só atualizar se mudou
+                if (container.innerHTML !== html) {
+                    container.innerHTML = html;
+                    this.scrollToBottom();
+                }
+            }
+
+            // Assumir/liberar controle
+            async toggleIntervention(takeControl) {
+                if (!this.currentPhone) return;
+                
+                const action = takeControl ? 'intervene' : 'release';
+                const btn = document.querySelector('.action-btn');
+                
+                console.log(`[RC Panel] ${action}: ${this.currentPhone}`);
+                btn.disabled = true;
+                btn.textContent = '⏳...';
+                
+                try {
+                    const response = await fetch(`${CONFIG.WEBHOOK_URL}?action=${action}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ phone: this.currentPhone })
+                    });
+                    
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    
+                    const result = await response.json();
+                    console.log(`[RC Panel] Resultado:`, result);
+                    
+                    // Atualizar localmente
+                    const conv = this.conversations.get(this.currentPhone);
+                    conv.emIntervencao = takeControl;
+                    this.saveToCache();
+                    
+                    this.updateChatStatus(conv);
+                    this.renderList();
+                    
+                } catch (error) {
+                    console.error(`[RC Panel] Erro ${action}:`, error);
+                    alert('Erro ao alterar controle. Verifique a conexão.');
+                    btn.disabled = false;
+                    btn.textContent = takeControl ? '🚨 Assumir Controle' : '🤖 Liberar Robô';
+                }
+            }
+
+            // Enviar mensagem
+            async sendMessage() {
+                if (!this.currentPhone) return;
+                
+                const input = document.getElementById('messageInput');
+                const text = input.value.trim();
+                if (!text) return;
+                
+                const conv = this.conversations.get(this.currentPhone);
+                if (!conv.emIntervencao) {
+                    alert('Assuma o controle primeiro!');
+                    return;
+                }
+                
+                input.value = '';
+                
+                // Adicionar localmente (otimista)
+                const newMsg = {
+                    mensagem: text,
+                    tipo: 'humano',
+                    data: new Date().toISOString()
+                };
+                
+                if (!conv.messages) conv.messages = [];
+                conv.messages.push(newMsg);
+                this.renderMessages(conv.messages);
+                this.saveToCache();
+                
+                // Enviar para servidor
+                try {
+                    const response = await fetch(`${CONFIG.WEBHOOK_URL}?action=send`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            phone: this.currentPhone,
+                            mensagem: text
+                        })
+                    });
+                    
+                    if (!response.ok) throw new Error('Falha ao enviar');
+                    
+                    // Atualizar preview
+                    conv.ultimaMensagem = text;
+                    conv.ultimaAtividade = new Date().toISOString();
+                    this.renderList();
+                    
+                } catch (error) {
+                    console.error('[RC Panel] Erro ao enviar:', error);
+                    alert('Mensagem salva localmente. Será sincronizada quando reconectar.');
+                }
+            }
+
+            // Busca
+            search(term) {
+                this.renderList();
+            }
+
+            // Scroll
+            scrollToBottom() {
+                const container = document.getElementById('messagesContainer');
+                container.scrollTop = container.scrollHeight;
+            }
+
+            // Status de conexão
+            updateConnection(status) {
+                const badge = document.getElementById('connectionBadge');
+                badge.className = 'connection-badge ' + status;
+                
+                switch(status) {
+                    case 'online':
+                        badge.textContent = '🟢 Online';
+                        break;
+                    case 'offline':
+                        badge.textContent = '🔴 Offline';
+                        break;
+                    case 'connecting':
+                        badge.textContent = '🟡 Atualizando...';
+                        break;
+                }
+            }
+
             renderChatList() {
                 const container = document.getElementById('chatList');
                 const searchTerm = (document.getElementById('searchInput')?.value || '').toLowerCase();

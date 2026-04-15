@@ -1,941 +1,104 @@
 // ============================================
-// RC ATENDIMENTO - ROBÔ ESPLÊNDIDO v2.0
-// Zero IA, 100% Inteligência de Fluxo
+// RC ATENDIMENTO - ROBÔ IMPECÁVEL v2.0
+// PONTE DE COMUNICAÇÃO CLIENTE ↔ PROFISSIONAL
 // ============================================
 
 import { createClient } from '@supabase/supabase-js';
 
-// CONFIGURAÇÕES
+// ============ CONFIGURAÇÕES ============
 const CONFIG = {
+  // SUPABASE - SUBSTITUA COM SEUS DADOS
+  SUPABASE_URL: 'https://SEU-PROJETO.supabase.co',
+  SUPABASE_KEY: 'sua-chave-anon-aqui',
+  
+  // TELEGRAM
   TELEGRAM_TOKEN: '8517608136:AAFJmE04CPd7DecwKVh_MzGA6bnGGmbT3zI',
   TELEGRAM_CHAT_ID: '-5246111585',
   
-  TECNICOS: {
-    marcenaria: { nome: 'João Marceneiro', numero: '5521978791765', servicos: ['marcenaria', 'moveis', 'armario', 'porta'] },
-    reforma: { nome: 'Pedro Reformas', numero: '5521968112176', servicos: ['reforma', 'construcao', 'pedreiro', 'azulejo', 'revestimento'] },
-    hidraulica: { nome: 'Carlos Hidráulica', numero: '5521968112176', servicos: ['hidraulica', 'encanamento', 'vazamento', 'pia', 'banheiro', 'chuveiro'] },
-    eletrica: { nome: 'Maria Elétrica', numero: '5521987654321', servicos: ['eletrica', 'instalacao', 'tomada', 'disjuntor', 'luz'] },
-    pintura: { nome: 'Ana Pintura', numero: '5521976543210', servicos: ['pintura', 'tinta', 'parede', 'latex'] }
+  // NÚMERO DO ROBÔ
+  NUMERO_ROBO: '5521997653578',
+  
+  // PROFISSIONAIS - ADICIONE OS SEUS AQUI
+  PROFISSIONAIS: [
+    {
+      id: 'joao',
+      nome: 'João Silva',
+      telefone: '5521987654321',
+      servicos: ['Hidráulica', 'Elétrica', 'Encanamento'],
+      agenda: {}, // Será populado do banco
+      horariosPadrao: ['09:00', '11:00', '14:00', '16:00']
+    },
+    {
+      id: 'pedro',
+      nome: 'Pedro Santos',
+      telefone: '5521976543210',
+      servicos: ['Reforma', 'Construção', 'Gesso', 'Drywall'],
+      agenda: {},
+      horariosPadrao: ['08:00', '10:00', '13:00', '15:00']
+    },
+    {
+      id: 'maria',
+      nome: 'Maria Oliveira',
+      telefone: '5521965432109',
+      servicos: ['Pintura', 'Gesso', 'Textura'],
+      agenda: {},
+      horariosPadrao: ['09:30', '11:30', '14:30', '16:30']
+    }
+  ],
+  
+  // PREÇOS
+  precos: {
+    zonaSul: 180,
+    outros: 220,
+    descontoZonaSul: 90 // 50% off
   },
   
-  PRECO_ZONA_SUL: 180,
-  PRECO_OUTROS: 220,
-  
-  BAIRROS_ZONA_SUL: [
+  bairrosZonaSul: [
     'ipanema', 'leblon', 'copacabana', 'botafogo', 'flamengo', 
     'lagoa', 'gavea', 'jardim botanico', 'humaita', 'urca', 
     'catete', 'gloria', 'laranjeiras', 'cosme velho', 'leme', 
     'sao conrado', 'vidigal', 'rocinha'
-  ],
-  
-  HORARIOS_DISPONIVEIS: ['09:00', '10:00', '11:00', '14:00', '15:00', '16:00']
+  ]
 };
 
-// Supabase
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_KEY
-);
+// Inicializar Supabase
+const supabase = createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_KEY);
 
-// Estado em memória (Vercel é stateless, por isso usamos Supabase)
-const processadas = new Set();
+// Estado em memória (rápido) + persistência no banco
+const sessoes = new Map();
+const conversasHumanas = new Set(); // Quem está com atendente humano
+const ponteComunicacao = new Map(); // numProfissional -> numCliente
 
-export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  
-  if (req.method === 'OPTIONS') return res.status(200).end();
-  
-  try {
-    // Webhook WhatsApp Cloud API
-    if (req.method === 'GET' && req.query['hub.mode'] === 'subscribe') {
-      if (req.query['hub.verify_token'] === 'roboatendente') {
-        return res.status(200).send(req.query['hub.challenge']);
-      }
-      return res.status(403).send('Forbidden');
-    }
-    
-    if (req.method === 'POST') {
-      return await receberMensagem(req, res);
-    }
-    
-    // API do Painel
-    if (req.query.acao) {
-      return await apiPainel(req, res);
-    }
-    
-    res.status(200).send('OK');
-    
-  } catch (e) {
-    console.error('ERRO CRÍTICO:', e);
-    await notificarTelegram(`🚨 ERRO CRÍTICO NO SERVIDOR: ${e.message}`, 'urgente');
-    return res.status(200).send('OK');
-  }
+// ============ UTILITÁRIOS ============
+
+function normalizarTexto(texto) {
+  return texto.toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .trim();
 }
 
-// ============================================
-// RECEPÇÃO DE MENSAGENS
-// ============================================
-async function receberMensagem(req, res) {
-  const body = req.body;
-  
-  if (!body || body.object !== 'whatsapp_business_account') {
-    return res.status(200).send('OK');
-  }
-  
-  const changes = body.entry?.[0]?.changes?.[0]?.value;
-  if (!changes) return res.status(200).send('OK');
-  
-  // Ignorar status de entrega
-  if (changes.statuses) return res.status(200).send('OK');
-  
-  const msg = changes.messages?.[0];
-  if (!msg || !msg.id) return res.status(200).send('OK');
-  
-  // Evitar duplicatas
-  if (processadas.has(msg.id)) return res.status(200).send('OK');
-  processadas.add(msg.id);
-  // Limpar cache após 1 hora
-  setTimeout(() => processadas.delete(msg.id), 3600000);
-  
-  const telefone = msg.from;
-  const nome = changes.contacts?.[0]?.profile?.name || 'Cliente';
-  
-  // Ignorar mensagens do próprio número
-  if (telefone === process.env.NUMERO_RC) return res.status(200).send('OK');
-  
-  // Verificar se é técnico
-  const tecnico = Object.entries(CONFIG.TECNICOS).find(([k, v]) => 
-    telefone.includes(v.numero.replace('55', ''))
-  );
-  
-  // Salvar mensagem no banco (histórico eterno)
-  await salvarMensagem(telefone, msg.text?.body || '[mídia]', tecnico ? 'tecnico' : 'cliente', nome);
-  
-  // Se for técnico, processar como intermediação
-  if (tecnico) {
-    await processarMensagemTecnico(telefone, msg.text?.body || '', tecnico[1], nome);
-    return res.status(200).send('OK');
-  }
-  
-  // Processar cliente
-  if (msg.type === 'audio') {
-    await enviarWhatsApp(telefone, "No momento não consigo ouvir áudios. Pode escrever, por favor? 😊");
-    return res.status(200).send('OK');
-  }
-  
-  if (msg.type !== 'text') return res.status(200).send('OK');
-  
-  const texto = msg.text.body;
-  console.log(`\n📨 ${nome} (${telefone}): ${texto}`);
-  
-  // Verificar se está em intervenção humana
-  const { data: intervencao } = await supabase
-    .from('intervencoes')
-    .select('*')
-    .eq('telefone', telefone)
-    .eq('ativa', true)
-    .single();
-  
-  if (intervencao) {
-    // Apenas notificar - não responder
-    await notificarTelegram(
-      `💬 <b>Cliente em intervenção:</b>\n` +
-      `"${texto}"\n\n` +
-      `📞 ${telefone}\n` +
-      `👤 ${nome}`,
-      'alerta'
-    );
-    return res.status(200).send('OK');
-  }
-  
-  // Buscar ou criar sessão
-  const { data: sessao } = await supabase
-    .from('sessoes')
-    .select('*')
-    .eq('telefone', telefone)
-    .single();
-  
-  const estado = sessao || {
-    telefone,
-    nome,
-    etapa: 'INICIO',
-    dados: {},
-    ultima_atividade: new Date().toISOString()
-  };
-  
-  // Processar fluxo
-  const resposta = await processarFluxo(estado, texto.toLowerCase(), texto, nome);
-  
-  if (resposta) {
-    await enviarWhatsApp(telefone, resposta);
-    await salvarMensagem(telefone, resposta, 'robo', 'RC Atendente');
-  }
-  
-  // Atualizar sessão
-  await supabase.from('sessoes').upsert({
-    telefone,
-    nome,
-    etapa: estado.etapa,
-    dados: estado.dados,
-    ultima_atividade: new Date().toISOString()
-  });
-  
-  // Notificar painel em tempo real (usando Supabase Realtime ou polling)
-  
-  return res.status(200).send('OK');
+function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-// ============================================
-// FLUXO INTELIGENTE DO ROBÔ
-// ============================================
-async function processarFluxo(estado, t, original, nome) {
-  const d = estado.dados;
-  
-  // ===== DETECÇÃO DE INTENÇÕES AVANÇADA =====
-  
-  // 1. OBJEÇÕES DE PREÇO (detecção reforçada)
-  if (t.match(/(caro|car demais|muito caro|tá caro|tah caro|esta caro|absurdo|exagerado|salado|roubando|mamando|abusado|não tenho dinheiro|não posso pagar|tá louco|tah louco)/)) {
-    return "Entendo perfeitamente sua consideração sobre o valor. Posso explicar: o valor da visita técnica cobre o deslocamento do profissional qualificado e a análise detalhada do serviço. O diferencial da RC Reformas é que trabalhamos com profissionais de alta confiança que atendem clientes exigentes na Zona Sul. Além disso, se aprovarem o orçamento, esse valor é abatido do total. Posso verificar disponibilidade para você?";
-  }
-  
-  // 2. COMPARAÇÃO COM CONCORRENTES
-  if (t.match(/(comparar|outras empresas|vou pesquisar|vou ver outro|mais barato|outro orçamento)/)) {
-    return "Compreendo perfeitamente. Se desejar, pode enviar o orçamento de outra empresa que verificamos se conseguimos cobrir o valor. Trabalhamos com preço justo e qualidade garantida.";
-  }
-  
-  // 3. DESCONFIANÇA/PAGAMENTO ANTES
-  if (t.match(/(não confio|pagar antes|dinheiro adiantado|sinal|garantia)/)) {
-    return "Entendo sua preocupação. A RC Reformas é uma empresa séria com anos de mercado. Podemos fazer da seguinte forma: 50% no início do serviço e 50% na conclusão. Isso lhe dá segurança e confiança. Posso agendar a visita?";
-  }
-  
-  // 4. IDENTIDADE DO ATENDENTE
-  if (t.match(/(quem é você|quem e voce|você é robô|voce e robo|é humano|e humano|atendente|pessoa real)/)) {
-    return "Sou o Atendimento Digital da RC Reforma e Construção. Estou aqui para ajudá-lo a agendar sua visita técnica com praticidade e rapidez. Todas as informações são registradas e acompanhadas por nossa equipe.";
-  }
-  
-  // 5. CENÁRIOS ESPECIAIS (não atendemos)
-  if (t.match(/(síndico|sindico|condomínio|condominio|empresa|prédio|predio|comercial|loja|escritorio|escritório)/)) {
-    return "Infelizmente, no momento estamos com alta demanda e nosso profissional está atendendo apenas pessoas físicas, não empresas ou condomínios. Agradecemos a compreensão.";
-  }
-  
-  // 6. VENDA DE MATERIAL APENAS
-  if (t.match(/(só material|apenas material|comprar material|venda de material|quanto custa o material)/)) {
-    return "Nossos profissionais realizam apenas serviços, não vendem produtos ou materiais. Podemos indicar fornecedores de confiança após a visita técnica.";
-  }
-  
-  // 7. EVASIVOS/ADIAMENTO
-  if (t.match(/(depois eu te falo|depois eu falo|só queria saber preço|so queria saber preco|depois eu entro em contato|vou pensar|volto depois|depois eu decido)/)) {
-    return "Sem problemas! Quando precisar de atendimento, é só entrar em contato. Estarei por aqui. Se surgir alguma dúvida, pode me chamar.";
-  }
-  
-  // 8. CANCELAMENTO
-  if (t.match(/(desisti|cancela|quero cancelar|desistir|não quero mais|nao quero mais)/)) {
-    return "Sinto muito por isso. Pode me contar o que aconteceu? Talvez possamos resolver ou ajustar algo para atender melhor suas necessidades.";
-  }
-  
-  // 9. URGÊNCIA/EMERGÊNCIA (prioridade máxima)
-  if (t.match(/(urgente|emergencia|emergência|vazando muito|inundando|quebrou tudo|sem luz|sem água)/)) {
-    // Notificar Telegram imediatamente
-    await notificarTelegram(
-      `🚨 <b>EMERGÊNCIA!</b>\n` +
-      `Cliente: ${nome}\n` +
-      `Tel: ${estado.telefone}\n` +
-      `"${original}"`,
-      'urgente'
-    );
-    
-    // Verificar disponibilidade imediata
-    const hoje = new Date().toISOString().split('T')[0];
-    const { data: ocupados } = await supabase
-      .from('agenda')
-      .select('horario')
-      .eq('data', hoje)
-      .eq('status', 'ocupado');
-    
-    const horariosLivres = CONFIG.HORARIOS_DISPONIVEIS.filter(h => 
-      !ocupados?.some(o => o.horario === h)
-    );
-    
-    if (horariosLivres.length > 0) {
-      d.urgente = true;
-      d.data = 'hoje';
-      estado.etapa = 'AGUARDANDO_HORARIO_URGENTE';
-      return `Entendi que é urgente! 🚨\n\nTemos disponibilidade para hoje nos horários:\n${horariosLivres.map((h, i) => `${i+1}️⃣ ${h}`).join('\n')}\n\nQual horário serve? (Digite o número ou o horário)`;
-    } else {
-      return `Entendi a urgência! Infelizmente hoje está lotado, mas posso colocar você como PRIORIDADE para o primeiro horário de amanhã. Posso?`;
-    }
-  }
-  
-  // ===== FLUXO POR ETAPA =====
-  switch (estado.etapa) {
-    case 'INICIO':
-    case undefined:
-      return await etapaInicio(estado, t, original, d);
-      
-    case 'AGUARDANDO_BAIRRO':
-      return await etapaAguardandoBairro(estado, t, original, d);
-      
-    case 'AGUARDANDO_SERVICO':
-      return await etapaAguardandoServico(estado, t, original, d);
-      
-    case 'VALOR_APRESENTADO':
-      return await etapaValorApresentado(estado, t, original, d);
-      
-    case 'AGUARDANDO_DATA':
-      return await etapaAguardandoData(estado, t, original, d);
-      
-    case 'AGUARDANDO_HORARIO':
-    case 'AGUARDANDO_HORARIO_URGENTE':
-      return await etapaAguardandoHorario(estado, t, original, d);
-      
-    case 'AGUARDANDO_ENDERECO':
-      return await etapaAguardandoEndereco(estado, t, original, d);
-      
-    case 'CONFIRMAR_AGENDAMENTO':
-      return await etapaConfirmar(estado, t, original, d, nome);
-      
-    case 'AGENDADO':
-      return "Visita confirmada! Se precisar de mais alguma coisa, é só chamar. Estou por aqui! 👋";
-      
-    case 'INTERVENCAO_HUMANA':
-      return null; // Não responde, aguarda humano
-      
-    default:
-      estado.etapa = 'INICIO';
-      return "Olá! Me informe o serviço e o bairro que deseja atendimento, por favor.";
-  }
+function formatarTelefone(num) {
+  return num.replace(/\D/g, '').replace(/(\d{2})(\d{2})(\d{5})(\d{4})/, '+$1 ($2) $3-$4');
 }
 
-// ============================================
-// ETAPAS DO FLUXO
-// ============================================
-
-async function etapaInicio(estado, t, original, d) {
-  const { servico, bairro } = extrairServicoEBairro(t, original);
-  
-  if (servico && bairro) {
-    d.servico = servico;
-    d.bairro = bairro;
-    d.valor = calcularValor(bairro);
-    estado.etapa = 'VALOR_APRESENTADO';
-    
-    return `Perfeito! Para enviar um orçamento preciso, é necessário uma visita técnica no local. O investimento da visita é de R$${d.valor}, mas fique tranquilo: esse valor é abatido do total se o orçamento for aprovado.\n\nPara quando gostaria de agendar?`;
-  }
-  
-  if (servico) {
-    d.servico = servico;
-    estado.etapa = 'AGUARDANDO_BAIRRO';
-    return `Certo. Qual o bairro que deseja atendimento?`;
-  }
-  
-  if (bairro) {
-    d.bairro = bairro;
-    estado.etapa = 'AGUARDANDO_SERVICO';
-    return `Qual serviço deseja? Temos:\n🔧 Hidráulica\n⚡ Elétrica\n🎨 Pintura\n🏗️ Reforma\n🪚 Marcenaria`;
-  }
-  
-  if (t.match(/(quanto custa|qual o preço|valor|orçamento)/)) {
-    return `Para qual serviço? Não posso informar um valor exato sem conhecer o local, mas posso enviar uma média de valores. Deseja?`;
-  }
-  
-  return `Olá! Bem-vindo à RC Reformas. 🏠\n\nSou seu assistente virtual e vou te ajudar a agendar uma visita técnica.\n\nPara começar, me informe:\n1️⃣ Qual serviço você precisa?\n2️⃣ Qual bairro você está localizado?`;
-}
-
-async function etapaAguardandoBairro(estado, t, original, d) {
-  const bairro = extrairBairro(t, original);
-  
-  if (bairro) {
-    d.bairro = bairro;
-    d.valor = calcularValor(bairro);
-    estado.etapa = 'VALOR_APRESENTADO';
-    
-    return `Ótimo! Para oferecer um orçamento mais preciso, é necessário que um profissional realize uma visita técnica. O investimento da visita é de R$${d.valor}, mas esse valor é abatido do total caso o orçamento seja aprovado.\n\nGostaria de agendar?`;
-  }
-  
-  return `Certo. Qual o bairro que deseja atendimento? (Ex: Ipanema, Copacabana, Botafogo...)`;
-}
-
-async function etapaAguardandoServico(estado, t, original, d) {
-  const servico = extrairServico(t);
-  
-  if (servico) {
-    d.servico = servico;
-    d.valor = calcularValor(d.bairro);
-    estado.etapa = 'VALOR_APRESENTADO';
-    
-    return `Perfeito! Para oferecer um orçamento mais preciso, é necessário que um profissional realize uma visita técnica. O investimento da visita é de R$${d.valor}, mas esse valor é abatido do total caso o orçamento seja aprovado.\n\nGostaria de agendar?`;
-  }
-  
-  return `Qual serviço deseja? Temos:\n🔧 Hidráulica (vazamentos, encanamentos)\n⚡ Elétrica (instalações, reparos)\n🎨 Pintura (interna e externa)\n🏗️ Reforma (construção, reparos)\n🪚 Marcenaria (móveis, armários)`;
-}
-
-async function etapaValorApresentado(estado, t, original, d) {
-  // Por que pagar visita?
-  if (t.match(/(por que tem que pagar|por que pagar|para que serve a visita|por que cobra|justificar)/)) {
-    return `O valor da visita cobre o deslocamento do profissional qualificado e a análise técnica detalhada do que precisa ser feito. Se aprovarem o orçamento, a visita sai de graça pois o valor é abatido do total. Posso verificar disponibilidade?`;
-  }
-  
-  // Não vou pagar
-  if (t.match(/(não vou pagar|visita grátis|gratuita|orçamento grátis|não aceito pagar|de graça)/)) {
-    const isBotafogo = d.bairro?.toLowerCase().includes('botafogo');
-    const isZonaSul = CONFIG.BAIRROS_ZONA_SUL.some(b => 
-      d.bairro?.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(b)
-    );
-    
-    if (isBotafogo) {
-      d.valor = 0;
-      estado.etapa = 'AGUARDANDO_DATA';
-      return `Como exceção para o bairro de Botafogo, posso oferecer a visita sem cobrança. Para quando gostaria de agendar?`;
-    } else if (isZonaSul) {
-      return `Posso oferecer 50% de desconto no valor da visita. Ficaria em R$90. Podemos prosseguir?`;
-    } else {
-      return `Entendo, mas infelizmente para este bairro a taxa da visita precisa ser mantida. Posso garantir que vale a pena pelo profissionalismo do atendimento. Podemos agendar?`;
-    }
-  }
-  
-  // Desconto
-  if (t.match(/(desconto|faz mais barato|tem desconto|consegue abaixar|negociar)/)) {
-    const isZonaSul = CONFIG.BAIRROS_ZONA_SUL.some(b => 
-      d.bairro?.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(b)
-    );
-    
-    if (isZonaSul) {
-      return `Posso oferecer até 50% de desconto no valor da visita. Ficaria em R$90. Deseja prosseguir?`;
-    } else {
-      return `Para este bairro o valor é fixo, mas garanto que o profissionalismo compensa. Podemos agendar?`;
-    }
-  }
-  
-  // AVANÇA PARA DATA
-  if (t.match(/(pode ser|quando|data|horário|hoje|amanhã|agendar|marcar|ok|sim|pode|claro|tá bom|tah bom|vamos)/)) {
-    estado.etapa = 'AGUARDANDO_DATA';
-    return `Perfeito! Para quando gostaria de agendar? Posso verificar hoje ou amanhã se preferir.`;
-  }
-  
-  return `Gostaria de agendar a visita técnica? Posso verificar a disponibilidade para você.`;
-}
-
-async function etapaAguardandoData(estado, t, original, d) {
-  const horaAtual = new Date().getHours();
-  
-  // Urgência detectada
-  if (t.match(/(urgente|vazando|quebrou|emergência|emergencia|inundando)/)) {
-    d.urgente = true;
-  }
-  
-  // Hoje
-  if (t.match(/(hoje|hoje ainda|ainda hoje)/)) {
-    if (horaAtual >= 19) {
-      return `Já são mais de 19h, mas posso entrar em contato com o profissional para o primeiro horário de amanhã. Deseja?`;
-    }
-    
-    // Verificar disponibilidade na agenda
-    const hoje = new Date().toISOString().split('T')[0];
-    const { data: ocupados } = await supabase
-      .from('agenda')
-      .select('horario')
-      .eq('data', hoje)
-      .eq('status', 'ocupado');
-    
-    const horariosLivres = CONFIG.HORARIOS_DISPONIVEIS.filter(h => 
-      !ocupados?.some(o => o.horario === h)
-    );
-    
-    if (horariosLivres.length === 0) {
-      return `Hoje está lotado, mas posso colocar você como prioridade para amanhã. Pode ser?`;
-    }
-    
-    d.data = hoje;
-    estado.etapa = 'AGUARDANDO_HORARIO';
-    return `Temos disponibilidade para hoje nos horários:\n${horariosLivres.map((h, i) => `${i+1}️⃣ ${h}`).join('\n')}\n\nQual prefere?`;
-  }
-  
-  // Amanhã
-  if (t.match(/(amanhã|amanha)/)) {
-    const amanha = new Date();
-    amanha.setDate(amanha.getDate() + 1);
-    d.data = amanha.toISOString().split('T')[0];
-    
-    const { data: ocupados } = await supabase
-      .from('agenda')
-      .select('horario')
-      .eq('data', d.data)
-      .eq('status', 'ocupado');
-    
-    const horariosLivres = CONFIG.HORARIOS_DISPONIVEIS.filter(h => 
-      !ocupados?.some(o => o.horario === h)
-    );
-    
-    estado.etapa = 'AGUARDANDO_HORARIO';
-    return `Para amanhã temos:\n${horariosLivres.map((h, i) => `${i+1}️⃣ ${h}`).join('\n')}\n\nQual horário?`;
-  }
-  
-  // Data específica (DD/MM)
-  const dataMatch = t.match(/(\d{1,2})\/(\d{1,2})/);
-  if (dataMatch) {
-    const dia = parseInt(dataMatch[1]);
-    const mes = parseInt(dataMatch[2]) - 1;
-    const ano = new Date().getFullYear();
-    const data = new Date(ano, mes, dia);
-    d.data = data.toISOString().split('T')[0];
-    
-    estado.etapa = 'AGUARDANDO_HORARIO';
-    return `Qual seria um bom horário para ${dia}/${dataMatch[2]}? Temos disponibilidade entre 9h e 16h.`;
-  }
-  
-  // Indeciso
-  if (t.match(/(não sei|ainda não sei|vou ver|qualquer dia)/)) {
-    return `Posso oferecer hoje à tarde ou amanhã de manhã. Alguma dessas opções serve?`;
-  }
-  
-  return `Para quando gostaria de agendar? (hoje, amanhã, ou uma data específica)`;
-}
-
-async function etapaAguardandoHorario(estado, t, original, d) {
-  const hora = extrairHora(original);
-  
-  if (hora) {
-    d.hora = hora;
-    
-    // Verificar se horário está disponível na agenda
-    const { data: ocupado } = await supabase
-      .from('agenda')
-      .select('*')
-      .eq('data', d.data)
-      .eq('horario', hora)
-      .eq('status', 'ocupado')
-      .single();
-    
-    if (ocupado) {
-      return `Esse horário acabou de ser preenchido. 😅\n\nTem outro que prefere?`;
-    }
-    
-    estado.etapa = 'AGUARDANDO_ENDERECO';
-    return `Perfeito! Agora preciso do endereço completo para confirmar a visita. Qual é? (Rua, número, complemento)`;
-  }
-  
-  // Se escolheu por número (1, 2, 3...)
-  const num = parseInt(t.match(/\d+/)?.[0]);
-  if (num && num > 0 && num <= CONFIG.HORARIOS_DISPONIVEIS.length) {
-    d.hora = CONFIG.HORARIOS_DISPONIVEIS[num - 1];
-    estado.etapa = 'AGUARDANDO_ENDERECO';
-    return `Perfeito! Agora preciso do endereço completo para confirmar a visita. Qual é? (Rua, número, complemento)`;
-  }
-  
-  return `Qual seria um bom horário? Temos disponibilidade entre 9h e 16h.`;
-}
-
-async function etapaAguardandoEndereco(estado, t, original, d) {
-  if (original.length > 10 && t.match(/(rua|av|avenida|número|numero|apartamento|casa|bloco)/)) {
-    d.endereco = original;
-    estado.etapa = 'CONFIRMAR_AGENDAMENTO';
-    
-    return `Posso confirmar:\n\n` +
-           `📋 Visita de ${d.servico}\n` +
-           `📅 ${formatarData(d.data)} às ${d.hora}\n` +
-           `📍 ${d.bairro}\n` +
-           `🏠 ${original}\n\n` +
-           `Está correto? (Sim/Não)`;
-  }
-  
-  if (t.match(/(rua|av)/) && !t.match(/\d+/)) {
-    return `Qual o número? É casa ou apartamento?`;
-  }
-  
-  return `Qual o endereço completo para a visita? (Rua, número, complemento, ponto de referência)`;
-}
-
-async function etapaConfirmar(estado, t, original, d, nome) {
-  if (t.match(/(sim|pode|ok|confirmo|tá bom|tah bom|perfeito|ótimo|otimo)/)) {
-    // Encontrar técnico
-    const tecnicoEntry = Object.entries(CONFIG.TECNICOS).find(([k, v]) => 
-      v.servicos.some(s => d.servico.toLowerCase().includes(s))
-    );
-    
-    if (!tecnicoEntry) {
-      await notificarTelegram(
-        `🚨 <b>SEM TÉCNICO DISPONÍVEL</b>\n` +
-        `Serviço: ${d.servico}\n` +
-        `Cliente: ${nome} (${estado.telefone})`,
-        'urgente'
-      );
-      return `Desculpe, no momento não temos técnicos disponíveis para ${d.servico}. Um atendente humano entrará em contato em breve.`;
-    }
-    
-    const [tipoTecnico, tecnico] = tecnicoEntry;
-    
-    // Marcar na agenda
-    await supabase.from('agenda').insert({
-      data: d.data,
-      horario: d.hora,
-      cliente_telefone: estado.telefone,
-      cliente_nome: nome,
-      servico: d.servico,
-      bairro: d.bairro,
-      endereco: d.endereco,
-      tecnico: tecnico.nome,
-      tecnico_numero: tecnico.numero,
-      valor_visita: d.valor,
-      status: 'agendado'
-    });
-    
-    // Notificar técnico via WhatsApp
-    await enviarWhatsApp(
-      tecnico.numero,
-      `🔔 *NOVA VISITA AGENDADA*\n\n` +
-      `📅 ${formatarData(d.data)} às ${d.hora}\n` +
-      `📍 ${d.bairro}\n` +
-      `🔧 ${d.servico}\n` +
-      `🏠 ${d.endereco}\n` +
-      `👤 Cliente: ${nome}\n` +
-      `📞 ${estado.telefone}\n\n` +
-      `Responda *OK* para confirmar ou informe se precisar de algo.`
-    );
-    
-    // Notificar Telegram
-    await notificarTelegram(
-      `✅ <b>NOVA VISITA AGENDADA!</b>\n\n` +
-      `👤 ${nome}\n` +
-      `📞 ${estado.telefone}\n` +
-      `🔧 ${d.servico}\n` +
-      `📍 ${d.bairro}\n` +
-      `📅 ${formatarData(d.data)} às ${d.hora}\n` +
-      `👨‍🔧 ${tecnico.nome}\n` +
-      `💰 R$${d.valor}`,
-      'sucesso'
-    );
-    
-    estado.etapa = 'AGENDADO';
-    
-    return `✅ *VISITA CONFIRMADA!*\n\n` +
-           `O técnico ${tecnico.nome} foi notificado e confirmará em breve.\n\n` +
-           `📅 ${formatarData(d.data)} às ${d.hora}\n` +
-           `Se precisar de mais alguma coisa, é só chamar!`;
-  }
-  
-  if (t.match(/(não|nao|mudar|alterar|trocar|outro dia|errado)/)) {
-    estado.etapa = 'AGUARDANDO_DATA';
-    return `Sem problemas. Qual seria o dia mais próximo que teria disponibilidade?`;
-  }
-  
-  return `Posso confirmar o agendamento para ${formatarData(d.data)} às ${d.hora}? (Sim/Não)`;
-}
-
-// ============================================
-// PROCESSAR MENSAGEM DO TÉCNICO (PONTE)
-// ============================================
-async function processarMensagemTecnico(telefone, texto, tecnicoInfo, nome) {
-  const t = texto.toLowerCase();
-  
-  // Buscar visita ativa deste técnico
-  const { data: visita } = await supabase
-    .from('agenda')
-    .select('*')
-    .eq('tecnico_numero', tecnicoInfo.numero)
-    .eq('status', 'agendado')
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .single();
-  
-  if (!visita) {
-    await notificarTelegram(
-      `💬 <b>${tecnicoInfo.nome} enviou:</b>\n` +
-      `"${texto}"\n\n` +
-      `⚠️ Não encontrei visita ativa para ele`,
-      'alerta'
-    );
-    return;
-  }
-  
-  // Confirmação do técnico
-  if (t.match(/(ok|confirmado|confirmo|vou|chegarei|estou indo)/)) {
-    // Atualizar status
-    await supabase.from('agenda')
-      .update({ status: 'confirmado' })
-      .eq('id', visita.id);
-    
-    // Notificar cliente
-    await enviarWhatsApp(
-      visita.cliente_telefone,
-      `✅ *${tecnicoInfo.nome} confirmou sua visita!*\n\n` +
-      `📅 ${formatarData(visita.data)} às ${visita.horario}\n` +
-      `Está tudo certo! O técnico chegará no horário combinado.`
-    );
-    
-    await notificarTelegram(
-      `✅ <b>${tecnicoInfo.nome} confirmou visita</b>\n` +
-      `Cliente: ${visita.cliente_nome}`,
-      'sucesso'
-    );
-    return;
-  }
-  
-  // Técnico precisa de informação (pergunta ao cliente)
-  if (t.match(/(estacionamento|portaria|elevador|predio|prédio|andar|bloco|apartamento|casa|numero|número|qual o andar|tem vaga)/)) {
-    // Salvar pergunta do técnico
-    await supabase.from('intermediacao').insert({
-      visita_id: visita.id,
-      tipo: 'tecnico_pergunta',
-      mensagem: texto,
-      timestamp: new Date().toISOString()
-    });
-    
-    // Perguntar ao cliente
-    await enviarWhatsApp(
-      visita.cliente_telefone,
-      `📢 *Pergunta do técnico ${tecnicoInfo.nome}:*\n\n` +
-      `"${texto}"\n\n` +
-      `Poderia responder para que ele se prepare melhor?`
-    );
-    
-    await notificarTelegram(
-      `🔧 <b>Intermediação necessária</b>\n` +
-      `Técnico ${tecnicoInfo.nome} perguntou: "${texto}"\n` +
-      `Cliente: ${visita.cliente_nome} (${visita.cliente_telefone})`,
-      'alerta'
-    );
-    return;
-  }
-  
-  // Técnico quer cancelar/adiar
-  if (t.match(/(não posso|nao posso|adiar|remarcar|cancelar|impedimento)/)) {
-    await notificarTelegram(
-      `🚨 <b>${tecnicoInfo.nome} NÃO PODE ATENDER</b>\n` +
-      `"${texto}"\n\n` +
-      `Visita: ${visita.cliente_nome} - ${formatarData(visita.data)} ${visita.horario}\n` +
-      `⚠️ PRECISA REMARCAR`,
-      'urgente'
-    );
-    
-    await enviarWhatsApp(
-      visita.cliente_telefone,
-      `Olá! Tivemos um imprevisto com o técnico ${tecnicoInfo.nome}.\n\n` +
-      `Estamos remarcando sua visita. Em breve entraremos em contato com novo horário.`
-    );
-    
-    await supabase.from('agenda')
-      .update({ status: 'remarcar' })
-      .eq('id', visita.id);
-    return;
-  }
-  
-  // Mensagem genérica do técnico - repassar ao cliente
-  await enviarWhatsApp(visita.cliente_telefone, 
-    `👨‍🔧 *${tecnicoInfo.nome}:*\n${texto}`
-  );
-  
-  await notificarTelegram(
-    `💬 <b>${tecnicoInfo.nome} → Cliente:</b>\n` +
-    `"${texto}"\n` +
-    `Cliente: ${visita.cliente_nome}`,
-    'info'
-  );
-}
-
-// ============================================
-// API DO PAINEL
-// ============================================
-async function apiPainel(req, res) {
-  const { acao } = req.query;
-  
-  switch (acao) {
-    case 'listar':
-      return await listarConversas(res);
-      
-    case 'mensagens':
-      return await listarMensagens(req, res);
-      
-    case 'intervir':
-      return await intervir(req, res);
-      
-    case 'liberar':
-      return await liberar(req, res);
-      
-    case 'enviar':
-      return await enviarHumano(req, res);
-      
-    case 'estatisticas':
-      return await estatisticas(res);
-      
-    default:
-      return res.status(400).json({ erro: 'Ação desconhecida' });
-  }
-}
-
-async function listarConversas(res) {
-  // Buscar sessões ativas
-  const { data: sessoes } = await supabase
-    .from('sessoes')
-    .select('*')
-    .order('ultima_atividade', { ascending: false });
-  
-  // Buscar intervenções ativas
-  const { data: intervencoes } = await supabase
-    .from('intervencoes')
-    .select('*')
-    .eq('ativa', true);
-  
-  const intervencaoMap = new Map(intervencoes?.map(i => [i.telefone, i]));
-  
-  const conversas = sessoes?.map(s => ({
-    telefone: s.telefone,
-    nome: s.nome,
-    etapa: s.etapa,
-    intervencao: !!intervencaoMap.get(s.telefone),
-    ultima: s.dados?.servico ? `${s.dados.servico} - ${s.dados.bairro || '?'}` : 'Novo atendimento',
-    ultimaAtividade: new Date(s.ultima_atividade).getTime()
-  })) || [];
-  
-  return res.json(conversas);
-}
-
-async function listarMensagens(req, res) {
-  const { telefone } = req.query;
-  
-  const { data: mensagens } = await supabase
-    .from('mensagens')
-    .select('*')
-    .eq('telefone', telefone)
-    .order('timestamp', { ascending: true });
-  
-  const formatadas = mensagens?.map(m => ({
-    tipo: m.tipo,
-    texto: m.mensagem,
-    hora: new Date(m.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-    nome: m.remetente || (m.tipo === 'cliente' ? 'Cliente' : m.tipo === 'tecnico' ? 'Técnico' : 'RC')
-  })) || [];
-  
-  return res.json(formatadas);
-}
-
-async function intervir(req, res) {
-  const { telefone } = req.body;
-  
-  await supabase.from('intervencoes').upsert({
-    telefone,
-    ativa: true,
-    inicio: new Date().toISOString()
-  });
-  
-  // Enviar mensagem ao cliente
-  await enviarWhatsApp(telefone, 
-    '👋 Olá! Sou o atendente humano. Acabei de assumir nossa conversa. Como posso ajudar?'
-  );
-  
-  await notificarTelegram(`🚨 <b>Intervenção humana iniciada</b>\n📞 ${telefone}`, 'alerta');
-  
-  return res.json({ ok: true });
-}
-
-async function liberar(req, res) {
-  const { telefone } = req.body;
-  
-  await supabase.from('intervencoes')
-    .update({ ativa: false, fim: new Date().toISOString() })
-    .eq('telefone', telefone);
-  
-  // Resetar sessão
-  await supabase.from('sessoes')
-    .update({ etapa: 'INICIO', dados: {} })
-    .eq('telefone', telefone);
-  
-  await enviarWhatsApp(telefone,
-    '✅ Vou passar você de volta para nosso assistente virtual. Ele continuará te ajudando!'
-  );
-  
-  return res.json({ ok: true });
-}
-
-async function enviarHumano(req, res) {
-  const { telefone, mensagem } = req.body;
-  
-  await enviarWhatsApp(telefone, mensagem);
-  await salvarMensagem(telefone, mensagem, 'humano', 'Atendente');
-  
-  return res.json({ ok: true });
-}
-
-async function estatisticas(res) {
-  const hoje = new Date().toISOString().split('T')[0];
-  
-  const { data: visitas } = await supabase
-    .from('agenda')
-    .select('*')
-    .gte('created_at', hoje);
-  
-  const { data: mensagens } = await supabase
-    .from('mensagens')
-    .select('*')
-    .gte('timestamp', hoje);
-  
-  return res.json({
-    visitasHoje: visitas?.length || 0,
-    confirmadas: visitas?.filter(v => v.status === 'confirmado').length || 0,
-    mensagensHoje: mensagens?.length || 0,
-    clientesUnicos: new Set(mensagens?.map(m => m.telefone)).size
-  });
-}
-
-// ============================================
-// FUNÇÕES AUXILIARES
-// ============================================
-
-async function salvarMensagem(telefone, mensagem, tipo, remetente = null) {
-  await supabase.from('mensagens').insert({
-    telefone,
-    mensagem,
-    tipo,
-    remetente,
-    timestamp: new Date().toISOString()
-  });
-}
-
-async function enviarWhatsApp(numero, texto) {
-  // Implementação via WhatsApp Cloud API
-  const token = process.env.WHATSAPP_TOKEN;
-  const phoneId = process.env.WHATSAPP_PHONE_ID;
-  
-  if (!token || !phoneId) {
-    console.error('❌ WhatsApp não configurado');
-    return false;
-  }
-  
-  try {
-    const res = await fetch(`https://graph.facebook.com/v18.0/${phoneId}/messages`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        messaging_product: 'whatsapp',
-        recipient_type: 'individual',
-        to: numero,
-        type: 'text',
-        text: { body: texto }
-      })
-    });
-    
-    const data = await res.json();
-    
-    if (!res.ok) {
-      console.error('❌ Erro WhatsApp API:', data);
-      return false;
-    }
-    
-    console.log('✅ Enviado para', numero);
-    return true;
-    
-  } catch (e) {
-    console.error('❌ Erro enviar WhatsApp:', e);
-    return false;
-  }
-}
+// ============ NOTIFICAÇÕES TELEGRAM ============
 
 async function notificarTelegram(mensagem, tipo = 'info') {
-  const icones = { info: 'ℹ️', alerta: '⚠️', urgente: '🚨', sucesso: '✅' };
-  const icone = icones[tipo] || 'ℹ️';
+  const icones = {
+    info: 'ℹ️',
+    sucesso: '✅',
+    alerta: '⚠️',
+    urgente: '🚨',
+    dinheiro: '💰',
+    novo: '🆕',
+    ponte: '🌉'
+  };
   
   try {
     await fetch(`https://api.telegram.org/bot${CONFIG.TELEGRAM_TOKEN}/sendMessage`, {
@@ -943,7 +106,7 @@ async function notificarTelegram(mensagem, tipo = 'info') {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         chat_id: CONFIG.TELEGRAM_CHAT_ID,
-        text: `${icone} ${mensagem}`,
+        text: `${icones[tipo] || 'ℹ️'} ${mensagem}`,
         parse_mode: 'HTML'
       })
     });
@@ -952,55 +115,927 @@ async function notificarTelegram(mensagem, tipo = 'info') {
   }
 }
 
-function extrairServicoEBairro(t, original) {
-  const servicos = ['pintura', 'marcenaria', 'hidráulica', 'hidraulica', 'elétrica', 'eletrica', 'reforma', 'azulejo', 'pedreiro', 'gesso', 'vazamento', 'encanamento', 'moveis', 'armario', 'porta'];
-  const bairros = [...CONFIG.BAIRROS_ZONA_SUL, 'tijuca', 'madureira', 'meier', 'vila isabel', 'barra', 'recreio', 'jacarepaguá', 'jacarepagua', 'centro'];
+// ============ BANCO DE DADOS ============
+
+async function salvarMensagem(numero, mensagem, tipo, metadata = {}) {
+  try {
+    await supabase.from('mensagens').insert({
+      numero,
+      mensagem,
+      tipo, // 'cliente', 'profissional', 'robo', 'humano'
+      metadata,
+      created_at: new Date().toISOString()
+    });
+  } catch (e) {
+    console.error('Erro salvar mensagem:', e);
+  }
+}
+
+async function atualizarConversa(numero, dados) {
+  try {
+    await supabase.from('conversas').upsert({
+      numero,
+      ...dados,
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'numero' });
+  } catch (e) {
+    console.error('Erro atualizar conversa:', e);
+  }
+}
+
+async function carregarAgendaProfissional(profissionalId) {
+  const hoje = new Date().toISOString().split('T')[0];
+  const { data } = await supabase
+    .from('agenda')
+    .select('*')
+    .eq('profissional_id', profissionalId)
+    .gte('data', hoje);
   
-  let servico = null, bairro = null;
+  return data || [];
+}
+
+async function bloquearHorario(profissionalId, data, horario, clienteNumero) {
+  try {
+    await supabase.from('agenda').insert({
+      profissional_id: profissionalId,
+      data,
+      horario,
+      cliente_numero: clienteNumero,
+      status: 'ocupado',
+      created_at: new Date().toISOString()
+    });
+    return true;
+  } catch (e) {
+    console.error('Erro ao bloquear horário:', e);
+    return false;
+  }
+}
+
+// ============ INTELIGÊNCIA DO ROBÔ ============
+
+function detectarIntencao(texto) {
+  const t = normalizarTexto(texto);
+  
+  // Saudações
+  if (/^(oi|ola|olá|bom dia|boa tarde|boa noite|e ai|eae|hey|opa|tudo bem|tudo bom|como vai)/.test(t)) {
+    return 'saudacao';
+  }
+  
+  // Serviços específicos
+  const servicos = {
+    hidraulica: /hidraulica|encanamento|cano|vazamento|agua|esgoto|pia|vaso|chuveiro|torneira|ralo|descarga/,
+    eletrica: /eletrica|luz|tomada|disjuntor|fio|curto|energia|chuveiro eletrico|ventilador/,
+    pintura: /pintura|pintar|tinta|parede|latex|massa corrida|verniz/,
+    reforma: /reforma|reformar|construcao|construir|obra|casa|apartamento|reparo|conserto/,
+    gesso: /gesso|sanca|forro|drywall|divisoria|rebaixo/,
+    marcenaria: /marcenaria|marceneiro|armario|moveis|movel|porta|janela|madeira/,
+    azulejo: /azulejo|piso|ceramica|revestimento|banheiro|cozinha/,
+    pedreiro: /pedreiro|alvenaria|tijolo|cimento|concreto/fundação/
+  };
+  
+  for (const [servico, regex] of Object.entries(servicos)) {
+    if (regex.test(t)) return `servico_${servico}`;
+  }
+  
+  // Bairro
+  if (/(moro|fica|sou de|endereco|bairro|rua|av |avenida|apartamento|casa)/.test(t)) {
+    return 'bairro';
+  }
+  
+  // Urgência
+  if (/(hoje|agora|urgente|emergencia|preciso ja|muito urgente|vazando|quebrou|inundando)/.test(t)) {
+    return 'urgencia';
+  }
+  
+  // Confirmação
+  if (/^(sim|s|yes|ok|beleza|pode ser|tudo bem|combinado|fechado|show|top|perfeito|claro|pode|va em frente)/.test(t)) {
+    return 'confirmacao';
+  }
+  
+  // Negação
+  if (/^(nao|não|n|no|nope|depois|outro dia|outro horario|nao posso|não posso|ocupado|nao quero)/.test(t)) {
+    return 'negacao';
+  }
+  
+  // Preço
+  if (/(preco|preço|valor|custo|quanto custa|quanto fica|orcamento|barato|caro|dinheiro|pagar|taxa)/.test(t)) {
+    return 'preco';
+  }
+  
+  // Intervenção humana
+  if (/(atendente|humano|pessoa|gerente|chefe|proprietario|dono|reclamacao|problema|nao entendi|não entendi|dificil|complicado|errado|erro)/.test(t)) {
+    return 'intervencao';
+  }
+  
+  // Despedida
+  if (/(tchau|ate logo|obrigado|obrigada|valeu|flw|adeus)/.test(t)) {
+    return 'despedida';
+  }
+  
+  // Pergunta sobre visita
+  if (/(visita tecnica|visita|agendamento|marcar|horario|data|disponibilidade)/.test(t)) {
+    return 'agendamento';
+  }
+  
+  return 'generico';
+}
+
+function extrairServico(texto) {
+  const t = normalizarTexto(texto);
+  const servicos = ['hidraulica', 'eletrica', 'pintura', 'reforma', 'gesso', 'marcenaria', 'azulejo', 'pedreiro'];
   
   for (const s of servicos) {
-    if (t.includes(s)) { servico = s; break; }
+    if (t.includes(s)) return s;
   }
+  return null;
+}
+
+function extrairBairro(texto) {
+  const t = normalizarTexto(texto);
+  
+  // Bairros específicos
+  const bairros = [...CONFIG.bairrosZonaSul, 'tijuca', 'madureira', 'meier', 'barra', 'recreio', 
+    'jacarepagua', 'centro', 'lapa', 'santa teresa', 'vila isabel', 'graçatiba'];
   
   for (const b of bairros) {
-    if (t.includes(b)) { bairro = b; break; }
+    if (t.includes(b)) return b;
   }
   
-  // Extrair bairro de frases como "moro em X" ou "no bairro Y"
-  const m = original.match(/(em|no|na)\s+([A-Za-zÀ-ÿ\s]+)/i);
-  if (m && !bairro) {
-    const p = m[2].trim().toLowerCase();
-    for (const b of bairros) {
-      if (p.includes(b)) { bairro = b; break; }
+  // Tentar extrair após "bairro", "em", "na"
+  const match = texto.match(/(?:bairro|em|na|no)\s+([A-Za-zÀ-ÖØ-öø-ÿ\s]+)/i);
+  if (match) {
+    return match[1].trim().split(/[,\.]/)[0];
+  }
+  
+  return null;
+}
+
+function calcularPreco(bairro) {
+  const bairroNormalizado = normalizarTexto(bairro);
+  const isZonaSul = CONFIG.bairrosZonaSul.some(b => bairroNormalizado.includes(b));
+  
+  return {
+    valor: isZonaSul ? CONFIG.precos.zonaSul : CONFIG.precos.outros,
+    desconto: isZonaSul ? CONFIG.precos.descontoZonaSul : null,
+    isZonaSul
+  };
+}
+
+// ============ FLUXO DE ATENDIMENTO ============
+
+async function processarMensagem(numero, mensagem, isProfissional = false) {
+  // Verificar se está em intervenção humana
+  if (!isProfissional && conversasHumanas.has(numero)) {
+    await salvarMensagem(numero, mensagem, 'cliente');
+    // Notificar painel via broadcast (implementar no painel-data.js)
+    return { acao: 'intervencao', mensagem: 'Atendente humano no controle' };
+  }
+  
+  // Carregar ou criar sessão
+  let sessao = sessoes.get(numero);
+  if (!sessao) {
+    const { data } = await supabase.from('conversas').select('*').eq('numero', numero).single();
+    sessao = data || {
+      numero,
+      etapa: 'inicio',
+      dados: {},
+      historico: []
+    };
+  }
+  
+  const intencao = detectarIntencao(mensagem);
+  
+  // Salvar mensagem
+  await salvarMensagem(numero, mensagem, isProfissional ? 'profissional' : 'cliente');
+  sessao.historico.push({ tipo: 'recebida', conteudo: mensagem, hora: new Date() });
+  
+  // Se for profissional, processar como ponte de comunicação
+  if (isProfissional) {
+    return await processarProfissional(numero, mensagem, sessao);
+  }
+  
+  // Fluxo do cliente
+  let resposta = null;
+  let novaEtapa = sessao.etapa;
+  
+  switch (sessao.etapa) {
+    case 'inicio':
+      if (intencao === 'saudacao' || intencao.startsWith('servico_') || intencao === 'bairro') {
+        resposta = `Olá! Sou o assistente virtual da RC Reformas. 🏠\n\nVou te ajudar a agendar uma visita técnica. É rápido!\n\nPara começar, me informe:\n1️⃣ Qual serviço você precisa?\n2️⃣ Qual bairro você está?`;
+        novaEtapa = 'coletando_servico_bairro';
+      } else {
+        resposta = `Olá! Bem-vindo à RC Reformas. Sou o assistente virtual e vou te ajudar.\n\nQual serviço você precisa e em qual bairro? (Ex: "Preciso de pintura em Ipanema")`;
+        novaEtapa = 'coletando_servico_bairro';
+      }
+      break;
+      
+    case 'coletando_servico_bairro':
+      const servico = extrairServico(mensagem);
+      const bairro = extrairBairro(mensagem);
+      
+      if (servico) sessao.dados.servico = servico;
+      if (bairro) sessao.dados.bairro = bairro;
+      
+      if (sessao.dados.servico && sessao.dados.bairro) {
+        const preco = calcularPreco(sessao.dados.bairro);
+        sessao.dados.preco = preco;
+        
+        // Encontrar profissional
+        const profissional = CONFIG.PROFISSIONAIS.find(p => 
+          p.servicos.some(s => normalizarTexto(s).includes(sessao.dados.servico))
+        );
+        
+        if (!profissional) {
+          resposta = `No momento não temos profissional disponível para ${sessao.dados.servico} nessa região. Vou transferir para um atendente humano.`;
+          novaEtapa = 'intervencao';
+          await notificarTelegram(`🚨 Sem profissional para ${sessao.dados.servico} em ${sessao.dados.bairro}`, 'urgente');
+        } else {
+          sessao.dados.profissional = profissional;
+          
+          let msgPreco = `Perfeito! Encontrei o técnico ideal: *${profissional.nome}* 👨‍🔧\n\n`;
+          msgPreco += `Para enviar um orçamento preciso, precisamos de uma visita técnica.\n\n`;
+          
+          if (preco.isZonaSul) {
+            msgPreco += `💰 Valor da visita: R$${preco.valor}\n`;
+            msgPreco += `🎉 *Oferta especial*: 50% de desconto = R$${preco.desconto}!\n`;
+          } else {
+            msgPreco += `💰 Valor da visita: R$${preco.valor}\n`;
+          }
+          
+          msgPreco += `\n✅ Esse valor é *abatido do total* se aprovar o orçamento\n`;
+          msgPreco += `\nGostaria de agendar? (Sim/Não)`;
+          
+          resposta = msgPreco;
+          novaEtapa = 'confirmando_visita';
+        }
+      } else if (sessao.dados.servico) {
+        resposta = `Certo, serviço: *${sessao.dados.servico}* ✅\n\nAgora me informe o bairro:`;
+      } else if (sessao.dados.bairro) {
+        resposta = `Bairro: *${sessao.dados.bairro}* ✅\n\nQual serviço você precisa?`;
+      } else {
+        resposta = `Preciso saber:\n• Qual serviço?\n• Qual bairro?\n\nPode me informar ambos?`;
+      }
+      break;
+      
+    case 'confirmando_visita':
+      if (intencao === 'confirmacao' || intencao === 'urgencia') {
+        // Verificar agenda do profissional
+        const agenda = await carregarAgendaProfissional(sessao.dados.profissional.id);
+        const hoje = new Date().toLocaleDateString('pt-BR');
+        const amanha = new Date(Date.now() + 86400000).toLocaleDateString('pt-BR');
+        
+        // Filtrar horários disponíveis
+        const horariosOcupados = agenda
+          .filter(a => a.data === hoje)
+          .map(a => a.horario);
+        
+        const horariosLivres = sessao.dados.profissional.horariosPadrao
+          .filter(h => !horariosOcupados.includes(h));
+        
+        if (horariosLivres.length === 0) {
+          resposta = `O técnico está com agenda cheia para hoje. Posso verificar para amanhã (${amanha}) ou outro dia. Qual prefere?`;
+          novaEtapa = 'escolhendo_data';
+        } else {
+          sessao.dados.data = hoje;
+          let msg = `🕐 *Horários disponíveis para HOJE:*\n\n`;
+          horariosLivres.forEach((h, i) => {
+            msg += `${i + 1}️⃣ ${h}\n`;
+          });
+          msg += `\nQual horário prefere? (Digite o número)`;
+          
+          sessao.dados.horariosDisponiveis = horariosLivres;
+          resposta = msg;
+          novaEtapa = 'escolhendo_horario';
+        }
+      } else if (intencao === 'negacao') {
+        resposta = `Entendo. Posso oferecer um orçamento aproximado por foto/vídeo, mas a visita técnica garante precisão total.\n\nQuando mudar de ideia, é só chamar! 👋`;
+        novaEtapa = 'finalizado';
+      } else if (intencao === 'preco') {
+        resposta = `O valor cobre o deslocamento do profissional qualificado e a análise técnica detalhada. Se aprovar o orçamento, a visita sai de graça (valor abatido).\n\nPosso agendar?`;
+      } else {
+        resposta = `Gostaria de agendar a visita técnica? Responda *Sim* para ver horários ou *Não* se preferir orçamento online.`;
+      }
+      break;
+      
+    case 'escolhendo_data':
+      if (mensagem.toLowerCase().includes('hoje')) {
+        // Tentar hoje de novo
+        const agenda = await carregarAgendaProfissional(sessao.dados.profissional.id);
+        const hoje = new Date().toLocaleDateString('pt-BR');
+        const horariosOcupados = agenda.filter(a => a.data === hoje).map(a => a.horario);
+        const horariosLivres = sessao.dados.profissional.horariosPadrao.filter(h => !horariosOcupados.includes(h));
+        
+        if (horariosLivres.length > 0) {
+          sessao.dados.data = hoje;
+          let msg = `✅ Consegui um horário para hoje!\n\n`;
+          horariosLivres.forEach((h, i) => msg += `${i + 1}️⃣ ${h}\n`);
+          msg += `\nQual prefere?`;
+          
+          sessao.dados.horariosDisponiveis = horariosLivres;
+          resposta = msg;
+          novaEtapa = 'escolhendo_horario';
+        } else {
+          resposta = `Infelizmente hoje está realmente lotado. Amanhã tem mais disponibilidade. Pode ser?`;
+        }
+      } else if (mensagem.toLowerCase().includes('amanha') || mensagem.toLowerCase().includes('amanhã')) {
+        const amanha = new Date(Date.now() + 86400000).toLocaleDateString('pt-BR');
+        sessao.dados.data = amanha;
+        
+        let msg = `📅 *Amanhã (${amanha})* temos estes horários:\n\n`;
+        sessao.dados.profissional.horariosPadrao.forEach((h, i) => {
+          msg += `${i + 1}️⃣ ${h}\n`;
+        });
+        msg += `\nQual prefere?`;
+        
+        sessao.dados.horariosDisponiveis = sessao.dados.profissional.horariosPadrao;
+        resposta = msg;
+        novaEtapa = 'escolhendo_horario';
+      } else {
+        // Data específica
+        const dataMatch = mensagem.match(/(\d{1,2})[\/\-.](\d{1,2})/);
+        if (dataMatch) {
+          const data = `${dataMatch[1].padStart(2, '0')}/${dataMatch[2].padStart(2, '0')}/2025`;
+          sessao.dados.data = data;
+          
+          let msg = `📅 *${data}* anotado!\n\nHorários disponíveis:\n`;
+          sessao.dados.profissional.horariosPadrao.forEach((h, i) => {
+            msg += `${i + 1}️⃣ ${h}\n`;
+          });
+          msg += `\nQual prefere?`;
+          
+          sessao.dados.horariosDisponiveis = sessao.dados.profissional.horariosPadrao;
+          resposta = msg;
+          novaEtapa = 'escolhendo_horario';
+        } else {
+          resposta = `Para quando gostaria? Posso verificar:\n• Hoje (se houver cancelamento)\n• Amanhã\n• Outra data (digite DD/MM)`;
+        }
+      }
+      break;
+      
+    case 'escolhendo_horario':
+      let horarioEscolhido = null;
+      
+      // Verificar se digitou número da opção
+      const numOpcao = parseInt(mensagem);
+      if (numOpcao > 0 && numOpcao <= (sessao.dados.horariosDisponiveis?.length || 0)) {
+        horarioEscolhido = sessao.dados.horariosDisponiveis[numOpcao - 1];
+      } else {
+        // Verificar se digitou horário direto
+        const horaMatch = mensagem.match(/(\d{1,2})[:h]?(\d{2})?/);
+        if (horaMatch) {
+          horarioEscolhido = `${horaMatch[1].padStart(2, '0')}:${horaMatch[2] || '00'}`;
+        }
+      }
+      
+      if (horarioEscolhido) {
+        // Verificar se horário ainda está livre
+        const agenda = await carregarAgendaProfissional(sessao.dados.profissional.id);
+        const ocupado = agenda.some(a => a.data === sessao.dados.data && a.horario === horarioEscolhido);
+        
+        if (ocupado) {
+          resposta = `⚠️ Esse horário acabou de ser ocupado! Temos:\n`;
+          const livres = sessao.dados.horariosDisponiveis.filter(h => 
+            !agenda.some(a => a.data === sessao.dados.data && a.horario === h)
+          );
+          livres.forEach((h, i) => resposta += `${i + 1}️⃣ ${h}\n`);
+          resposta += `\nQual outro prefere?`;
+        } else {
+          sessao.dados.horario = horarioEscolhido;
+          resposta = `⏰ *${horarioEscolhido}* anotado!\n\nAgora preciso do endereço completo para confirmar:\n(Rua, número, complemento, ponto de referência)`;
+          novaEtapa = 'coletando_endereco';
+        }
+      } else {
+        resposta = `Qual horário prefere? Digite o número da opção ou o horário direto (ex: 14:00)`;
+      }
+      break;
+      
+    case 'coletando_endereco':
+      if (mensagem.length > 10 && /(rua|av|avenida|número|numero|ap|apartamento|casa)/i.test(mensagem)) {
+        sessao.dados.endereco = mensagem;
+        
+        // Resumo final
+        const d = sessao.dados;
+        resposta = `✅ *VISITA CONFIRMADA!*\n\n` +
+          `📋 *Resumo:*\n` +
+          `👤 Técnico: ${d.profissional.nome}\n` +
+          `🔧 Serviço: ${d.servico}\n` +
+          `📍 Bairro: ${d.bairro}\n` +
+          `📅 Data: ${d.data}\n` +
+          `🕐 Horário: ${d.horario}\n` +
+          `🏠 Endereço: ${d.endereco}\n` +
+          `💰 Valor visita: R$${d.preco.isZonaSul ? d.preco.desconto : d.preco.valor}\n\n` +
+          `O técnico confirmará em breve. Qualquer dúvida, estou por aqui! 👋`;
+        
+        // Bloquear na agenda
+        await bloquearHorario(d.profissional.id, d.data, d.horario, numero);
+        
+        // Notificar profissional
+        await notificarProfissional(d, numero);
+        
+        // Notificar Telegram
+        await notificarTelegram(
+          `✅ <b>NOVA VISITA</b>\n` +
+          `👤 ${formatarTelefone(numero)}\n` +
+          `🔧 ${d.servico} | ${d.bairro}\n` +
+          `📅 ${d.data} às ${d.horario}\n` +
+          `👨‍🔧 ${d.profissional.nome}`,
+          'sucesso'
+        );
+        
+        novaEtapa = 'agendado';
+      } else {
+        resposta = `Preciso do endereço completo para o técnico chegar:\n• Rua e número\n• Apartamento/bloco (se houver)\n• Ponto de referência`;
+      }
+      break;
+      
+    case 'agendado':
+      if (intencao === 'intervencao') {
+        resposta = `Vou transferir você para um atendente humano. Aguarde um momento...`;
+        novaEtapa = 'intervencao';
+        await notificarTelegram(`🚨 Cliente ${numero} pediu intervenção após agendamento`, 'alerta');
+      } else {
+        resposta = `Sua visita já está confirmada! Se precisar alterar algo, me avise. 👍`;
+      }
+      break;
+      
+    case 'intervencao':
+      resposta = null; // Não responde, atendente humano assume
+      break;
+      
+    default:
+      resposta = `Olá! Como posso ajudar?`;
+      novaEtapa = 'inicio';
+  }
+  
+  // Atualizar sessão
+  sessao.etapa = novaEtapa;
+  sessoes.set(numero, sessao);
+  
+  await atualizarConversa(numero, {
+    etapa: novaEtapa,
+    dados: sessao.dados,
+    intervencao: novaEtapa === 'intervencao'
+  });
+  
+  return { resposta, etapa: novaEtapa, dados: sessao.dados };
+}
+
+// ============ PONTE DE COMUNICAÇÃO ============
+
+async function processarProfissional(numeroProfissional, mensagem, sessaoCliente) {
+  // Identificar qual cliente está vinculado a este profissional
+  const numeroCliente = ponteComunicacao.get(numeroProfissional);
+  
+  if (!numeroCliente) {
+    // Profissional iniciou conversa, verificar se é sobre uma visita
+    // Buscar visitas pendentes deste profissional
+    const { data: visitas } = await supabase
+      .from('agenda')
+      .select('*')
+      .eq('profissional_id', sessaoCliente.dados?.profissional?.id)
+      .eq('status', 'agendada')
+      .order('created_at', { ascending: false })
+      .limit(1);
+    
+    if (visitas && visitas.length > 0) {
+      ponteComunicacao.set(numeroProfissional, visitas[0].cliente_numero);
+      // Continuar fluxo...
+    } else {
+      return { 
+        resposta: `Olá! Sou o assistente virtual. Para qual visita você está se referindo? Envie o número do cliente ou endereço.`,
+        etapa: 'aguardando_contexto'
+      };
     }
   }
   
-  return { servico, bairro };
-}
-
-function extrairServico(t) { return extrairServicoEBairro(t, t).servico; }
-function extrairBairro(t, txt) { return extrairServicoEBairro(t, txt).bairro; }
-
-function extrairHora(txt) {
-  const m = txt.match(/(\d{1,2})[:h](\d{2})?/);
-  return m ? `${m[1].padStart(2,'0')}:${m[2] || '00'}` : null;
-}
-
-function calcularValor(bairro) {
-  const n = bairro?.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') || '';
-  return CONFIG.BAIRROS_ZONA_SUL.some(b => n.includes(b)) ? CONFIG.PRECO_ZONA_SUL : CONFIG.PRECO_OUTROS;
-}
-
-function formatarData(dataStr) {
-  if (dataStr === 'hoje') return 'hoje';
-  if (dataStr === 'amanhã') return 'amanhã';
+  const t = normalizarTexto(mensagem);
   
-  const data = new Date(dataStr);
-  if (isNaN(data)) return dataStr;
+  // Confirmação do profissional
+  if (/^(ok|confirmado|confirmo|vou|chegarei|estou indo|beleza|combinado)/.test(t)) {
+    // Notificar cliente
+    await enviarWhatsApp(numeroCliente, 
+      `✅ *${sessaoCliente.dados.profissional.nome} confirmou a visita!*\n` +
+      `Está tudo certo para ${sessaoCliente.dados.data} às ${sessaoCliente.dados.horario}.`
+    );
+    
+    await supabase.from('agenda')
+      .update({ status: 'confirmada' })
+      .eq('cliente_numero', numeroCliente)
+      .eq('data', sessaoCliente.dados.data);
+    
+    await notificarTelegram(
+      `✅ Profissional confirmou visita\n` +
+      `Cliente: ${numeroCliente}\n` +
+      `Data: ${sessaoCliente.dados.data} ${sessaoCliente.dados.horario}`,
+      'sucesso'
+    );
+    
+    return { resposta: 'Perfeito! Confirmado. Qualquer imprevisto, me avise.', etapa: 'confirmado' };
+  }
   
-  return data.toLocaleDateString('pt-BR', { 
-    day: '2-digit', 
-    month: '2-digit',
-    weekday: 'short'
+  // Cancelamento/recusa
+  if (/^(nao posso|não posso|cancelar|desmarcar|impedido|outro dia)/.test(t)) {
+    await enviarWhatsApp(numeroCliente,
+      `⚠️ *Atenção:* O técnico ${sessaoCliente.dados.profissional.nome} teve um imprevisto.\n` +
+      `Vou verificar outro horário para você. Um momento...`
+    );
+    
+    // Liberar horário
+    await supabase.from('agenda')
+      .update({ status: 'cancelada' })
+      .eq('cliente_numero', numeroCliente)
+      .eq('data', sessaoCliente.dados.data);
+    
+    await notificarTelegram(
+      `⚠️ Profissional CANCELOU visita\n` +
+      `Cliente: ${numeroCliente}\n` +
+      `Motivo: ${mensagem}`,
+      'alerta'
+    );
+    
+    // Tentar remarcar automaticamente
+    return await tentarRemarcar(numeroCliente, sessaoCliente);
+  }
+  
+  // Pergunta ao cliente (ponte)
+  if (/(estacionamento|portaria|elevador|predio|prédio|andar|bloco|numero|número|ap|casa|referencia)/.test(t)) {
+    // Enviar pergunta ao cliente
+    await enviarWhatsApp(numeroCliente,
+      `📢 *Pergunta do técnico ${sessaoCliente.dados.profissional.nome}:*\n` +
+      `"${mensagem}"\n\n` +
+      `Poderia responder?`
+    );
+    
+    // Marcar que estamos aguardando resposta do cliente
+    sessaoCliente.etapa = 'aguardando_resposta_cliente';
+    sessaoCliente.dados.perguntaPendente = mensagem;
+    sessoes.set(numeroCliente, sessaoCliente);
+    
+    await notificarTelegram(
+      `🌉 <b>PONTE:</b> Profissional pergunta\n` +
+      `"${mensagem}"\n` +
+      `Cliente: ${numeroCliente}`,
+      'ponte'
+    );
+    
+    return { 
+      resposta: `Pergunta enviada ao cliente. Assim que responder, te passo a resposta.`,
+      etapa: 'aguardando_cliente'
+    };
+  }
+  
+  // Resposta genérica - repassar contexto
+  return {
+    resposta: `Entendido. Vou repassar ao cliente se necessário. Precisa de mais alguma informação?`,
+    etapa: 'aguardando'
+  };
+}
+
+async function tentarRemarcar(numeroCliente, sessao) {
+  const profissional = sessao.dados.profissional;
+  const agenda = await carregarAgendaProfissional(profissional.id);
+  
+  // Buscar próximo horário livre
+  const datas = ['hoje', 'amanha', 'depois'];
+  let horarioEncontrado = null;
+  let dataEncontrada = null;
+  
+  for (const dataRef of datas) {
+    let dataStr;
+    if (dataRef === 'hoje') dataStr = new Date().toLocaleDateString('pt-BR');
+    else if (dataRef === 'amanha') dataStr = new Date(Date.now() + 86400000).toLocaleDateString('pt-BR');
+    else dataStr = new Date(Date.now() + 172800000).toLocaleDateString('pt-BR');
+    
+    const ocupados = agenda.filter(a => a.data === dataStr).map(a => a.horario);
+    const livres = profissional.horariosPadrao.filter(h => !ocupados.includes(h));
+    
+    if (livres.length > 0) {
+      dataEncontrada = dataStr;
+      horarioEncontrado = livres[0];
+      break;
+    }
+  }
+  
+  if (horarioEncontrado) {
+    await enviarWhatsApp(numeroCliente,
+      `✅ *Novo horário encontrado!*\n` +
+      `📅 ${dataEncontrada} às ${horarioEncontrado}\n` +
+      `👨‍🔧 Mesmo técnico: ${profissional.nome}\n\n` +
+      `Confirma? (Sim/Não)`
+    );
+    
+    sessao.dados.data = dataEncontrada;
+    sessao.dados.horario = horarioEncontrado;
+    sessao.etapa = 'confirmando_reagendamento';
+    sessoes.set(numeroCliente, sessao);
+    
+    return {
+      resposta: `Encontrei: ${dataEncontrada} às ${horarioEncontrado}. Aguardando confirmação do cliente.`,
+      etapa: 'aguardando_confirmacao'
+    };
+  } else {
+    await enviarWhatsApp(numeroCliente,
+      `⚠️ *Agenda lotada*\n` +
+      `Não encontrei horários disponíveis nos próximos dias.\n` +
+      `Um atendente humano entrará em contato para encontrar a melhor solução.`
+    );
+    
+    await notificarTelegram(
+      `🚨 Sem horários para remarcar\n` +
+      `Cliente: ${numeroCliente}\n` +
+      `Profissional: ${profissional.nome}`,
+      'urgente'
+    );
+    
+    return {
+      resposta: `Não encontrei horários livres. Vou solicitar intervenção humana.`,
+      etapa: 'intervencao_necessaria'
+    };
+  }
+}
+
+// ============ WHATSAPP API ============
+
+async function enviarWhatsApp(numero, mensagem) {
+  // Implementar conforme sua API atual (Meta/WhatsApp Business)
+  // Esta é uma simulação - adapte para sua API real
+  
+  console.log(`📤 ENVIANDO para ${numero}: ${mensagem.substring(0, 50)}...`);
+  
+  // Se estiver usando API oficial do Meta:
+  /*
+  await fetch(`https://graph.facebook.com/v18.0/${WHATSAPP_PHONE_ID}/messages`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${WHATSAPP_TOKEN}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      messaging_product: 'whatsapp',
+      to: numero,
+      type: 'text',
+      text: { body: mensagem }
+    })
   });
+  */
+  
+  // Salvar no banco
+  await salvarMensagem(numero, mensagem, 'robo');
+  
+  return true;
+}
+
+async function notificarProfissional(dados, numeroCliente) {
+  const msg = `🔔 *NOVA VISITA AGENDADA*\n\n` +
+    `📅 ${dados.data} às ${dados.horario}\n` +
+    `📍 ${dados.bairro}\n` +
+    `🏠 ${dados.endereco}\n` +
+    `🔧 ${dados.servico}\n` +
+    `👤 Cliente: ${formatarTelefone(numeroCliente)}\n\n` +
+    `Responda *OK* para confirmar ou envie sua dúvida (ex: "Tem estacionamento?")`;
+  
+  await enviarWhatsApp(dados.profissional.telefone, msg);
+  
+  // Estabelecer ponte de comunicação
+  ponteComunicacao.set(dados.profissional.telefone, numeroCliente);
+  
+  // Agendar lembrete em 10 minutos se não confirmar
+  setTimeout(async () => {
+    const { data } = await supabase
+      .from('agenda')
+      .select('status')
+      .eq('cliente_numero', numeroCliente)
+      .eq('data', dados.data)
+      .single();
+    
+    if (data && data.status === 'agendada') {
+      await enviarWhatsApp(dados.profissional.telefone,
+        `⏰ *Lembrete:* Visita em ${dados.data} ${dados.horario} ainda não confirmada.\n` +
+        `Responda OK ou cancele se não puder ir.`
+      );
+      
+      await notificarTelegram(
+        `⏰ Profissional não confirmou visita\n` +
+        `Cliente: ${numeroCliente}\n` +
+        `Data: ${dados.data} ${dados.horario}`,
+        'alerta'
+      );
+    }
+  }, 10 * 60 * 1000); // 10 minutos
+}
+
+// ============ HANDLER PRINCIPAL (VERCEL) ============
+
+export default async function handler(req, res) {
+  // CORS
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  
+  try {
+    // Webhook verification (Meta)
+    if (req.method === 'GET' && req.query['hub.mode'] === 'subscribe') {
+      if (req.query['hub.verify_token'] === 'roboatendente') {
+        return res.status(200).send(req.query['hub.challenge']);
+      }
+      return res.status(403).send('Forbidden');
+    }
+    
+    // Receber mensagem
+    if (req.method === 'POST') {
+      const body = req.body;
+      
+      // Verificar se é webhook do Meta
+      if (body.object === 'whatsapp_business_account') {
+        const entry = body.entry?.[0];
+        const changes = entry?.changes?.[0]?.value;
+        
+        if (changes?.messages?.[0]) {
+          const msg = changes.messages[0];
+          const numero = msg.from;
+          const texto = msg.text?.body || '';
+          
+          // Ignorar mensagens do próprio robô
+          if (numero === CONFIG.NUMERO_ROBO) {
+            return res.status(200).send('OK');
+          }
+          
+          // Verificar se é profissional
+          const isProfissional = CONFIG.PROFISSIONAIS.some(p => 
+            numero.includes(p.telefone.replace('55', ''))
+          );
+          
+          // Processar
+          const resultado = await processarMensagem(numero, texto, isProfissional);
+          
+          // Enviar resposta se houver
+          if (resultado.resposta) {
+            await enviarWhatsApp(numero, resultado.resposta);
+          }
+          
+          return res.status(200).json({ 
+            success: true, 
+            etapa: resultado.etapa 
+          });
+        }
+      }
+      
+      // API interna para painel
+      if (req.query.acao) {
+        return await handlePainelAPI(req, res);
+      }
+    }
+    
+    // API do painel (GET)
+    if (req.method === 'GET' && req.query.acao) {
+      return await handlePainelAPI(req, res);
+    }
+    
+    res.status(200).send('OK');
+    
+  } catch (e) {
+    console.error('ERRO CRÍTICO:', e);
+    await notificarTelegram(`🚨 ERRO: ${e.message}`, 'urgente');
+    return res.status(200).send('OK'); // Sempre retornar 200 para WhatsApp
+  }
+}
+
+// ============ API DO PAINEL ============
+
+async function handlePainelAPI(req, res) {
+  const { acao } = req.query;
+  
+  switch (acao) {
+    case 'listar': {
+      // Listar todas as conversas ativas
+      const { data: conversas } = await supabase
+        .from('conversas')
+        .select('*')
+        .order('updated_at', { ascending: false })
+        .limit(50);
+      
+      const { data: mensagensRecentes } = await supabase
+        .from('mensagens')
+        .select('numero, mensagem, created_at')
+        .order('created_at', { ascending: false })
+        .limit(100);
+      
+      // Agrupar última mensagem por conversa
+      const ultimasMsgs = {};
+      mensagensRecentes?.forEach(m => {
+        if (!ultimasMsgs[m.numero]) {
+          ultimasMsgs[m.numero] = m;
+        }
+      });
+      
+      const resultado = conversas?.map(c => ({
+        telefone: c.numero,
+        nome: c.dados?.nome || 'Cliente',
+        etapa: c.etapa,
+        intervencao: c.intervencao || conversasHumanas.has(c.numero),
+        ultima: ultimasMsgs[c.numero]?.mensagem?.substring(0, 50) || '...',
+        ultimaAtividade: new Date(c.updated_at).getTime(),
+        dados: c.dados
+      })) || [];
+      
+      return res.status(200).json(resultado);
+    }
+    
+    case 'mensagens': {
+      const { telefone } = req.query;
+      const { data: mensagens } = await supabase
+        .from('mensagens')
+        .select('*')
+        .eq('numero', telefone)
+        .order('created_at', { ascending: true })
+        .limit(200);
+      
+      const formatadas = mensagens?.map(m => ({
+        tipo: m.tipo,
+        texto: m.mensagem,
+        hora: new Date(m.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+        nome: m.tipo === 'cliente' ? 'Cliente' : 
+              m.tipo === 'profissional' ? 'Técnico' : 
+              m.tipo === 'humano' ? 'Você' : 'Robô'
+      })) || [];
+      
+      return res.status(200).json(formatadas);
+    }
+    
+    case 'intervir': {
+      const { telefone } = req.body;
+      conversasHumanas.add(telefone);
+      
+      await supabase.from('conversas')
+        .update({ intervencao: true })
+        .eq('numero', telefone);
+      
+      // Notificar cliente
+      await enviarWhatsApp(telefone, 
+        '👋 Olá! Sou o atendente humano. Acabei de assumir nossa conversa. Como posso ajudar?'
+      );
+      
+      await notificarTelegram(`👤 Assumiu conversa: ${telefone}`, 'info');
+      
+      return res.status(200).json({ ok: true });
+    }
+    
+    case 'liberar': {
+      const { telefone } = req.body;
+      conversasHumanas.delete(telefone);
+      
+      await supabase.from('conversas')
+        .update({ intervencao: false })
+        .eq('numero', telefone);
+      
+      // Resetar sessão
+      const sessao = sessoes.get(telefone);
+      if (sessao) {
+        sessao.etapa = 'inicio';
+        sessao.dados = {};
+        sessoes.set(telefone, sessao);
+      }
+      
+      await enviarWhatsApp(telefone,
+        '✅ Vou passar você de volta para nosso assistente virtual. Ele continuará te ajudando!'
+      );
+      
+      return res.status(200).json({ ok: true });
+    }
+    
+    case 'enviar': {
+      const { telefone, mensagem } = req.body;
+      
+      await enviarWhatsApp(telefone, mensagem);
+      
+      // Salvar como mensagem humana
+      await salvarMensagem(telefone, mensagem, 'humano');
+      
+      return res.status(200).json({ ok: true });
+    }
+    
+    case 'estatisticas': {
+      const hoje = new Date().toISOString().split('T')[0];
+      
+      const [visitas, mensagens, pendentes] = await Promise.all([
+        supabase.from('agenda').select('*').gte('created_at', hoje),
+        supabase.from('mensagens').select('*').gte('created_at', hoje),
+        supabase.from('agenda').select('*').eq('status', 'agendada')
+      ]);
+      
+      return res.status(200).json({
+        visitasHoje: visitas.data?.length || 0,
+        mensagensHoje: mensagens.data?.length || 0,
+        pendentes: pendentes.data?.length || 0,
+        humanosAtivos: conversasHumanas.size
+      });
+    }
+    
+    default:
+      return res.status(400).json({ erro: 'Ação desconhecida' });
+  }
 }

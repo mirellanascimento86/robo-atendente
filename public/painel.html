@@ -606,7 +606,6 @@ html_final = '''<!DOCTYPE html>
                 this.chats = new Map();
                 this.currentPhone = null;
                 this.isLoadingMessages = false;
-                
                 this.loadFromStorage();
                 this.init();
             }
@@ -618,7 +617,6 @@ html_final = '''<!DOCTYPE html>
                 
                 this.fetchConversations();
                 setInterval(() => this.fetchConversations(), CONFIG.POLL_INTERVAL);
-                
                 setInterval(() => {
                     if (this.currentPhone && !this.isLoadingMessages) {
                         this.fetchMessages(this.currentPhone);
@@ -662,25 +660,17 @@ html_final = '''<!DOCTYPE html>
             async fetchConversations() {
                 try {
                     this.updateStatus('online');
-                    
                     const url = `${CONFIG.WEBHOOK_URL}?action=list&_t=${Date.now()}`;
                     const response = await fetch(url);
-                    
-                    if (!response.ok) {
-                        throw new Error(`HTTP ${response.status}`);
-                    }
-                    
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
                     const data = await response.json();
                     const conversas = data.conversas || data;
-                    
-                    if (!Array.isArray(conversas)) {
-                        throw new Error('Resposta não é array');
-                    }
-                    
+                    if (!Array.isArray(conversas)) throw new Error('Resposta não é array');
+
                     conversas.forEach(conv => {
                         const phone = conv.telefone;
                         const existing = this.chats.get(phone);
-                        
+
                         if (!existing) {
                             const storedChat = this.chats.get(phone);
                             this.chats.set(phone, {
@@ -695,10 +685,9 @@ html_final = '''<!DOCTYPE html>
                             existing.emIntervencao = conv.emIntervencao !== undefined ? conv.emIntervencao : existing.emIntervencao;
                         }
                     });
-                    
+
                     this.renderList();
                     this.saveToStorage();
-                    
                 } catch (error) {
                     this.updateStatus('offline');
                     console.error('Erro fetchConversations:', error);
@@ -708,38 +697,27 @@ html_final = '''<!DOCTYPE html>
             async fetchMessages(phone) {
                 if (this.isLoadingMessages) return;
                 this.isLoadingMessages = true;
-                
+
                 try {
                     const url = `${CONFIG.WEBHOOK_URL}?action=messages&phone=${encodeURIComponent(phone)}&_t=${Date.now()}`;
                     const response = await fetch(url);
-                    
-                    if (!response.ok) {
-                        throw new Error(`HTTP ${response.status}`);
-                    }
-                    
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
                     const data = await response.json();
                     const mensagens = data.mensagens || data;
-                    
-                    if (!Array.isArray(mensagens)) {
-                        this.isLoadingMessages = false;
-                        return;
-                    }
-                    
+                    if (!Array.isArray(mensagens)) return;
+
                     const chat = this.chats.get(phone);
-                    if (!chat) {
-                        this.isLoadingMessages = false;
-                        return;
-                    }
-                    
+                    if (!chat) return;
+
                     const messageMap = new Map();
-                    
+
                     if (chat.messages) {
                         chat.messages.forEach(msg => {
                             const id = msg.id || msg._id || `${msg.data}_${msg.mensagem}`;
                             messageMap.set(id, msg);
                         });
                     }
-                    
+
                     mensagens.forEach(msg => {
                         const id = msg.id || msg._id || `${msg.data || Date.now()}_${msg.mensagem || msg.texto}`;
                         messageMap.set(id, {
@@ -750,24 +728,21 @@ html_final = '''<!DOCTYPE html>
                             nome: msg.nome || msg.sender || (msg.tipo === 'bot' || msg.from === 'bot' ? 'Robô' : 'Cliente')
                         });
                     });
-                    
+
                     chat.messages = Array.from(messageMap.values());
-                    chat.messages.sort((a, b) => {
-                        return new Date(a.data || 0) - new Date(b.data || 0);
-                    });
-                    
+                    chat.messages.sort((a, b) => new Date(a.data || 0) - new Date(b.data || 0));
+
                     if (this.currentPhone === phone) {
                         this.renderMessages(chat.messages);
                     }
-                    
+
                     if (chat.messages.length > 0) {
                         const last = chat.messages[chat.messages.length - 1];
                         chat.ultima = last.mensagem || 'Nova mensagem';
                         this.renderList();
                     }
-                    
+
                     this.saveToStorage();
-                    
                 } catch (error) {
                     console.error('Erro fetchMessages:', error);
                 } finally {
@@ -778,11 +753,9 @@ html_final = '''<!DOCTYPE html>
             renderList() {
                 const container = document.getElementById('chatList');
                 const searchTerm = (document.getElementById('searchInput')?.value || '').toLowerCase();
-                
+
                 const chats = Array.from(this.chats.values())
-                    .filter(c => !searchTerm || 
-                        (c.nome?.toLowerCase().includes(searchTerm)) || 
-                        c.telefone.includes(searchTerm))
+                    .filter(c => !searchTerm || (c.nome?.toLowerCase().includes(searchTerm)) || c.telefone.includes(searchTerm))
                     .sort((a, b) => {
                         if (a.emIntervencao && !b.emIntervencao) return -1;
                         if (!a.emIntervencao && b.emIntervencao) return 1;
@@ -797,13 +770,10 @@ html_final = '''<!DOCTYPE html>
                 container.innerHTML = chats.map(c => {
                     const isActive = c.telefone === this.currentPhone;
                     const time = this.formatTime(c.ultimaAtividade);
-                    const lastMessage = c.ultima || (c.messages && c.messages.length > 0 ? 
-                        c.messages[c.messages.length - 1].mensagem : 'Sem mensagens');
-                    
+                    const lastMessage = c.ultima || (c.messages && c.messages.length > 0 ? c.messages[c.messages.length - 1].mensagem : 'Sem mensagens');
+
                     return `
-                        <div class="chat-item ${isActive ? 'active' : ''}" 
-                             onclick="app.selectChat('${c.telefone}')"
-                             data-phone="${c.telefone}">
+                        <div class="chat-item ${isActive ? 'active' : ''}" onclick="app.selectChat('${c.telefone}')" data-phone="${c.telefone}">
                             <div class="chat-avatar">${this.getInitials(c.nome)}</div>
                             <div class="chat-info">
                                 <div class="chat-header-row">
@@ -811,12 +781,8 @@ html_final = '''<!DOCTYPE html>
                                     <span class="chat-time">${time}</span>
                                 </div>
                                 <div class="chat-preview">
-                                    <span style="flex:1;overflow:hidden;text-overflow:ellipsis;">
-                                        ${this.escapeHtml(lastMessage)}
-                                    </span>
-                                    <span class="status-indicator ${c.emIntervencao ? 'human' : 'bot'}">
-                                        ${c.emIntervencao ? '🔴 VOCÊ' : '🤖 BOT'}
-                                    </span>
+                                    <span style="flex:1;overflow:hidden;text-overflow:ellipsis;">${this.escapeHtml(lastMessage)}</span>
+                                    <span class="status-indicator ${c.emIntervencao ? 'human' : 'bot'}">${c.emIntervencao ? '🔴 VOCÊ' : '🤖 BOT'}</span>
                                 </div>
                             </div>
                         </div>
@@ -832,29 +798,26 @@ html_final = '''<!DOCTYPE html>
                     }
                     return;
                 }
-                
+
                 this.currentPhone = phone;
                 const chat = this.chats.get(phone);
-                
                 if (!chat) return;
 
                 document.getElementById('sidebar').classList.add('hidden-mobile');
                 document.getElementById('chatArea').classList.add('active', 'has-chat');
                 document.getElementById('chatPlaceholder').style.display = 'none';
                 document.getElementById('activeChat').style.display = 'flex';
-                
+
                 document.getElementById('chatName').textContent = chat.nome || phone;
                 document.getElementById('chatAvatar').textContent = this.getInitials(chat.nome);
-                
                 this.updateInterventionUI(chat);
-                
+
                 if (chat.messages && chat.messages.length > 0) {
                     this.renderMessages(chat.messages);
                 } else {
-                    document.getElementById('messagesContainer').innerHTML = 
-                        '<div style="text-align:center;color:#a0a0b0;padding:40px;">Carregando mensagens...</div>';
+                    document.getElementById('messagesContainer').innerHTML = '<div style="text-align:center;color:#a0a0b0;padding:40px;">Carregando mensagens...</div>';
                 }
-                
+
                 this.fetchMessages(phone);
                 this.renderList();
             }
@@ -874,9 +837,9 @@ html_final = '''<!DOCTYPE html>
                 const sendBtn = document.getElementById('sendBtn');
                 const actions = document.getElementById('chatActions');
                 const status = document.getElementById('chatStatus');
-                
+
                 const emIntervencao = chat.emIntervencao === true || chat.emIntervencao === 'true' || chat.emIntervencao === 1;
-                
+
                 if (emIntervencao) {
                     banner.classList.add('active');
                     input.disabled = false;
@@ -897,7 +860,6 @@ html_final = '''<!DOCTYPE html>
 
             renderMessages(messages) {
                 const container = document.getElementById('messagesContainer');
-                
                 if (!messages || messages.length === 0) {
                     container.innerHTML = '<div style="text-align:center;color:#a0a0b0;padding:40px;">Nenhuma mensagem</div>';
                     return;
@@ -905,20 +867,20 @@ html_final = '''<!DOCTYPE html>
 
                 let lastDate = null;
                 let html = '';
-                
+
                 messages.forEach((msg) => {
                     const msgDate = new Date(msg.data || Date.now()).toDateString();
-                    
+
                     if (msgDate !== lastDate) {
                         html += `<div class="date-separator">${this.formatDate(msg.data)}</div>`;
                         lastDate = msgDate;
                     }
-                    
+
                     const tipo = (msg.tipo || '').toLowerCase();
                     const from = (msg.from || '').toLowerCase();
-                    
+
                     let type = 'incoming';
-                    
+
                     if (tipo === 'bot' || tipo === 'robo' || tipo === 'humano' || tipo === 'atendente' || tipo === 'me') {
                         type = 'outgoing';
                     } else if (from === 'bot' || from === 'robo' || from === 'humano' || from === 'atendente') {
@@ -926,15 +888,15 @@ html_final = '''<!DOCTYPE html>
                     } else if (tipo === 'system' || tipo === 'sistema') {
                         type = 'system';
                     }
-                    
+
                     const content = this.escapeHtml(msg.mensagem || '');
                     const time = this.formatTime(msg.data);
-                    
+
                     let sender = 'Cliente';
                     if (type === 'outgoing') {
                         sender = msg.nome || (tipo === 'humano' || from === 'humano' ? 'Você' : 'Robô');
                     }
-                    
+
                     html += `
                         <div class="message ${type}">
                             <div class="message-content">${content}</div>
@@ -942,7 +904,7 @@ html_final = '''<!DOCTYPE html>
                         </div>
                     `;
                 });
-                
+
                 container.innerHTML = html;
                 this.scrollToBottom();
             }
@@ -953,21 +915,17 @@ html_final = '''<!DOCTYPE html>
                     btn.disabled = true;
                     btn.textContent = '⏳...';
                 }
-                
+
                 try {
                     const response = await fetch(`${CONFIG.WEBHOOK_URL}?action=intervene`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ phone: phone })
                     });
-                    
-                    if (!response.ok) {
-                        throw new Error(`HTTP ${response.status}`);
-                    }
-                    
-                    const result = await response.json();
-                    console.log('Intervenção resposta:', result);
-                    
+
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+                    await response.json();
                     const chat = this.chats.get(phone);
                     if (chat) {
                         chat.emIntervencao = true;
@@ -986,21 +944,17 @@ html_final = '''<!DOCTYPE html>
                     btn.disabled = true;
                     btn.textContent = '⏳...';
                 }
-                
+
                 try {
                     const response = await fetch(`${CONFIG.WEBHOOK_URL}?action=release`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ phone: phone })
                     });
-                    
-                    if (!response.ok) {
-                        throw new Error(`HTTP ${response.status}`);
-                    }
-                    
-                    const result = await response.json();
-                    console.log('Liberação resposta:', result);
-                    
+
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+                    await response.json();
                     const chat = this.chats.get(phone);
                     if (chat) {
                         chat.emIntervencao = false;
@@ -1016,7 +970,6 @@ html_final = '''<!DOCTYPE html>
             async sendMessage() {
                 const input = document.getElementById('messageInput');
                 const sendBtn = document.getElementById('sendBtn');
-
                 const message = (input.value || '').trim();
                 const phone = this.currentPhone;
 
@@ -1025,9 +978,8 @@ html_final = '''<!DOCTYPE html>
                     return;
                 }
 
-                if (sendBtn) {
-                    sendBtn.disabled = true;
-                }
+                input.disabled = true;
+                sendBtn.disabled = true;
 
                 try {
                     const response = await fetch(`${CONFIG.WEBHOOK_URL}?action=send`, {
@@ -1049,16 +1001,17 @@ html_final = '''<!DOCTYPE html>
                     input.value = '';
                     await this.fetchMessages(phone);
                 } catch (error) {
-                    alert(`Erro ao enviar: ${error.message}`);
                     console.error('Erro sendMessage:', error);
+                    alert(`Erro ao enviar: ${error.message}`);
                 } finally {
-                    if (sendBtn) {
-                        sendBtn.disabled = false;
-                    }
+                    const chat = this.chats.get(phone);
+                    const emIntervencao = chat && (chat.emIntervencao === true || chat.emIntervencao === 'true' || chat.emIntervencao === 1);
+                    input.disabled = !emIntervencao;
+                    sendBtn.disabled = !emIntervencao;
                 }
             }
 
-            search(term) {
+            search() {
                 this.renderList();
             }
 

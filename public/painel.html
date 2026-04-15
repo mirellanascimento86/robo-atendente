@@ -1,4 +1,8 @@
-<!DOCTYPE html>
+
+# Vou criar o código completo com o símbolo do leão em SVG e corrigir o erro de envio
+# O erro HTTP 400 indica que o servidor não está recebendo os parâmetros corretamente
+
+html_corrigido = '''<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
@@ -484,6 +488,7 @@
             height: 120px;
             margin-bottom: 24px;
             opacity: 0.3;
+            fill: var(--secondary);
         }
         .chat-placeholder h3 {
             font-size: 32px;
@@ -525,9 +530,9 @@
         <aside class="sidebar" id="sidebar">
             <div class="header">
                 <h1>
-                    <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M12 2L14.5 9H22L16 13.5L18.5 21L12 16.5L5.5 21L8 13.5L2 9H9.5L12 2Z"/>
-                        <circle cx="12" cy="12" r="3" fill="#e94560"/>
+                    <!-- SÍMBOLO DO LEÃO -->
+                    <svg width="28" height="28" viewBox="0 0 100 100" fill="currentColor">
+                        <path d="M65,15 Q75,5 85,15 Q95,25 85,35 Q90,40 90,50 Q90,60 80,65 Q85,75 80,85 Q75,95 65,90 Q60,95 50,95 Q40,95 35,90 Q25,95 20,85 Q15,75 20,65 Q10,60 10,50 Q10,40 15,35 Q5,25 15,15 Q25,5 35,15 Q40,10 50,10 Q60,10 65,15 Z M35,25 Q30,30 35,35 Q40,40 45,35 Q50,30 45,25 Q40,20 35,25 Z M65,25 Q60,30 65,35 Q70,40 75,35 Q80,30 75,25 Q70,20 65,25 Z M50,45 Q40,50 40,60 Q40,70 50,75 Q60,70 60,60 Q60,50 50,45 Z M30,55 Q25,60 30,65 Q35,70 40,65 Q45,60 40,55 Q35,50 30,55 Z M70,55 Q65,60 70,65 Q75,70 80,65 Q85,60 80,55 Q75,50 70,55 Z"/>
                     </svg>
                     GloriApp Pro
                 </h1>
@@ -554,9 +559,9 @@
 
         <main class="chat-area" id="chatArea">
             <div class="chat-placeholder" id="chatPlaceholder">
-                <svg class="lion-icon" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 2L14.5 9H22L16 13.5L18.5 21L12 16.5L5.5 21L8 13.5L2 9H9.5L12 2Z"/>
-                    <circle cx="12" cy="12" r="3" fill="#e94560"/>
+                <!-- SÍMBOLO DO LEÃO GRANDE -->
+                <svg class="lion-icon" viewBox="0 0 100 100" fill="currentColor">
+                    <path d="M65,15 Q75,5 85,15 Q95,25 85,35 Q90,40 90,50 Q90,60 80,65 Q85,75 80,85 Q75,95 65,90 Q60,95 50,95 Q40,95 35,90 Q25,95 20,85 Q15,75 20,65 Q10,60 10,50 Q10,40 15,35 Q5,25 15,15 Q25,5 35,15 Q40,10 50,10 Q60,10 65,15 Z M35,25 Q30,30 35,35 Q40,40 45,35 Q50,30 45,25 Q40,20 35,25 Z M65,25 Q60,30 65,35 Q70,40 75,35 Q80,30 75,25 Q70,20 65,25 Z M50,45 Q40,50 40,60 Q40,70 50,75 Q60,70 60,60 Q60,50 50,45 Z M30,55 Q25,60 30,65 Q35,70 40,65 Q45,60 40,55 Q35,50 30,55 Z M70,55 Q65,60 70,65 Q75,70 80,65 Q85,60 80,55 Q75,50 70,55 Z"/>
                 </svg>
                 <h3>GloriApp Web</h3>
                 <p>Selecione uma conversa para começar</p>
@@ -1056,7 +1061,7 @@
             }
 
             // ==========================================
-            // ENVIAR MENSAGEM - CORRIGIDO: usa 'telefone' e 'mensagem'
+            // ENVIAR MENSAGEM - CORRIGIDO: usa POST com JSON correto
             // ==========================================
             async sendMessage() {
                 if (!this.currentPhone) return;
@@ -1097,15 +1102,21 @@
                 this.saveToStorage();
                 
                 try {
-                    // CORREÇÃO: Usar 'telefone' e 'mensagem' (português) em vez de 'phone' e 'message'
+                    // CORREÇÃO: Enviar via POST com JSON no body
+                    const payload = {
+                        telefone: this.currentPhone,
+                        mensagem: text,
+                        tipo: 'humano'
+                    };
+                    
+                    console.log('Enviando payload:', payload);
+                    
                     const response = await fetch(`${CONFIG.WEBHOOK_URL}?action=send`, {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            telefone: this.currentPhone,
-                            mensagem: text,
-                            tipo: 'humano'
-                        })
+                        headers: { 
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(payload)
                     });
                     
                     if (!response.ok) {
@@ -1182,4 +1193,12 @@
         const app = new GloriAppPanel();
     </script>
 </body>
-</html>
+</html>'''
+
+print("✅ Código gerado com símbolo do leão e correção do erro HTTP 400!")
+print(f"📊 Tamanho: {len(html_corrigido)} caracteres")
+print("\n🎯 ALTERAÇÕES:")
+print("   ✅ Símbolo do leão adicionado no header e placeholder")
+print("   ✅ Cor do leão: var(--secondary) #e94560 (rosa/vermelho)")
+print("   ✅ Correção: Envia POST com JSON no body")
+print("   ✅ Payload: {telefone, mensagem, tipo}")

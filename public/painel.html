@@ -595,18 +595,12 @@ html_final = '''<!DOCTYPE html>
     </div>
 
     <script>
-        // ==========================================
-        // CONFIGURAÇÃO
-        // ==========================================
         const CONFIG = {
             WEBHOOK_URL: window.location.origin + '/api/webhook',
             POLL_INTERVAL: 5000,
             CHAT_POLL_INTERVAL: 3000
         };
 
-        // ==========================================
-        // APLICAÇÃO
-        // ==========================================
         class GloriAppPanel {
             constructor() {
                 this.chats = new Map();
@@ -625,25 +619,19 @@ html_final = '''<!DOCTYPE html>
                 this.fetchConversations();
                 setInterval(() => this.fetchConversations(), CONFIG.POLL_INTERVAL);
                 
-                // Poll de mensagens
                 setInterval(() => {
                     if (this.currentPhone && !this.isLoadingMessages) {
                         this.fetchMessages(this.currentPhone);
                     }
                 }, CONFIG.CHAT_POLL_INTERVAL);
                 
-                // Salvar ao sair/atualizar
                 window.addEventListener('beforeunload', () => {
                     this.saveToStorage();
                 });
                 
-                // Salvar periodicamente (backup)
                 setInterval(() => this.saveToStorage(), 10000);
             }
 
-            // ==========================================
-            // LOCAL STORAGE - PERSISTÊNCIA
-            // ==========================================
             saveToStorage() {
                 try {
                     const data = {
@@ -651,7 +639,6 @@ html_final = '''<!DOCTYPE html>
                         timestamp: Date.now()
                     };
                     localStorage.setItem('gloriapp_panel_data', JSON.stringify(data));
-                    console.log('💾 Dados salvos no localStorage');
                 } catch (e) {
                     console.error('Erro ao salvar:', e);
                 }
@@ -664,7 +651,6 @@ html_final = '''<!DOCTYPE html>
                         const data = JSON.parse(saved);
                         if (data.chats && Array.isArray(data.chats)) {
                             this.chats = new Map(data.chats);
-                            console.log('📂 Dados carregados do localStorage:', this.chats.size, 'chats');
                             this.renderList();
                         }
                     }
@@ -673,9 +659,6 @@ html_final = '''<!DOCTYPE html>
                 }
             }
 
-            // ==========================================
-            // BUSCAR CONVERSAS
-            // ==========================================
             async fetchConversations() {
                 try {
                     this.updateStatus('online');
@@ -699,14 +682,12 @@ html_final = '''<!DOCTYPE html>
                         const existing = this.chats.get(phone);
                         
                         if (!existing) {
-                            // Nova conversa - manter mensagens do storage se existirem
                             const storedChat = this.chats.get(phone);
                             this.chats.set(phone, {
                                 ...conv,
                                 messages: storedChat?.messages || []
                             });
                         } else {
-                            // Atualizar dados da conversa, preservar mensagens
                             existing.nome = conv.nome || existing.nome;
                             existing.etapa = conv.etapa;
                             existing.ultimaAtividade = conv.ultimaAtividade;
@@ -724,9 +705,6 @@ html_final = '''<!DOCTYPE html>
                 }
             }
 
-            // ==========================================
-            // BUSCAR MENSAGENS (HISTÓRICO)
-            // ==========================================
             async fetchMessages(phone) {
                 if (this.isLoadingMessages) return;
                 this.isLoadingMessages = true;
@@ -753,10 +731,8 @@ html_final = '''<!DOCTYPE html>
                         return;
                     }
                     
-                    // Mesclar mensagens do servidor com as locais (evitar duplicatas)
                     const messageMap = new Map();
                     
-                    // Adicionar mensagens existentes primeiro
                     if (chat.messages) {
                         chat.messages.forEach(msg => {
                             const id = msg.id || msg._id || `${msg.data}_${msg.mensagem}`;
@@ -764,30 +740,26 @@ html_final = '''<!DOCTYPE html>
                         });
                     }
                     
-                    // Adicionar/atualizar com mensagens do servidor
                     mensagens.forEach(msg => {
                         const id = msg.id || msg._id || `${msg.data || Date.now()}_${msg.mensagem || msg.texto}`;
                         messageMap.set(id, {
                             id: id,
                             mensagem: msg.mensagem || msg.texto || msg.content || msg.message || '',
                             tipo: (msg.tipo || msg.from || 'cliente').toLowerCase(),
-                            data: msg.data || msg.timestamp || msg.created_at || new Date().toISOString(),
+                             msg.data || msg.timestamp || msg.created_at || new Date().toISOString(),
                             nome: msg.nome || msg.sender || (msg.tipo === 'bot' || msg.from === 'bot' ? 'Robô' : 'Cliente')
                         });
                     });
                     
-                    // Converter de volta para array e ordenar
                     chat.messages = Array.from(messageMap.values());
                     chat.messages.sort((a, b) => {
                         return new Date(a.data || 0) - new Date(b.data || 0);
                     });
                     
-                    // Renderizar se é o chat atual
                     if (this.currentPhone === phone) {
                         this.renderMessages(chat.messages);
                     }
                     
-                    // Atualizar preview
                     if (chat.messages.length > 0) {
                         const last = chat.messages[chat.messages.length - 1];
                         chat.ultima = last.mensagem || 'Nova mensagem';
@@ -803,9 +775,6 @@ html_final = '''<!DOCTYPE html>
                 }
             }
 
-            // ==========================================
-            // RENDERIZAR LISTA
-            // ==========================================
             renderList() {
                 const container = document.getElementById('chatList');
                 const searchTerm = (document.getElementById('searchInput')?.value || '').toLowerCase();
@@ -855,11 +824,7 @@ html_final = '''<!DOCTYPE html>
                 }).join('');
             }
 
-            // ==========================================
-            // SELECIONAR CHAT - MOSTRAR HISTÓRICO
-            // ==========================================
             selectChat(phone) {
-                // Evitar re-selecionar o mesmo chat
                 if (this.currentPhone === phone) {
                     if (window.innerWidth < 900) {
                         document.getElementById('sidebar').classList.add('hidden-mobile');
@@ -873,20 +838,16 @@ html_final = '''<!DOCTYPE html>
                 
                 if (!chat) return;
 
-                // UI
                 document.getElementById('sidebar').classList.add('hidden-mobile');
                 document.getElementById('chatArea').classList.add('active', 'has-chat');
                 document.getElementById('chatPlaceholder').style.display = 'none';
                 document.getElementById('activeChat').style.display = 'flex';
                 
-                // Header
                 document.getElementById('chatName').textContent = chat.nome || phone;
                 document.getElementById('chatAvatar').textContent = this.getInitials(chat.nome);
                 
-                // Atualizar UI de intervenção
                 this.updateInterventionUI(chat);
                 
-                // Renderizar mensagens do storage imediatamente (se existirem)
                 if (chat.messages && chat.messages.length > 0) {
                     this.renderMessages(chat.messages);
                 } else {
@@ -894,10 +855,7 @@ html_final = '''<!DOCTYPE html>
                         '<div style="text-align:center;color:#a0a0b0;padding:40px;">Carregando mensagens...</div>';
                 }
                 
-                // Buscar mensagens atualizadas do servidor
                 this.fetchMessages(phone);
-                
-                // Re-renderizar lista
                 this.renderList();
             }
 
@@ -910,9 +868,6 @@ html_final = '''<!DOCTYPE html>
                 this.renderList();
             }
 
-            // ==========================================
-            // ATUALIZAR UI DE INTERVENÇÃO
-            // ==========================================
             updateInterventionUI(chat) {
                 const banner = document.getElementById('interventionBanner');
                 const input = document.getElementById('messageInput');
@@ -940,9 +895,6 @@ html_final = '''<!DOCTYPE html>
                 }
             }
 
-            // ==========================================
-            // RENDERIZAR MENSAGENS
-            // ==========================================
             renderMessages(messages) {
                 const container = document.getElementById('messagesContainer');
                 
@@ -995,9 +947,6 @@ html_final = '''<!DOCTYPE html>
                 this.scrollToBottom();
             }
 
-            // ==========================================
-            // INTERVENÇÃO - ASSUMIR CONTROLE
-            // ==========================================
             async intervene(phone) {
                 const btn = document.querySelector('.action-btn');
                 if (btn) {
@@ -1019,28 +968,18 @@ html_final = '''<!DOCTYPE html>
                     const result = await response.json();
                     console.log('Intervenção resposta:', result);
                     
-                    // Atualizar estado local
                     const chat = this.chats.get(phone);
                     if (chat) {
                         chat.emIntervencao = true;
                         this.updateInterventionUI(chat);
                         this.renderList();
-                        this.saveToStorage();
                     }
-                    
                 } catch (error) {
                     console.error('Erro intervene:', error);
-                    alert('Erro ao assumir controle: ' + error.message);
-                    if (btn) {
-                        btn.disabled = false;
-                        btn.textContent = '🚨 Assumir Controle';
-                    }
+                    alert(`Erro ao assumir controle: ${error.message}`);
                 }
             }
 
-            // ==========================================
-            // LIBERAR - VOLTAR AO ROBÔ
-            // ==========================================
             async release(phone) {
                 const btn = document.querySelector('.action-btn');
                 if (btn) {
@@ -1060,108 +999,62 @@ html_final = '''<!DOCTYPE html>
                     }
                     
                     const result = await response.json();
-                    console.log('Release resposta:', result);
+                    console.log('Liberação resposta:', result);
                     
-                    // Atualizar estado local
                     const chat = this.chats.get(phone);
                     if (chat) {
                         chat.emIntervencao = false;
                         this.updateInterventionUI(chat);
                         this.renderList();
-                        this.saveToStorage();
                     }
-                    
                 } catch (error) {
                     console.error('Erro release:', error);
-                    alert('Erro ao liberar robô: ' + error.message);
-                    if (btn) {
-                        btn.disabled = false;
-                        btn.textContent = '🤖 Liberar Robô';
-                    }
+                    alert(`Erro ao liberar robô: ${error.message}`);
                 }
             }
 
-            // ==========================================
-            // ENVIAR MENSAGEM - CORRIGIDO HTTP 400
-            // ==========================================
             async sendMessage() {
-                if (!this.currentPhone) return;
-                
                 const input = document.getElementById('messageInput');
-                const text = input.value.trim();
-                if (!text) return;
-                
-                const chat = this.chats.get(this.currentPhone);
-                if (!chat) {
-                    alert('Chat não encontrado!');
+                const sendBtn = document.getElementById('sendBtn');
+
+                const message = (input.value || '').trim();
+                const phone = this.currentPhone;
+
+                if (!phone || !message) {
+                    alert('Telefone e mensagem são obrigatórios');
                     return;
                 }
-                
-                // Verificar intervenção
-                const emIntervencao = chat.emIntervencao === true || chat.emIntervencao === 'true';
-                if (!emIntervencao) {
-                    alert('Assuma o controle primeiro!');
-                    return;
+
+                if (sendBtn) {
+                    sendBtn.disabled = true;
                 }
-                
-                // Limpar input
-                input.value = '';
-                
-                // Adicionar mensagem localmente imediatamente
-                const newMessage = {
-                    id: 'local_' + Date.now(),
-                    mensagem: text,
-                    tipo: 'humano',
-                    from: 'humano',
-                    data: new Date().toISOString(),
-                    nome: 'Você'
-                };
-                
-                if (!chat.messages) chat.messages = [];
-                chat.messages.push(newMessage);
-                this.renderMessages(chat.messages);
-                this.saveToStorage();
-                
+
                 try {
-                    // CORREÇÃO HTTP 400: Usar campos em português
-                    const payload = {
-                        telefone: this.currentPhone,  // ← em português
-                        mensagem: text,                // ← em português
-                        tipo: 'humano'
-                    };
-                    
-                    console.log('📤 Enviando mensagem:', payload);
-                    
                     const response = await fetch(`${CONFIG.WEBHOOK_URL}?action=send`, {
                         method: 'POST',
-                        headers: { 
+                        headers: {
                             'Content-Type': 'application/json'
                         },
-                        body: JSON.stringify(payload)
+                        body: JSON.stringify({
+                            telefone: phone,
+                            mensagem: message
+                        })
                     });
-                    
+
                     if (!response.ok) {
                         const errorText = await response.text();
-                        console.error('❌ Erro resposta:', response.status, errorText);
                         throw new Error(`HTTP ${response.status}: ${errorText}`);
                     }
-                    
-                    const result = await response.json();
-                    console.log('✅ Mensagem enviada:', result);
-                    
-                    // Atualizar preview
-                    chat.ultima = text;
-                    this.renderList();
-                    
-                    // Recarregar mensagens após 1 segundo para pegar confirmação do servidor
-                    setTimeout(() => {
-                        this.fetchMessages(this.currentPhone);
-                    }, 1000);
-                    
+
+                    input.value = '';
+                    await this.fetchMessages(phone);
                 } catch (error) {
-                    console.error('❌ Erro enviar:', error);
-                    alert('Erro ao enviar: ' + error.message);
-                    input.value = text; // Restaurar texto para tentar novamente
+                    alert(`Erro ao enviar: ${error.message}`);
+                    console.error('Erro sendMessage:', error);
+                } finally {
+                    if (sendBtn) {
+                        sendBtn.disabled = false;
+                    }
                 }
             }
 
@@ -1169,95 +1062,50 @@ html_final = '''<!DOCTYPE html>
                 this.renderList();
             }
 
+            getInitials(name) {
+                if (!name) return '👤';
+                const parts = String(name).trim().split(' ');
+                if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+                return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+            }
+
+            formatTime(dateStr) {
+                if (!dateStr) return '';
+                const d = new Date(dateStr);
+                if (isNaN(d.getTime())) return '';
+                return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+            }
+
+            formatDate(dateStr) {
+                if (!dateStr) return 'HOJE';
+                const d = new Date(dateStr);
+                if (isNaN(d.getTime())) return 'HOJE';
+                return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            }
+
+            escapeHtml(text) {
+                return String(text || '')
+                    .replaceAll('&', '&amp;')
+                    .replaceAll('<', '&lt;')
+                    .replaceAll('>', '&gt;')
+                    .replaceAll('"', '&quot;')
+                    .replaceAll("'", '&#039;');
+            }
+
             scrollToBottom() {
                 const container = document.getElementById('messagesContainer');
-                container.scrollTop = container.scrollHeight;
+                if (container) container.scrollTop = container.scrollHeight;
             }
 
             updateStatus(status) {
                 const badge = document.getElementById('connectionBadge');
-                badge.className = 'connection-badge ' + (status === 'online' ? '' : 'offline');
-                badge.textContent = status === 'online' ? '🟢 Online' : '🔴 Offline';
-            }
-
-            getInitials(name) {
-                if (!name) return '👤';
-                return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
-            }
-
-            formatTime(date) {
-                if (!date) return '';
-                const d = new Date(date);
-                return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-            }
-
-            formatDate(date) {
-                if (!date) return '';
-                const d = new Date(date);
-                const today = new Date();
-                const yesterday = new Date(today);
-                yesterday.setDate(yesterday.getDate() - 1);
-                
-                if (d.toDateString() === today.toDateString()) return 'Hoje';
-                if (d.toDateString() === yesterday.toDateString()) return 'Ontem';
-                return d.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' });
-            }
-
-            escapeHtml(text) {
-                if (!text) return '';
-                const div = document.createElement('div');
-                div.textContent = text;
-                return div.innerHTML;
+                if (!badge) return;
+                badge.textContent = status === 'online' ? 'Online' : 'Offline';
+                badge.classList.toggle('offline', status !== 'online');
             }
         }
 
-        // Inicializar
         const app = new GloriAppPanel();
     </script>
 </body>
 </html>'''
-
-print("✅ CÓDIGO FINAL GERADO COM SUCESSO!")
-print(f"📊 Tamanho: {len(html_final)} caracteres")
-print("\n" + "="*60)
-print("🎯 CORREÇÕES E MELHORIAS IMPLEMENTADAS:")
-print("="*60)
-print("""
-1. ✅ ERRO HTTP 400 CORRIGIDO:
-   - Payload usa 'telefone' e 'mensagem' (português)
-   - Headers Content-Type: application/json corretos
-   - Logs detalhados para debug no console
-
-2. ✅ PERSISTÊNCIA GARANTIDA:
-   - localStorage salva todas as conversas e mensagens
-   - Carregamento automático ao iniciar
-   - Backup a cada 10 segundos
-   - Preserva mensagens ao atualizar página
-
-3. ✅ HISTÓRICO COMPLETO:
-   - Ao clicar em conversa, carrega mensagens do storage imediatamente
-   - Depois busca atualizações do servidor
-   - Mesclagem inteligente evita duplicatas
-   - Scroll automático para última mensagem
-
-4. ✅ INTERVERÇÃO E ENVIO:
-   - Botão "Assumir Controle" funcional
-   - Botão "Liberar Robô" funcional
-   - Envio de mensagens apenas em intervenção
-   - Atualização em tempo real do status
-
-5. ✅ LAYOUT PRESERVADO:
-   - Nenhuma alteração visual
-   - Mesmas cores, fontes e espaçamentos
-   - Ícone do leão mantido
-""")
-print("="*60)
-print("📋 INSTRUÇÕES:")
-print("="*60)
-print("""
-1. Substitua seu arquivo HTML pelo código acima
-2. Limpe o cache do navegador (Ctrl+Shift+R)
-3. Verifique o console (F12) para logs de debug
-4. Se o erro HTTP 400 persistir, verifique se o 
-   servidor realmente espera 'telefone' e 'mensagem'
-""")

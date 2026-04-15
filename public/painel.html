@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="theme-color" content="#075e54">
-    <title>WhatsApp Pro</title>
+    <meta name="theme-color" content="#1a1a2e">
+    <title>GloriApp Pro</title>
     <style>
         * { 
             margin: 0; 
@@ -15,20 +15,21 @@
         }
         
         :root {
-            --primary: #075e54;
-            --primary-dark: #054d44;
-            --secondary: #128c7e;
-            --accent: #25d366;
-            --bg: #0a1014;
-            --sidebar-bg: #111b21;
-            --chat-bg: #0a1014;
-            --incoming: #202c33;
-            --outgoing: #005c4b;
-            --text: #e9edef;
-            --text-secondary: #8696a0;
-            --border: #2a3942;
-            --danger: #f15c6d;
-            --warning: #ffd700;
+            --primary: #1a1a2e;
+            --primary-dark: #16213e;
+            --secondary: #e94560;
+            --accent: #0f3460;
+            --bg: #0f0f1a;
+            --sidebar-bg: #16162a;
+            --chat-bg: #0f0f1a;
+            --incoming: #242442;
+            --outgoing: #e94560;
+            --text: #eaeaea;
+            --text-secondary: #a0a0b0;
+            --border: #2a2a4a;
+            --danger: #ff4757;
+            --warning: #ffa502;
+            --success: #2ed573;
         }
         
         body {
@@ -54,14 +55,14 @@
         .spinner {
             width: 60px;
             height: 60px;
-            border: 4px solid rgba(255,255,255,0.2);
-            border-top-color: white;
+            border: 4px solid rgba(233, 69, 96, 0.2);
+            border-top-color: var(--secondary);
             border-radius: 50%;
             animation: spin 1s linear infinite;
             margin-bottom: 20px;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
-        #loading p { color: white; font-size: 16px; }
+        #loading p { color: var(--text); font-size: 16px; }
         
         #app {
             display: flex;
@@ -109,7 +110,8 @@
             font-weight: 600;
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 10px;
+            color: var(--text);
         }
         .header-actions {
             display: flex;
@@ -130,14 +132,14 @@
             justify-content: center;
             transition: all 0.2s;
         }
-        .icon-btn:hover { background: rgba(255,255,255,0.1); color: var(--text); }
+        .icon-btn:hover { background: rgba(233, 69, 96, 0.1); color: var(--secondary); }
         .icon-btn svg { width: 24px; height: 24px; }
         
         .connection-badge {
             font-size: 11px;
             padding: 4px 10px;
             border-radius: 12px;
-            background: var(--accent);
+            background: var(--success);
             color: white;
             font-weight: 600;
         }
@@ -149,7 +151,7 @@
             border-bottom: 1px solid var(--border);
         }
         .search-box {
-            background: #202c33;
+            background: var(--accent);
             border-radius: 8px;
             display: flex;
             align-items: center;
@@ -182,14 +184,14 @@
             position: relative;
             border-bottom: 1px solid rgba(255,255,255,0.05);
         }
-        .chat-item:hover { background: rgba(255,255,255,0.05); }
-        .chat-item.active { background: #2a3942; }
+        .chat-item:hover { background: rgba(233, 69, 96, 0.05); }
+        .chat-item.active { background: var(--accent); }
         
         .chat-avatar {
             width: 52px;
             height: 52px;
             border-radius: 50%;
-            background: linear-gradient(135deg, #667781 0%, #8696a0 100%);
+            background: linear-gradient(135deg, var(--secondary) 0%, #ff6b81 100%);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -220,7 +222,7 @@
         }
         .chat-time {
             font-size: 12px;
-            color: var(--accent);
+            color: var(--secondary);
             flex-shrink: 0;
         }
         
@@ -245,8 +247,8 @@
             margin-left: 8px;
             font-weight: 600;
         }
-        .status-indicator.bot { background: rgba(37, 211, 102, 0.15); color: var(--accent); }
-        .status-indicator.human { background: rgba(241, 92, 109, 0.15); color: var(--danger); }
+        .status-indicator.bot { background: rgba(46, 213, 115, 0.15); color: var(--success); }
+        .status-indicator.human { background: rgba(233, 69, 96, 0.15); color: var(--secondary); }
         
         .chat-area {
             flex: 1;
@@ -329,12 +331,12 @@
             gap: 6px;
             white-space: nowrap;
         }
-        .action-btn.intervene { background: var(--danger); color: white; }
-        .action-btn.release { background: var(--accent); color: #111; }
+        .action-btn.intervene { background: var(--secondary); color: white; }
+        .action-btn.release { background: var(--success); color: #111; }
         .action-btn:disabled { opacity: 0.5; cursor: not-allowed; }
         
         .intervention-banner {
-            background: linear-gradient(90deg, var(--danger), #ff6b6b);
+            background: linear-gradient(90deg, var(--secondary), #ff6b81);
             color: white;
             padding: 12px 16px;
             text-align: center;
@@ -355,7 +357,7 @@
             display: flex;
             flex-direction: column;
             gap: 2px;
-            background-image: url("data:image/svg+xml,%3Csvg width='400' height='400' viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 0h400v400H0z' fill='%230a1014'/%3E%3Cpath d='M0 0h400v400H0z' fill='none' stroke='%23111b21' stroke-width='2'/%3E%3C/svg%3E");
+            background: var(--chat-bg);
         }
         
         .message {
@@ -386,15 +388,15 @@
             color: white;
         }
         .message.system {
-            background: rgba(255, 193, 7, 0.15);
+            background: rgba(255, 165, 2, 0.15);
             align-self: center;
             font-size: 12.5px;
-            color: #ffd700;
+            color: var(--warning);
             padding: 8px 16px;
             border-radius: 16px;
             max-width: 90%;
             text-align: center;
-            border: 1px solid rgba(255, 193, 7, 0.3);
+            border: 1px solid rgba(255, 165, 2, 0.3);
         }
         
         .message-content { margin-bottom: 4px; }
@@ -408,11 +410,11 @@
             opacity: 0.7;
             margin-top: 2px;
         }
-        .message.outgoing .message-meta { color: #a5f3c5; }
+        .message.outgoing .message-meta { color: rgba(255,255,255,0.8); }
         
         .date-separator {
             align-self: center;
-            background: #1e2a30;
+            background: var(--accent);
             color: var(--text-secondary);
             padding: 8px 16px;
             border-radius: 16px;
@@ -434,7 +436,7 @@
         
         .input-wrapper {
             flex: 1;
-            background: #2a3942;
+            background: var(--accent);
             border-radius: 24px;
             padding: 12px 20px;
             max-height: 120px;
@@ -467,7 +469,7 @@
             transition: all 0.2s;
             flex-shrink: 0;
         }
-        .send-btn:hover:not(:disabled) { background: var(--accent); transform: scale(1.05); }
+        .send-btn:hover:not(:disabled) { background: #ff6b81; transform: scale(1.05); }
         .send-btn:active:not(:disabled) { transform: scale(0.95); }
         .send-btn:disabled { background: #374248; cursor: not-allowed; }
         .send-btn svg { width: 24px; height: 24px; margin-left: 2px; }
@@ -482,11 +484,11 @@
             text-align: center;
             padding: 40px;
         }
-        .chat-placeholder svg {
+        .chat-placeholder .lion-icon {
             width: 120px;
             height: 120px;
             margin-bottom: 24px;
-            opacity: 0.2;
+            opacity: 0.3;
         }
         .chat-placeholder h3 {
             font-size: 32px;
@@ -504,7 +506,7 @@
         
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #374248; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 3px; }
         
         @media (max-width: 899px) {
             .message { max-width: 92%; font-size: 15.5px; }
@@ -529,9 +531,10 @@
             <div class="header">
                 <h1>
                     <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M20.52 3.45A11.83 11.83 0 0 0 12 0 12 12 0 0 0 0 12a12 12 0 0 0 1.74 6.15L0 24l6.33-1.5A12 12 0 0 0 12 24a12 12 0 0 0 12-12 12 12 0 0 0-3.48-8.55zM12 22a9.89 9.89 0 0 1-5-1.35l-.36-.22-3.76.89.89-3.66-.23-.37A10 10 0 0 1 12 2a10 10 0 0 1 10 10 10 10 0 0 1-10 10zm5.4-7.4c-.3-.15-1.77-.87-2.05-1-.27-.1-.47-.15-.67.15s-.77 1-.95 1.2-.35.23-.65.08a8.2 8.2 0 0 1-2.4-1.5 9 9 0 0 1-1.67-2.08c-.17-.3 0-.47.13-.62s.3-.35.45-.53a2 2 0 0 0 .3-.5.55.55 0 0 0 0-.52c-.08-.15-.67-1.6-.92-2.2s-.48-.5-.67-.51h-.57a1.1 1.1 0 0 0-.8.37c-.28.3-1 1-1 2.43s1.03 2.82 1.17 3s1.35 2.06 3.27 2.89 1.9.85 2.25.89a2 2 0 0 0 1.53-.71 1.6 1.6 0 0 0 .36-1.03c0-.15-.12-.27-.4-.42z"/>
+                        <path d="M12 2L14.5 9H22L16 13.5L18.5 21L12 16.5L5.5 21L8 13.5L2 9H9.5L12 2Z"/>
+                        <circle cx="12" cy="12" r="3" fill="#e94560"/>
                     </svg>
-                    WhatsApp Pro
+                    GloriApp Pro
                 </h1>
                 <div class="header-actions">
                     <span class="connection-badge" id="connectionBadge">Iniciando...</span>
@@ -540,7 +543,7 @@
             
             <div class="search-container">
                 <div class="search-box">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="#8696a0">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="#a0a0b0">
                         <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
                     </svg>
                     <input type="text" id="searchInput" placeholder="Pesquisar..." oninput="app.search(this.value)">
@@ -556,8 +559,11 @@
 
         <main class="chat-area" id="chatArea">
             <div class="chat-placeholder" id="chatPlaceholder">
-                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
-                <h3>WhatsApp Web</h3>
+                <svg class="lion-icon" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2L14.5 9H22L16 13.5L18.5 21L12 16.5L5.5 21L8 13.5L2 9H9.5L12 2Z"/>
+                    <circle cx="12" cy="12" r="3" fill="#e94560"/>
+                </svg>
+                <h3>GloriApp Web</h3>
                 <p>Selecione uma conversa para começar</p>
             </div>
 
@@ -600,19 +606,20 @@
         // ==========================================
         const CONFIG = {
             WEBHOOK_URL: window.location.origin + '/api/webhook',
-            POLL_INTERVAL: 3000,
-            CHAT_POLL_INTERVAL: 2000
+            POLL_INTERVAL: 5000,
+            CHAT_POLL_INTERVAL: 3000
         };
 
         // ==========================================
         // APLICAÇÃO
         // ==========================================
-        class WhatsAppPanel {
+        class GloriAppPanel {
             constructor() {
                 this.chats = new Map();
                 this.currentPhone = null;
                 this.isLoadingMessages = false;
-                this.lastMessagesData = null;
+                this.messageCache = new Map();
+                this.interventionState = new Map();
                 
                 this.loadFromStorage();
                 this.init();
@@ -626,15 +633,20 @@
                 this.fetchConversations();
                 setInterval(() => this.fetchConversations(), CONFIG.POLL_INTERVAL);
                 
-                setInterval(() => {
-                    if (this.currentPhone && !this.isLoadingMessages) {
-                        this.fetchMessages(this.currentPhone);
-                    }
-                }, CONFIG.CHAT_POLL_INTERVAL);
+                // Poll de mensagens apenas quando necessário
+                this.startMessagePolling();
                 
                 window.addEventListener('beforeunload', () => {
                     this.saveToStorage();
                 });
+            }
+
+            startMessagePolling() {
+                setInterval(() => {
+                    if (this.currentPhone && !this.isLoadingMessages) {
+                        this.fetchMessages(this.currentPhone, true);
+                    }
+                }, CONFIG.CHAT_POLL_INTERVAL);
             }
 
             // ==========================================
@@ -644,9 +656,10 @@
                 try {
                     const data = {
                         chats: Array.from(this.chats.entries()),
+                        interventionState: Array.from(this.interventionState.entries()),
                         timestamp: Date.now()
                     };
-                    localStorage.setItem('whatsapp_panel_data', JSON.stringify(data));
+                    localStorage.setItem('gloriapp_panel_data', JSON.stringify(data));
                 } catch (e) {
                     console.error('Erro ao salvar:', e);
                 }
@@ -654,11 +667,14 @@
 
             loadFromStorage() {
                 try {
-                    const saved = localStorage.getItem('whatsapp_panel_data');
+                    const saved = localStorage.getItem('gloriapp_panel_data');
                     if (saved) {
                         const data = JSON.parse(saved);
                         if (data.chats && Array.isArray(data.chats)) {
                             this.chats = new Map(data.chats);
+                        }
+                        if (data.interventionState && Array.isArray(data.interventionState)) {
+                            this.interventionState = new Map(data.interventionState);
                         }
                     }
                 } catch (e) {
@@ -691,18 +707,24 @@
                         const phone = conv.telefone;
                         const existing = this.chats.get(phone);
                         
+                        // Preservar estado de intervenção local se existir
+                        const localIntervention = this.interventionState.get(phone);
+                        
                         if (!existing) {
                             this.chats.set(phone, {
                                 ...conv,
                                 messages: [],
-                                emIntervencao: conv.emIntervencao || false
+                                emIntervencao: localIntervention !== undefined ? localIntervention : (conv.emIntervencao || false)
                             });
                         } else {
                             existing.nome = conv.nome || existing.nome;
-                            existing.emIntervencao = conv.emIntervencao !== undefined ? conv.emIntervencao : existing.emIntervencao;
                             existing.etapa = conv.etapa;
                             existing.ultimaAtividade = conv.ultimaAtividade;
                             existing.ultima = conv.ultima || existing.ultima;
+                            // Não sobrescrever emIntervencao do servidor se tivermos estado local
+                            if (localIntervention === undefined) {
+                                existing.emIntervencao = conv.emIntervencao !== undefined ? conv.emIntervencao : existing.emIntervencao;
+                            }
                         }
                     });
                     
@@ -718,7 +740,7 @@
             // ==========================================
             // BUSCAR MENSAGENS
             // ==========================================
-            async fetchMessages(phone) {
+            async fetchMessages(phone, silent = false) {
                 if (this.isLoadingMessages) return;
                 this.isLoadingMessages = true;
                 
@@ -744,24 +766,24 @@
                         return;
                     }
                     
-                    // SUBSTITUIR todas as mensagens pelas do servidor
-                    // Mas preservar mensagens pendentes locais
-                    const pendingMessages = chat.messages.filter(m => m.pending);
-                    
                     // Processar mensagens do servidor
-                    chat.messages = mensagens.map(msg => ({
-                        ...msg,
-                        // Normalizar campos
+                    const processedMessages = mensagens.map(msg => ({
+                        id: msg.id || msg._id || `${phone}_${msg.data || Date.now()}_${Math.random()}`,
                         mensagem: msg.mensagem || msg.texto || msg.content || msg.message || '',
-                        tipo: msg.tipo || msg.from || 'cliente',
+                        tipo: (msg.tipo || msg.from || 'cliente').toLowerCase(),
                         data: msg.data || msg.timestamp || msg.created_at || new Date().toISOString(),
-                        nome: msg.nome || msg.sender || (msg.tipo === 'bot' || msg.from === 'bot' ? 'Robô' : 'Cliente')
+                        nome: msg.nome || msg.sender || (msg.tipo === 'bot' || msg.from === 'bot' ? 'Robô' : 'Cliente'),
+                        fromServer: true
                     }));
                     
-                    // Adicionar mensagens pendentes de volta
-                    if (pendingMessages.length > 0) {
-                        chat.messages.push(...pendingMessages);
-                    }
+                    // Mesclar com mensagens pendentes locais
+                    const pendingMessages = (chat.messages || []).filter(m => m.pending && !m.fromServer);
+                    
+                    // Criar mapa de mensagens existentes para evitar duplicatas
+                    const existingIds = new Set(processedMessages.map(m => m.id));
+                    const uniquePending = pendingMessages.filter(m => !existingIds.has(m.id));
+                    
+                    chat.messages = [...processedMessages, ...uniquePending];
                     
                     // Ordenar por data
                     chat.messages.sort((a, b) => {
@@ -770,9 +792,9 @@
                         return dateA - dateB;
                     });
                     
-                    // Renderizar se é o chat atual
+                    // Renderizar se é o chat atual (sem piscar)
                     if (this.currentPhone === phone) {
-                        this.renderMessages(chat.messages);
+                        this.renderMessages(chat.messages, silent);
                     }
                     
                     // Atualizar preview
@@ -847,12 +869,22 @@
             // SELECIONAR CHAT
             // ==========================================
             selectChat(phone) {
+                // Evitar re-selecionar o mesmo chat
+                if (this.currentPhone === phone) {
+                    // Apenas atualizar UI mobile
+                    if (window.innerWidth < 900) {
+                        document.getElementById('sidebar').classList.add('hidden-mobile');
+                        document.getElementById('chatArea').classList.add('active', 'has-chat');
+                    }
+                    return;
+                }
+                
                 this.currentPhone = phone;
                 const chat = this.chats.get(phone);
                 
                 if (!chat) return;
 
-                // UI
+                // UI - sem recriar elementos, apenas mostrar
                 document.getElementById('sidebar').classList.add('hidden-mobile');
                 document.getElementById('chatArea').classList.add('active', 'has-chat');
                 document.getElementById('chatPlaceholder').style.display = 'none';
@@ -864,16 +896,16 @@
                 
                 this.updateUI(chat);
                 
-                // Renderizar mensagens imediatamente
+                // Renderizar mensagens do cache primeiro (instantâneo)
                 if (chat.messages && chat.messages.length > 0) {
-                    this.renderMessages(chat.messages);
+                    this.renderMessages(chat.messages, false);
                 } else {
                     document.getElementById('messagesContainer').innerHTML = 
-                        '<div style="text-align:center;color:#8696a0;padding:40px;">Carregando mensagens...</div>';
+                        '<div style="text-align:center;color:#a0a0b0;padding:40px;">Carregando mensagens...</div>';
                 }
                 
-                // Buscar mensagens atualizadas
-                this.fetchMessages(phone);
+                // Buscar mensagens atualizadas em background
+                this.fetchMessages(phone, true);
                 
                 // Re-renderizar lista
                 this.renderList();
@@ -894,8 +926,6 @@
                 const sendBtn = document.getElementById('sendBtn');
                 const actions = document.getElementById('chatActions');
                 const status = document.getElementById('chatStatus');
-                
-                console.log('UpdateUI - emIntervencao:', chat.emIntervencao, 'tipo:', typeof chat.emIntervencao);
                 
                 // Garantir que emIntervencao é booleano
                 const emIntervencao = chat.emIntervencao === true || chat.emIntervencao === 'true' || chat.emIntervencao === 1;
@@ -919,15 +949,26 @@
             }
 
             // ==========================================
-            // RENDERIZAR MENSAGENS
+            // RENDERIZAR MENSAGENS (sem piscar)
             // ==========================================
-            renderMessages(messages) {
+            renderMessages(messages, silent = false) {
                 const container = document.getElementById('messagesContainer');
                 
                 if (!messages || messages.length === 0) {
-                    container.innerHTML = '<div style="text-align:center;color:#8696a0;padding:40px;">Nenhuma mensagem</div>';
+                    container.innerHTML = '<div style="text-align:center;color:#a0a0b0;padding:40px;">Nenhuma mensagem</div>';
                     return;
                 }
+
+                // Criar chave do cache atual
+                const cacheKey = messages.map(m => m.id || m.data).join('|');
+                const lastCacheKey = this.messageCache.get(this.currentPhone);
+                
+                // Se for a mesma lista de mensagens e for silencioso, não re-renderizar
+                if (silent && cacheKey === lastCacheKey) {
+                    return;
+                }
+                
+                this.messageCache.set(this.currentPhone, cacheKey);
 
                 let lastDate = null;
                 let html = '';
@@ -944,9 +985,8 @@
                     const tipo = (msg.tipo || '').toLowerCase();
                     const from = (msg.from || '').toLowerCase();
                     
-                    let type = 'incoming'; // Padrão: mensagem do cliente (cinza)
+                    let type = 'incoming';
                     
-                    // Mensagens do robô ou humano são outgoing (verde)
                     if (tipo === 'bot' || tipo === 'robo' || tipo === 'humano' || tipo === 'atendente' || tipo === 'me') {
                         type = 'outgoing';
                     } else if (from === 'bot' || from === 'robo' || from === 'humano' || from === 'atendente') {
@@ -958,22 +998,32 @@
                     const content = this.escapeHtml(msg.mensagem || '');
                     const time = this.formatTime(msg.data);
                     
-                    // Determinar nome do remetente
                     let sender = 'Cliente';
                     if (type === 'outgoing') {
                         sender = msg.nome || (tipo === 'humano' || from === 'humano' ? 'Você' : 'Robô');
                     }
                     
+                    const pendingClass = msg.pending ? ' style="opacity:0.7"' : '';
+                    
                     html += `
-                        <div class="message ${type}">
+                        <div class="message ${type}"${pendingClass}>
                             <div class="message-content">${content}</div>
-                            <div class="message-meta">${sender} • ${time}</div>
+                            <div class="message-meta">${sender} • ${time}${msg.pending ? ' • Enviando...' : ''}</div>
                         </div>
                     `;
                 });
                 
+                // Preservar scroll
+                const scrollTop = container.scrollTop;
+                const scrollHeight = container.scrollHeight;
+                const clientHeight = container.clientHeight;
+                const wasAtBottom = scrollTop + clientHeight >= scrollHeight - 50;
+                
                 container.innerHTML = html;
-                this.scrollToBottom();
+                
+                if (wasAtBottom || !silent) {
+                    this.scrollToBottom();
+                }
             }
 
             // ==========================================
@@ -1004,6 +1054,7 @@
                     const chat = this.chats.get(phone);
                     if (chat) {
                         chat.emIntervencao = true;
+                        this.interventionState.set(phone, true);
                         this.updateUI(chat);
                         this.renderList();
                         this.saveToStorage();
@@ -1044,6 +1095,7 @@
                     const chat = this.chats.get(phone);
                     if (chat) {
                         chat.emIntervencao = false;
+                        this.interventionState.set(phone, false);
                         this.updateUI(chat);
                         this.renderList();
                         this.saveToStorage();
@@ -1082,9 +1134,10 @@
                 // Limpar input
                 input.value = '';
                 
-                // Criar mensagem local
+                // Criar mensagem local com ID único
+                const tempId = 'local_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
                 const tempMessage = {
-                    id: 'local_' + Date.now(),
+                    id: tempId,
                     mensagem: text,
                     tipo: 'humano',
                     from: 'humano',
@@ -1094,6 +1147,7 @@
                 };
                 
                 // Adicionar localmente
+                if (!chat.messages) chat.messages = [];
                 chat.messages.push(tempMessage);
                 this.renderMessages(chat.messages);
                 this.saveToStorage();
@@ -1110,26 +1164,37 @@
                     });
                     
                     if (!response.ok) {
-                        throw new Error(`HTTP ${response.status}`);
+                        const errorText = await response.text();
+                        throw new Error(`HTTP ${response.status}: ${errorText}`);
                     }
                     
                     const result = await response.json();
                     console.log('Mensagem enviada:', result);
                     
                     // Marcar como enviada
-                    tempMessage.pending = false;
+                    const msg = chat.messages.find(m => m.id === tempId);
+                    if (msg) {
+                        msg.pending = false;
+                        if (result.id || result.messageId) {
+                            msg.id = result.id || result.messageId;
+                        }
+                    }
                     this.saveToStorage();
                     
-                    // Recarregar mensagens
+                    // Recarregar mensagens após um delay
                     setTimeout(() => {
-                        this.fetchMessages(this.currentPhone);
-                    }, 1000);
+                        this.fetchMessages(this.currentPhone, true);
+                    }, 1500);
                     
                 } catch (error) {
                     console.error('Erro enviar:', error);
                     alert('Erro ao enviar: ' + error.message);
+                    
+                    // Restaurar input
                     input.value = text;
-                    chat.messages = chat.messages.filter(m => m.id !== tempMessage.id);
+                    
+                    // Remover mensagem pendente
+                    chat.messages = chat.messages.filter(m => m.id !== tempId);
                     this.renderMessages(chat.messages);
                     this.saveToStorage();
                 }
@@ -1182,10 +1247,7 @@
         }
 
         // Inicializar
-        const app = new WhatsAppPanel();
+        const app = new GloriAppPanel();
     </script>
 </body>
-</html>'''
-
-print("HTML corrigido gerado!")
-print(f"Tamanho: {len(html_corrigido)} caracteres")
+</html>

@@ -1,5 +1,4 @@
-
-html_corrigido = '''<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
@@ -615,7 +614,6 @@ html_corrigido = '''<!DOCTYPE html>
                 this.isLoadingMessages = false;
                 this.lastMessagesData = null;
                 
-                // Carregar dados salvos do localStorage
                 this.loadFromStorage();
                 this.init();
             }
@@ -634,14 +632,13 @@ html_corrigido = '''<!DOCTYPE html>
                     }
                 }, CONFIG.CHAT_POLL_INTERVAL);
                 
-                // Salvar antes de fechar a página
                 window.addEventListener('beforeunload', () => {
                     this.saveToStorage();
                 });
             }
 
             // ==========================================
-            // LOCAL STORAGE - Persistência
+            // LOCAL STORAGE
             // ==========================================
             saveToStorage() {
                 try {
@@ -662,7 +659,6 @@ html_corrigido = '''<!DOCTYPE html>
                         const data = JSON.parse(saved);
                         if (data.chats && Array.isArray(data.chats)) {
                             this.chats = new Map(data.chats);
-                            console.log('Dados carregados do storage:', this.chats.size, 'chats');
                         }
                     }
                 } catch (e) {
@@ -691,7 +687,6 @@ html_corrigido = '''<!DOCTYPE html>
                         throw new Error('Resposta não é array');
                     }
                     
-                    // Mesclar com dados existentes (preservar mensagens)
                     conversas.forEach(conv => {
                         const phone = conv.telefone;
                         const existing = this.chats.get(phone);
@@ -699,16 +694,15 @@ html_corrigido = '''<!DOCTYPE html>
                         if (!existing) {
                             this.chats.set(phone, {
                                 ...conv,
-                                messages: []
+                                messages: [],
+                                emIntervencao: conv.emIntervencao || false
                             });
                         } else {
-                            // Preservar mensagens existentes!
                             existing.nome = conv.nome || existing.nome;
-                            existing.emIntervencao = conv.emIntervencao;
+                            existing.emIntervencao = conv.emIntervencao !== undefined ? conv.emIntervencao : existing.emIntervencao;
                             existing.etapa = conv.etapa;
                             existing.ultimaAtividade = conv.ultimaAtividade;
                             existing.ultima = conv.ultima || existing.ultima;
-                            // NÃO limpar messages!
                         }
                     });
                     
@@ -750,28 +744,31 @@ html_corrigido = '''<!DOCTYPE html>
                         return;
                     }
                     
-                    // Verificar se mensagens mudaram comparando conteúdo
-                    const currentData = JSON.stringify(mensagens);
-                    if (currentData === this.lastMessagesData) {
-                        this.isLoadingMessages = false;
-                        return;
-                    }
-                    this.lastMessagesData = currentData;
+                    // SUBSTITUIR todas as mensagens pelas do servidor
+                    // Mas preservar mensagens pendentes locais
+                    const pendingMessages = chat.messages.filter(m => m.pending);
                     
-                    // MESCLAR mensagens - não substituir!
-                    // Preservar mensagens locais que podem não estar no servidor ainda
-                    const existingIds = new Set(chat.messages.map(m => m.id || m.timestamp));
-                    const newMessages = mensagens.filter(m => !existingIds.has(m.id || m.timestamp));
+                    // Processar mensagens do servidor
+                    chat.messages = mensagens.map(msg => ({
+                        ...msg,
+                        // Normalizar campos
+                        mensagem: msg.mensagem || msg.texto || msg.content || msg.message || '',
+                        tipo: msg.tipo || msg.from || 'cliente',
+                        data: msg.data || msg.timestamp || msg.created_at || new Date().toISOString(),
+                        nome: msg.nome || msg.sender || (msg.tipo === 'bot' || msg.from === 'bot' ? 'Robô' : 'Cliente')
+                    }));
                     
-                    if (newMessages.length > 0 || chat.messages.length === 0) {
-                        chat.messages = [...chat.messages, ...newMessages];
-                        // Ordenar por data
-                        chat.messages.sort((a, b) => {
-                            const dateA = new Date(a.data || a.timestamp || 0);
-                            const dateB = new Date(b.data || b.timestamp || 0);
-                            return dateA - dateB;
-                        });
+                    // Adicionar mensagens pendentes de volta
+                    if (pendingMessages.length > 0) {
+                        chat.messages.push(...pendingMessages);
                     }
+                    
+                    // Ordenar por data
+                    chat.messages.sort((a, b) => {
+                        const dateA = new Date(a.data || 0);
+                        const dateB = new Date(b.data || 0);
+                        return dateA - dateB;
+                    });
                     
                     // Renderizar se é o chat atual
                     if (this.currentPhone === phone) {
@@ -781,7 +778,7 @@ html_corrigido = '''<!DOCTYPE html>
                     // Atualizar preview
                     if (chat.messages.length > 0) {
                         const last = chat.messages[chat.messages.length - 1];
-                        chat.ultima = last.mensagem || last.texto || last.content || 'Nova mensagem';
+                        chat.ultima = last.mensagem || 'Nova mensagem';
                         this.renderList();
                     }
                     
@@ -820,7 +817,7 @@ html_corrigido = '''<!DOCTYPE html>
                     const isActive = c.telefone === this.currentPhone;
                     const time = this.formatTime(c.ultimaAtividade);
                     const lastMessage = c.ultima || (c.messages && c.messages.length > 0 ? 
-                        c.messages[c.messages.length - 1].mensagem || c.messages[c.messages.length - 1].texto : 'Sem mensagens');
+                        c.messages[c.messages.length - 1].mensagem : 'Sem mensagens');
                     
                     return `
                         <div class="chat-item ${isActive ? 'active' : ''}" 
@@ -867,7 +864,7 @@ html_corrigido = '''<!DOCTYPE html>
                 
                 this.updateUI(chat);
                 
-                // Renderizar mensagens imediatamente (do cache local)
+                // Renderizar mensagens imediatamente
                 if (chat.messages && chat.messages.length > 0) {
                     this.renderMessages(chat.messages);
                 } else {
@@ -875,17 +872,15 @@ html_corrigido = '''<!DOCTYPE html>
                         '<div style="text-align:center;color:#8696a0;padding:40px;">Carregando mensagens...</div>';
                 }
                 
-                // Buscar mensagens atualizadas do servidor
-                this.lastMessagesData = null; // Forçar atualização
+                // Buscar mensagens atualizadas
                 this.fetchMessages(phone);
                 
-                // Re-renderizar lista para marcar ativo
+                // Re-renderizar lista
                 this.renderList();
             }
 
             closeChat() {
                 this.currentPhone = null;
-                this.lastMessagesData = null;
                 document.getElementById('sidebar').classList.remove('hidden-mobile');
                 document.getElementById('chatArea').classList.remove('active', 'has-chat');
                 document.getElementById('chatPlaceholder').style.display = 'flex';
@@ -900,7 +895,12 @@ html_corrigido = '''<!DOCTYPE html>
                 const actions = document.getElementById('chatActions');
                 const status = document.getElementById('chatStatus');
                 
-                if (chat.emIntervencao) {
+                console.log('UpdateUI - emIntervencao:', chat.emIntervencao, 'tipo:', typeof chat.emIntervencao);
+                
+                // Garantir que emIntervencao é booleano
+                const emIntervencao = chat.emIntervencao === true || chat.emIntervencao === 'true' || chat.emIntervencao === 1;
+                
+                if (emIntervencao) {
                     banner.classList.add('active');
                     input.disabled = false;
                     sendBtn.disabled = false;
@@ -933,23 +933,36 @@ html_corrigido = '''<!DOCTYPE html>
                 let html = '';
                 
                 messages.forEach((msg) => {
-                    const msgDate = new Date(msg.data || msg.timestamp || Date.now()).toDateString();
+                    const msgDate = new Date(msg.data || Date.now()).toDateString();
                     
                     if (msgDate !== lastDate) {
-                        html += `<div class="date-separator">${this.formatDate(msg.data || msg.timestamp)}</div>`;
+                        html += `<div class="date-separator">${this.formatDate(msg.data)}</div>`;
                         lastDate = msgDate;
                     }
                     
-                    const tipo = msg.tipo || msg.from || 'cliente';
-                    let type = 'incoming';
+                    // Determinar tipo de mensagem
+                    const tipo = (msg.tipo || '').toLowerCase();
+                    const from = (msg.from || '').toLowerCase();
                     
-                    if (tipo === 'bot' || tipo === 'robo') type = 'outgoing';
-                    else if (tipo === 'humano' || tipo === 'me' || tipo === 'atendente') type = 'outgoing';
-                    else if (tipo === 'system' || tipo === 'sistema') type = 'system';
+                    let type = 'incoming'; // Padrão: mensagem do cliente (cinza)
                     
-                    const content = this.escapeHtml(msg.mensagem || msg.texto || msg.content || msg.message || '');
-                    const time = this.formatTime(msg.data || msg.timestamp);
-                    const sender = msg.nome || (type === 'outgoing' ? 'Você' : 'Cliente');
+                    // Mensagens do robô ou humano são outgoing (verde)
+                    if (tipo === 'bot' || tipo === 'robo' || tipo === 'humano' || tipo === 'atendente' || tipo === 'me') {
+                        type = 'outgoing';
+                    } else if (from === 'bot' || from === 'robo' || from === 'humano' || from === 'atendente') {
+                        type = 'outgoing';
+                    } else if (tipo === 'system' || tipo === 'sistema') {
+                        type = 'system';
+                    }
+                    
+                    const content = this.escapeHtml(msg.mensagem || '');
+                    const time = this.formatTime(msg.data);
+                    
+                    // Determinar nome do remetente
+                    let sender = 'Cliente';
+                    if (type === 'outgoing') {
+                        sender = msg.nome || (tipo === 'humano' || from === 'humano' ? 'Você' : 'Robô');
+                    }
                     
                     html += `
                         <div class="message ${type}">
@@ -980,10 +993,14 @@ html_corrigido = '''<!DOCTYPE html>
                         body: JSON.stringify({ phone: phone })
                     });
                     
-                    const result = await response.json();
-                    console.log('Intervenção:', result);
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
                     
-                    // Atualizar local
+                    const result = await response.json();
+                    console.log('Intervenção resposta:', result);
+                    
+                    // Atualizar local imediatamente
                     const chat = this.chats.get(phone);
                     if (chat) {
                         chat.emIntervencao = true;
@@ -994,7 +1011,7 @@ html_corrigido = '''<!DOCTYPE html>
                     
                 } catch (error) {
                     console.error('Erro intervene:', error);
-                    alert('Erro ao assumir controle');
+                    alert('Erro ao assumir controle: ' + error.message);
                     if (btn) {
                         btn.disabled = false;
                         btn.textContent = '🚨 Assumir Controle';
@@ -1016,10 +1033,14 @@ html_corrigido = '''<!DOCTYPE html>
                         body: JSON.stringify({ phone: phone })
                     });
                     
-                    const result = await response.json();
-                    console.log('Release:', result);
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
                     
-                    // Atualizar local
+                    const result = await response.json();
+                    console.log('Release resposta:', result);
+                    
+                    // Atualizar local imediatamente
                     const chat = this.chats.get(phone);
                     if (chat) {
                         chat.emIntervencao = false;
@@ -1030,6 +1051,7 @@ html_corrigido = '''<!DOCTYPE html>
                     
                 } catch (error) {
                     console.error('Erro release:', error);
+                    alert('Erro ao liberar robô: ' + error.message);
                     if (btn) {
                         btn.disabled = false;
                         btn.textContent = '🤖 Liberar Robô';
@@ -1045,7 +1067,14 @@ html_corrigido = '''<!DOCTYPE html>
                 if (!text) return;
                 
                 const chat = this.chats.get(this.currentPhone);
-                if (!chat || !chat.emIntervencao) {
+                if (!chat) {
+                    alert('Chat não encontrado!');
+                    return;
+                }
+                
+                // Verificar intervenção
+                const emIntervencao = chat.emIntervencao === true || chat.emIntervencao === 'true';
+                if (!emIntervencao) {
                     alert('Assuma o controle primeiro!');
                     return;
                 }
@@ -1057,22 +1086,19 @@ html_corrigido = '''<!DOCTYPE html>
                 const tempMessage = {
                     id: 'local_' + Date.now(),
                     mensagem: text,
-                    texto: text,
                     tipo: 'humano',
                     from: 'humano',
                     data: new Date().toISOString(),
-                    timestamp: new Date().toISOString(),
                     nome: 'Você',
-                    pending: true // marca como pendente
+                    pending: true
                 };
                 
-                // Adicionar localmente imediatamente
+                // Adicionar localmente
                 chat.messages.push(tempMessage);
                 this.renderMessages(chat.messages);
                 this.saveToStorage();
                 
                 try {
-                    // ENVIAR PARA O WEBHOOK
                     const response = await fetch(`${CONFIG.WEBHOOK_URL}?action=send`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -1094,18 +1120,15 @@ html_corrigido = '''<!DOCTYPE html>
                     tempMessage.pending = false;
                     this.saveToStorage();
                     
-                    // Recarregar mensagens do servidor após 1 segundo
+                    // Recarregar mensagens
                     setTimeout(() => {
-                        this.lastMessagesData = null;
                         this.fetchMessages(this.currentPhone);
                     }, 1000);
                     
                 } catch (error) {
                     console.error('Erro enviar:', error);
-                    alert('Erro ao enviar mensagem: ' + error.message);
-                    // Restaurar mensagem no input
+                    alert('Erro ao enviar: ' + error.message);
                     input.value = text;
-                    // Remover mensagem pendente
                     chat.messages = chat.messages.filter(m => m.id !== tempMessage.id);
                     this.renderMessages(chat.messages);
                     this.saveToStorage();
@@ -1164,5 +1187,5 @@ html_corrigido = '''<!DOCTYPE html>
 </body>
 </html>'''
 
-print("HTML gerado com sucesso!")
+print("HTML corrigido gerado!")
 print(f"Tamanho: {len(html_corrigido)} caracteres")

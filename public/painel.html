@@ -553,7 +553,6 @@
                 </h1>
                 <div class="header-actions">
                     <span class="connection-badge" id="connectionBadge">Iniciando...</span>
-                    <button class="icon-btn" onclick="app.toggleDebug()" title="Debug">🐛</button>
                 </div>
             </div>
             
@@ -615,18 +614,12 @@
 
     <script>
         // ==========================================
-        // CONFIGURAÇÃO - VERIFIQUE ESTA URL
+        // CONFIGURAÇÃO
         // ==========================================
         const CONFIG = {
-            // IMPORTANTE: Altere para sua URL real se necessário
             WEBHOOK_URL: window.location.origin + '/api/webhook',
-            
-            // Intervalos de polling
-            POLL_INTERVAL: 3000,      // 3 segundos para lista
-            CHAT_POLL_INTERVAL: 1500, // 1.5 segundos para mensagens
-            
-            // Debug
-            DEBUG: false
+            POLL_INTERVAL: 3000,
+            CHAT_POLL_INTERVAL: 2000
         };
 
         // ==========================================
@@ -636,47 +629,28 @@
             constructor() {
                 this.chats = new Map();
                 this.currentPhone = null;
-                this.debugMode = false;
+                this.isLoadingMessages = false;
+                this.lastMessagesHash = '';
                 
                 this.init();
             }
 
             init() {
-                console.log('[Painel] Iniciando...');
-                console.log('[Painel] Webhook URL:', CONFIG.WEBHOOK_URL);
-                
                 // Esconder loading
                 setTimeout(() => {
                     document.getElementById('loading').classList.add('fade-out');
                 }, 500);
                 
-                // Iniciar polling imediatamente
+                // Iniciar polling
                 this.fetchConversations();
                 setInterval(() => this.fetchConversations(), CONFIG.POLL_INTERVAL);
                 
-                // Polling de mensagens
+                // Polling de mensagens - evita chamadas simultâneas
                 setInterval(() => {
-                    if (this.currentPhone) {
+                    if (this.currentPhone && !this.isLoadingMessages) {
                         this.fetchMessages(this.currentPhone);
                     }
                 }, CONFIG.CHAT_POLL_INTERVAL);
-            }
-
-            log(msg, type = 'info') {
-                console.log(`[Painel] ${msg}`);
-                if (this.debugMode) {
-                    const panel = document.getElementById('debugPanel');
-                    const time = new Date().toLocaleTimeString();
-                    const color = type === 'error' ? '#ff6b6b' : (type === 'success' ? '#4caf50' : 'white');
-                    panel.innerHTML += `<div style="color: ${color};">[${time}] ${msg}</div>`;
-                    panel.scrollTop = panel.scrollHeight;
-                }
-            }
-
-            toggleDebug() {
-                this.debugMode = !this.debugMode;
-                document.getElementById('debugPanel').classList.toggle('show', this.debugMode);
-                this.log('Debug: ' + (this.debugMode ? 'ON' : 'OFF'));
             }
 
             // ==========================================
@@ -686,10 +660,7 @@
                 try {
                     this.updateStatus('online');
                     
-                    // Usar action=list (formato do seu webhook RC Reforma)
                     const url = `${CONFIG.WEBHOOK_URL}?action=list&_t=${Date.now()}`;
-                    this.log('Buscando: ' + url);
-                    
                     const response = await fetch(url);
                     
                     if (!response.ok) {
@@ -697,16 +668,11 @@
                     }
                     
                     const data = await response.json();
-                    this.log('Resposta: ' + JSON.stringify(data).substring(0, 200), 'success');
-                    
-                    // Seu webhook retorna { conversas: [...] }
                     const conversas = data.conversas || data;
                     
                     if (!Array.isArray(conversas)) {
-                        throw new Error('Resposta não é array: ' + typeof conversas);
+                        throw new Error('Resposta não é array');
                     }
-                    
-                    this.log(`Recebidas ${conversas.length} conversas`);
                     
                     // Atualizar mapa
                     conversas.forEach(conv => {
@@ -714,14 +680,11 @@
                         const existing = this.chats.get(phone);
                         
                         if (!existing) {
-                            // Nova conversa
                             this.chats.set(phone, {
                                 ...conv,
                                 messages: []
                             });
-                            this.log('Nova: ' + phone);
                         } else {
-                            // Atualizar existente
                             existing.nome = conv.nome || existing.nome;
                             existing.emIntervencao = conv.emIntervencao;
                             existing.etapa = conv.etapa;
@@ -733,9 +696,8 @@
                     this.renderList();
                     
                 } catch (error) {
-                    this.log('ERRO: ' + error.message, 'error');
                     this.updateStatus('offline');
-                    console.error(error);
+                    console.error('Erro fetchConversations:', error);
                 }
             }
 
@@ -743,9 +705,11 @@
             // BUSCAR MENSAGENS
             // ==========================================
             async fetchMessages(phone) {
+                if (this.isLoadingMessages) return;
+                this.isLoadingMessages = true;
+                
                 try {
                     const url = `${CONFIG.WEBHOOK_URL}?action=messages&phone=${encodeURIComponent(phone)}&_t=${Date.now()}`;
-                    
                     const response = await fetch(url);
                     
                     if (!response.ok) {
@@ -753,24 +717,25 @@
                     }
                     
                     const data = await response.json();
-                    
-                    // Seu webhook retorna { mensagens: [...] }
                     const mensagens = data.mensagens || data;
                     
                     if (!Array.isArray(mensagens)) {
-                        this.log('mensagens não é array: ' + typeof mensagens, 'error');
                         return;
                     }
-                    
-                    this.log(`${mensagens.length} mensagens para ${phone}`);
                     
                     const chat = this.chats.get(phone);
                     if (!chat) return;
                     
-                    // Sempre atualizar mensagens
+                    // Verificar se mensagens mudaram (evita re-render desnecessário)
+                    const newHash = JSON.stringify(mensagens.map(m => m.id || m.timestamp));
+                    if (newHash === this.lastMessagesHash && chat.messages.length === mensagens.length) {
+                        return;
+                    }
+                    this.lastMessagesHash = newHash;
+                    
                     chat.messages = mensagens;
                     
-                    // Se é o chat atual, renderizar
+                    // Renderizar apenas se é o chat atual
                     if (this.currentPhone === phone) {
                         this.renderMessages(mensagens);
                     }
@@ -783,7 +748,9 @@
                     }
                     
                 } catch (error) {
-                    this.log('Erro mensagens: ' + error.message, 'error');
+                    console.error('Erro fetchMessages:', error);
+                } finally {
+                    this.isLoadingMessages = false;
                 }
             }
 
@@ -841,14 +808,11 @@
             // SELECIONAR CHAT
             // ==========================================
             selectChat(phone) {
-                this.log('Selecionando: ' + phone);
                 this.currentPhone = phone;
+                this.lastMessagesHash = ''; // Reset hash para forçar primeira renderização
                 const chat = this.chats.get(phone);
                 
-                if (!chat) {
-                    this.log('Chat não encontrado!', 'error');
-                    return;
-                }
+                if (!chat) return;
 
                 // UI
                 document.getElementById('sidebar').classList.add('hidden-mobile');
@@ -862,7 +826,7 @@
                 
                 this.updateUI(chat);
                 
-                // Renderizar mensagens imediatamente
+                // Renderizar mensagens imediatamente se existirem
                 if (chat.messages && chat.messages.length > 0) {
                     this.renderMessages(chat.messages);
                 } else {
@@ -878,6 +842,7 @@
 
             closeChat() {
                 this.currentPhone = null;
+                this.lastMessagesHash = '';
                 document.getElementById('sidebar').classList.remove('hidden-mobile');
                 document.getElementById('chatArea').classList.remove('active', 'has-chat');
                 document.getElementById('chatPlaceholder').style.display = 'flex';
@@ -897,7 +862,7 @@
                     input.disabled = false;
                     sendBtn.disabled = false;
                     input.placeholder = 'Digite uma mensagem...';
-                    input.focus();
+                    setTimeout(() => input.focus(), 100);
                     actions.innerHTML = `<button class="action-btn release" onclick="app.release('${chat.telefone}')">🤖 Liberar Robô</button>`;
                     status.textContent = 'Você está no controle';
                 } else {
@@ -924,7 +889,7 @@
                 let lastDate = null;
                 let html = '';
                 
-                messages.forEach((msg, index) => {
+                messages.forEach((msg) => {
                     const msgDate = new Date(msg.data || msg.timestamp || Date.now()).toDateString();
                     
                     if (msgDate !== lastDate) {
@@ -952,8 +917,11 @@
                     `;
                 });
                 
-                container.innerHTML = html;
-                this.scrollToBottom();
+                // Só atualizar DOM se mudou
+                if (container.innerHTML !== html) {
+                    container.innerHTML = html;
+                    this.scrollToBottom();
+                }
             }
 
             // ==========================================
@@ -974,7 +942,6 @@
                     });
                     
                     const result = await response.json();
-                    this.log('Intervenção: ' + JSON.stringify(result));
                     
                     // Atualizar local
                     const chat = this.chats.get(phone);
@@ -985,7 +952,7 @@
                     }
                     
                 } catch (error) {
-                    this.log('Erro intervene: ' + error.message, 'error');
+                    console.error('Erro intervene:', error);
                     alert('Erro ao assumir controle');
                     if (btn) {
                         btn.disabled = false;
@@ -1009,7 +976,6 @@
                     });
                     
                     const result = await response.json();
-                    this.log('Release: ' + JSON.stringify(result));
                     
                     // Atualizar local
                     const chat = this.chats.get(phone);
@@ -1020,7 +986,7 @@
                     }
                     
                 } catch (error) {
-                    this.log('Erro release: ' + error.message, 'error');
+                    console.error('Erro release:', error);
                     if (btn) {
                         btn.disabled = false;
                         btn.textContent = '🤖 Liberar Robô';
@@ -1041,7 +1007,19 @@
                     return;
                 }
                 
+                // Limpar input imediatamente para melhor UX
                 input.value = '';
+                
+                // Adicionar mensagem localmente primeiro (otimista)
+                const tempMessage = {
+                    mensagem: text,
+                    tipo: 'humano',
+                    data: new Date().toISOString(),
+                    nome: 'Você'
+                };
+                
+                chat.messages.push(tempMessage);
+                this.renderMessages(chat.messages);
                 
                 try {
                     const response = await fetch(`${CONFIG.WEBHOOK_URL}?action=send`, {
@@ -1054,14 +1032,15 @@
                     });
                     
                     const result = await response.json();
-                    this.log('Enviado: ' + JSON.stringify(result));
+                    console.log('Mensagem enviada:', result);
                     
-                    // Recarregar mensagens após 300ms
-                    setTimeout(() => this.fetchMessages(this.currentPhone), 300);
+                    // Recarregar mensagens após 500ms para confirmar
+                    setTimeout(() => this.fetchMessages(this.currentPhone), 500);
                     
                 } catch (error) {
-                    this.log('Erro enviar: ' + error.message, 'error');
-                    alert('Erro ao enviar mensagem');
+                    console.error('Erro enviar:', error);
+                    alert('Erro ao enviar mensagem. Tente novamente.');
+                    // Restaurar mensagem no input
                     input.value = text;
                 }
             }

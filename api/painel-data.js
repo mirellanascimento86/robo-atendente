@@ -1,188 +1,145 @@
-// API para o painel de intervenção - Dados em tempo real
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_KEY
-);
+import fs from 'fs/promises';
 
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  
-  if (req.method === 'OPTIONS') return res.status(200).end();
-  
-  const { acao } = req.query;
-  
-  try {
-    switch (acao) {
-      case 'conversas':
-        return await getConversas(res);
-      case 'mensagens':
-        return await getMensagens(req, res);
-      case 'intervir':
-        return await intervir(req, res);
-      case 'liberar':
-        return await liberar(req, res);
-      case 'enviar':
-        return await enviarMensagem(req, res);
-      case 'agenda':
-        return await getAgenda(res);
-      case 'ocupar':
-        return await ocuparHorario(req, res);
-      default:
-        return res.status(400).json({ erro: 'Ação inválida' });
-    }
-  } catch (e) {
-    console.error('Erro painel-data:', e);
-    return res.status(500).json({ erro: e.message });
-  }
-}
-
-async function getConversas(res) {
-  // Buscar todas as sessões
-  const { data: sessoes } = await supabase
-    .from('sessoes')
-    .select('*')
-    .order('ultima_atividade', { ascending: false });
-  
-  // Buscar intervenções ativas
-  const { data: intervencoes } = await supabase
-    .from('intervencoes')
-    .select('*')
-    .eq('ativa', true);
-  
-  const intervMap = new Map(intervencoes?.map(i => [i.telefone, i]));
-  
-  // Buscar última mensagem de cada conversa
-  const conversas = [];
-  
-  for (const sessao of sessoes || []) {
-    const { data: ultimaMsg } = await supabase
-      .from('mensagens')
-      .select('mensagem, timestamp, tipo')
-      .eq('telefone', sessao.telefone)
-      .order('timestamp', { ascending: false })
-      .limit(1)
-      .single();
+    res.setHeader('Access-Control-Allow-Origin', '*');
     
-    conversas.push({
-      telefone: sessao.telefone,
-      nome: sessao.nome,
-      etapa: sessao.etapa,
-      dados: sessao.dados,
-      intervencao: !!intervMap.get(sessao.telefone),
-      ultimaMensagem: ultimaMsg?.mensagem || 'Sem mensagens',
-      ultimaHora: ultimaMsg?.timestamp || sessao.ultima_atividade,
-      tipoUltima: ultimaMsg?.tipo || 'desconhecido'
-    });
-  }
-  
-  return res.json(conversas);
+    if (req.method === 'GET') {
+        const { tipo, telefone } = req.query;
+        
+        if (tipo === 'conversas') {
+            // Listar todas as conversas ativas
+            const arquivos = await fs.readdir('./data');
+            const conversas = [];
+            
+            for (const arq of arquivos) {
+                if (arq.startsWith('historico_')) {
+                    const tel = arq.replace('historico_', '').replace('.json', '');
+                    const dados = await fs.readFile(`./data/${arq}`, 'utf8');
+                    const msgs = JSON.parse(dados);
+                    const ultima = msgs[msgs.length - 1];
+                    
+                    conversas.push({
+                        telefone: tel,
+                        ultimaMensagem: ultima?.texto?.substring(0, 30) + '...',
+                        intervencao: global.conversasAtivas?.[tel]?.intervencao || false
+                    });
+                }
+            }
+            
+            return res.json(conversas);
+        }
+        
+        if (tipo === 'mensagens' && telefone) {
+            try {
+                const dados = await fs.readFile(`./data/historico_${telefone}.json`, 'utf8');
+                return res.json(JSON.parse(dados));
+            } catch (e) {
+                return res.json([]);
+            }
+        }
+        
+        if (tipo === 'relatorio') {
+            // Gerar relatório diário
+            const hoje = new Date().toISOString().split('T')[0];
+            const agenda = JSON.parse(await fs.readFile('./data/agenda.json', 'utf8'));
+            
+            const visitasHoje = agenda.visitas_agendadas.filter(v => 
+                v.data === hoje || v.criadoEm.startsWith(hoje)
+            );
+            
+            const relatorio = {
+                data: hoje,
+                totalVisitas: visitasHoje.length,
+                confirmadas: visitasHoje.filter(v => v.status === 'confirmado').length,
+                pendentes: visitasHoje.filter(v => v.status === 'pendente').length,
+                bairros: {},
+                clientes: visitasHoje.map(v => ({
+                    nome: v.telefone, // ou buscar nome no histórico
+                    bairro: v.bairro,
+                    servico: v.servico,
+                    status: v.status
+                }))
+            };
+            
+            // Contar por bairro
+            visitasHoje.forEach(v => {
+                relatorio.bairros[v.bairro] = (relatorio.bairros[v.bairro] || 0) + 1;
+            });
+            
+            return res.json(relatorio);
+        }
+    }
+    
+    if (req.method === 'POST') {
+        const { acao, telefone, mensagem } = req.body;
+        
+        if (acao === 'intervir') {
+            global.conversasAtivas = global.conversasAtivas || {};
+            global.conversasAtivas[telefone] = { 
+                ...(global.conversasAtivas[telefone] || {}),
+                intervencao: true 
+            };
+            return res.json({ ok: true });
+        }
+        
+        if (acao === 'liberar') {
+            if (global.conversasAtivas?.[telefone]) {
+                global.conversasAtivas[telefone].intervencao = false;
+            }
+            return res.json({ ok: true });
+        }
+        
+        if (acao === 'enviar') {
+            // Enviar mensagem humana via WhatsApp
+            await enviarWhatsAppAPI(telefone, mensagem);
+            
+            // Salvar no histórico
+            await salvarMensagemArquivo(telefone, 'Atendente', 'humano', mensagem);
+            
+            return res.json({ ok: true });
+        }
+    }
+    
+    res.status(400).json({ erro: 'Requisição inválida' });
 }
 
-async function getMensagens(req, res) {
-  const { telefone } = req.query;
-  
-  const { data: mensagens } = await supabase
-    .from('mensagens')
-    .select('*')
-    .eq('telefone', telefone)
-    .order('timestamp', { ascending: true });
-  
-  return res.json(mensagens || []);
-}
-
-async function intervir(req, res) {
-  const { telefone } = req.body;
-  
-  await supabase.from('intervencoes').upsert({
-    telefone,
-    ativa: true,
-    inicio: new Date().toISOString()
-  });
-  
-  return res.json({ sucesso: true });
-}
-
-async function liberar(req, res) {
-  const { telefone } = req.body;
-  
-  await supabase.from('intervencoes')
-    .update({ ativa: false, fim: new Date().toISOString() })
-    .eq('telefone', telefone);
-  
-  // Resetar sessão
-  await supabase.from('sessoes')
-    .update({ etapa: 'INICIO', dados: {} })
-    .eq('telefone', telefone);
-  
-  return res.json({ sucesso: true });
-}
-
-async function enviarMensagem(req, res) {
-  const { telefone, mensagem } = req.body;
-  
-  // Salvar no banco
-  await supabase.from('mensagens').insert({
-    telefone,
-    mensagem,
-    tipo: 'humano',
-    remetente: 'Atendente',
-    timestamp: new Date().toISOString()
-  });
-  
-  // Enviar via WhatsApp Cloud API
-  const token = process.env.WHATSAPP_TOKEN;
-  const phoneId = process.env.WHATSAPP_PHONE_ID;
-  
-  if (token && phoneId) {
-    try {
-      await fetch(`https://graph.facebook.com/v18.0/${phoneId}/messages`, {
+// Funções auxiliares
+async function enviarWhatsAppAPI(telefone, mensagem) {
+    const CONFIG = {
+        WHATSAPP_TOKEN: process.env.WHATSAPP_TOKEN,
+        WHATSAPP_PHONE_ID: process.env.WHATSAPP_PHONE_ID
+    };
+    
+    await fetch(`https://graph.facebook.com/v18.0/${CONFIG.WHATSAPP_PHONE_ID}/messages`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+            'Authorization': `Bearer ${CONFIG.WHATSAPP_TOKEN}`,
+            'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          messaging_product: 'whatsapp',
-          recipient_type: 'individual',
-          to: telefone,
-          type: 'text',
-          text: { body: mensagem }
+            messaging_product: 'whatsapp',
+            to: telefone,
+            type: 'text',
+            text: { body: mensagem }
         })
-      });
-    } catch (e) {
-      console.error('Erro ao enviar WhatsApp:', e);
-    }
-  }
-  
-  return res.json({ sucesso: true });
+    });
 }
 
-async function getAgenda(res) {
-  const hoje = new Date().toISOString().split('T')[0];
-  
-  const { data: agenda } = await supabase
-    .from('agenda')
-    .select('*')
-    .gte('data', hoje)
-    .order('data', { ascending: true })
-    .order('horario', { ascending: true });
-  
-  return res.json(agenda || []);
-}
-
-async function ocuparHorario(req, res) {
-  const { data, horario, tecnico } = req.body;
-  
-  await supabase.from('agenda').insert({
-    data,
-    horario,
-    tecnico,
-    status: 'ocupado',
-    timestamp: new Date().toISOString()
-  });
-  
-  return res.json({ sucesso: true });
+async function salvarMensagemArquivo(telefone, nome, tipo, texto) {
+    const arquivo = `./data/historico_${telefone}.json`;
+    let historico = [];
+    
+    try {
+        const existe = await fs.readFile(arquivo, 'utf8');
+        historico = JSON.parse(existe);
+    } catch (e) {}
+    
+    historico.push({
+        data: new Date().toISOString(),
+        nome,
+        tipo,
+        texto
+    });
+    
+    await fs.writeFile(arquivo, JSON.stringify(historico, null, 2));
 }

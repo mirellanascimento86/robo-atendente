@@ -1,7 +1,41 @@
-{
+vercel_json = '''{
+  "version": 2,
   "functions": {
-    "api/index.js": {
+    "api/webhook.js": {
       "maxDuration": 30
     }
-  }
-}
+  },
+  "routes": [
+    {
+      "src": "/api/webhook",
+      "dest": "/api/webhook.js"
+    },
+    {
+      "src": "/painel",
+      "dest": "/painel.html"
+    },
+    {
+      "src": "/treinamento",
+      "dest": "/treinamento.html"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        },
+        {
+          "key": "Access-Control-Allow-Methods",
+          "value": "GET, POST, OPTIONS"
+        },
+        {
+          "key": "Access-Control-Allow-Headers",
+          "value": "Content-Type, Authorization"
+        }
+      ]
+    }
+  ]
+}'''

@@ -970,45 +970,57 @@
         }
 
         async sendMessage() {
-            if (!this.currentPhone) return;
-            
-            const input = document.getElementById('messageInput');
-            const text = input.value.trim();
-            if (!text) return;
-            
-            const chat = this.chats.get(this.currentPhone);
-            if (!chat || !chat.emIntervencao) {
-                alert('Você precisa assumir o controle primeiro!');
-                return;
-            }
-            
-            const originalText = text;
-            input.value = '';                    // limpa imediatamente
-            
-            try {
-                const response = await fetch(`${CONFIG.WEBHOOK_URL}?action=send`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        phone: this.currentPhone,
-                        message: originalText
-                    })
-                });
-                
-                if (!response.ok) throw new Error('Falha no servidor');
-                
-                const result = await response.json();
-                this.log('Mensagem enviada com sucesso: ' + JSON.stringify(result));
-                
-                // Força atualização das mensagens imediatamente
-                setTimeout(() => this.fetchMessages(this.currentPhone), 300);
-                
-            } catch (error) {
-                this.log('Erro ao enviar mensagem: ' + error.message, 'error');
-                alert('Erro ao enviar mensagem para o cliente. Verifique o backend.');
-                input.value = originalText;   // devolve o texto se falhar
-            }
+    if (!this.currentPhone) return;
+    
+    const input = document.getElementById('messageInput');
+    const text = input.value.trim();
+    if (!text) return;
+    
+    const chat = this.chats.get(this.currentPhone);
+    if (!chat || !chat.emIntervencao) {
+        alert('Você precisa assumir o controle primeiro!');
+        return;
+    }
+    
+    const originalText = text;
+    input.value = '';   // limpa imediatamente para melhor UX
+    
+    try {
+        const response = await fetch(`${CONFIG.WEBHOOK_URL}?action=send`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                phone: this.currentPhone,
+                message: originalText
+            })
+        });
+        
+        let result;
+        try {
+            result = await response.json();
+        } catch (e) {
+            result = { error: 'Resposta inválida do servidor' };
         }
+        
+        if (!response.ok) {
+            throw new Error(result.error || result.message || `HTTP ${response.status}`);
+        }
+        
+        this.log('Mensagem enviada com sucesso');
+        
+        // Atualiza mensagens rapidamente
+        setTimeout(() => this.fetchMessages(this.currentPhone), 400);
+        
+    } catch (error) {
+        this.log('Erro ao enviar: ' + error.message, 'error');
+        
+        // Mensagem de erro mais útil
+        alert(`Erro ao enviar mensagem:\n\n${error.message}\n\nVerifique os logs no Vercel para mais detalhes.`);
+        
+        // Devolve o texto para o usuário tentar novamente
+        input.value = originalText;
+    }
+}
 
         search(term) {
             this.renderList();

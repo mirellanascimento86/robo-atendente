@@ -321,6 +321,7 @@
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            color: var(--text);
         }
         .chat-title p {
             font-size: 13px;
@@ -637,6 +638,7 @@
                 this.chats = new Map();
                 this.currentPhone = null;
                 this.debugMode = false;
+                this.lastConversationsHash = '';
                 
                 this.init();
             }
@@ -708,6 +710,13 @@
                     
                     this.log(`Recebidas ${conversas.length} conversas`);
                     
+                    // Criar hash para detectar mudanças e evitar re-render desnecessário
+                    const hash = this.createConversationsHash(conversas);
+                    if (hash === this.lastConversationsHash) {
+                        return; // Sem mudanças, não re-renderizar
+                    }
+                    this.lastConversationsHash = hash;
+                    
                     // Atualizar mapa
                     conversas.forEach(conv => {
                         const phone = conv.telefone;
@@ -737,6 +746,13 @@
                     this.updateStatus('offline');
                     console.error(error);
                 }
+            }
+            
+            createConversationsHash(conversas) {
+                // Criar hash simples baseado nos dados relevantes
+                return conversas.map(c => 
+                    `${c.telefone}:${c.emIntervencao}:${c.ultimaAtividade}:${c.ultima?.substring(0, 20)}`
+                ).sort().join('|');
             }
 
             // ==========================================
@@ -1029,42 +1045,42 @@
             }
 
             async sendMessage() {
-    if (!this.currentPhone) return;
-    
-    const input = document.getElementById('messageInput');
-    const text = input.value.trim();
-    if (!text) return;
-    
-    const chat = this.chats.get(this.currentPhone);
-    if (!chat || !chat.emIntervencao) {
-        alert('Assuma o controle primeiro!');
-        return;
-    }
-    
-    input.value = '';
-    
-    try {
-        const response = await fetch(`${CONFIG.WEBHOOK_URL}?action=send`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                telefone: this.currentPhone,  // ← corrigido de 'phone'
-                mensagem: text                // ← corrigido de 'message'
-            })
-        });
-        
-        const result = await response.json();
-        this.log('Enviado: ' + JSON.stringify(result));
-        
-        // Recarregar mensagens após 300ms
-        setTimeout(() => this.fetchMessages(this.currentPhone), 300);
-        
-    } catch (error) {
-        this.log('Erro enviar: ' + error.message, 'error');
-        alert('Erro ao enviar mensagem');
-        input.value = text;
-    }
-}
+                if (!this.currentPhone) return;
+                
+                const input = document.getElementById('messageInput');
+                const text = input.value.trim();
+                if (!text) return;
+                
+                const chat = this.chats.get(this.currentPhone);
+                if (!chat || !chat.emIntervencao) {
+                    alert('Assuma o controle primeiro!');
+                    return;
+                }
+                
+                input.value = '';
+                
+                try {
+                    const response = await fetch(`${CONFIG.WEBHOOK_URL}?action=send`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            telefone: this.currentPhone,
+                            mensagem: text
+                        })
+                    });
+                    
+                    const result = await response.json();
+                    this.log('Enviado: ' + JSON.stringify(result));
+                    
+                    // Recarregar mensagens após 300ms
+                    setTimeout(() => this.fetchMessages(this.currentPhone), 300);
+                    
+                } catch (error) {
+                    this.log('Erro enviar: ' + error.message, 'error');
+                    alert('Erro ao enviar mensagem');
+                    input.value = text;
+                }
+            }
 
             search(term) {
                 this.renderList();

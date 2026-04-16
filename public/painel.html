@@ -1029,42 +1029,42 @@
             }
 
             async sendMessage() {
-                if (!this.currentPhone) return;
-                
-                const input = document.getElementById('messageInput');
-                const text = input.value.trim();
-                if (!text) return;
-                
-                const chat = this.chats.get(this.currentPhone);
-                if (!chat || !chat.emIntervencao) {
-                    alert('Assuma o controle primeiro!');
-                    return;
-                }
-                
-                input.value = '';
-                
-                try {
-                    const response = await fetch(`${CONFIG.WEBHOOK_URL}?action=send`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            phone: this.currentPhone,
-                            message: text
-                        })
-                    });
-                    
-                    const result = await response.json();
-                    this.log('Enviado: ' + JSON.stringify(result));
-                    
-                    // Recarregar mensagens após 300ms
-                    setTimeout(() => this.fetchMessages(this.currentPhone), 300);
-                    
-                } catch (error) {
-                    this.log('Erro enviar: ' + error.message, 'error');
-                    alert('Erro ao enviar mensagem');
-                    input.value = text;
-                }
-            }
+    if (!this.currentPhone) return;
+    
+    const input = document.getElementById('messageInput');
+    const text = input.value.trim();
+    if (!text) return;
+    
+    const chat = this.chats.get(this.currentPhone);
+    if (!chat || !chat.emIntervencao) {
+        alert('Assuma o controle primeiro!');
+        return;
+    }
+    
+    input.value = '';
+    
+    try {
+        const response = await fetch(`${CONFIG.WEBHOOK_URL}?action=send`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                telefone: this.currentPhone,  // ← corrigido de 'phone'
+                mensagem: text                // ← corrigido de 'message'
+            })
+        });
+        
+        const result = await response.json();
+        this.log('Enviado: ' + JSON.stringify(result));
+        
+        // Recarregar mensagens após 300ms
+        setTimeout(() => this.fetchMessages(this.currentPhone), 300);
+        
+    } catch (error) {
+        this.log('Erro enviar: ' + error.message, 'error');
+        alert('Erro ao enviar mensagem');
+        input.value = text;
+    }
+}
 
             search(term) {
                 this.renderList();

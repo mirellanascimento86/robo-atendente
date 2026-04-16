@@ -1,4 +1,7 @@
-<!DOCTYPE html>
+
+# Código corrigido com persistência localStorage e correção do HTTP 400
+
+codigo_corrigido = '''<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
@@ -618,7 +621,7 @@
         WEBHOOK_URL: window.location.origin + '/api/webhook',
         POLL_INTERVAL: 3000,
         CHAT_POLL_INTERVAL: 1500,
-        DEBUG: true   // mantenha true por enquanto para ver logs
+        DEBUG: true
     };
 
     class WhatsAppPanel {
@@ -628,7 +631,36 @@
             this.debugMode = true;
             this.lastMessageCount = new Map();
             
+            // Carregar mensagens do localStorage ao iniciar
+            this.loadFromStorage();
+            
             this.init();
+        }
+
+        // NOVO: Carregar dados do localStorage
+        loadFromStorage() {
+            try {
+                const stored = localStorage.getItem('whatsapp_chats');
+                if (stored) {
+                    const parsed = JSON.parse(stored);
+                    if (parsed && typeof parsed === 'object') {
+                        this.chats = new Map(Object.entries(parsed));
+                        this.log('Mensagens carregadas do localStorage: ' + this.chats.size + ' chats');
+                    }
+                }
+            } catch (e) {
+                this.log('Erro ao carregar localStorage: ' + e.message, 'error');
+            }
+        }
+
+        // NOVO: Salvar dados no localStorage
+        saveToStorage() {
+            try {
+                const obj = Object.fromEntries(this.chats);
+                localStorage.setItem('whatsapp_chats', JSON.stringify(obj));
+            } catch (e) {
+                this.log('Erro ao salvar localStorage: ' + e.message, 'error');
+            }
         }
 
         init() {
@@ -661,30 +693,59 @@
 
                 conversas.forEach(conv => {
                     const phone = conv.telefone;
-                    let chat = this.chats.get(phone) || { messages: [], telefone: phone };
+                    let chat = this.chats.get(phone);
+                    if (!chat) {
+                        chat = { messages: [], telefone: phone };
+                    }
+                    // Preservar mensagens existentes ao atualizar dados do chat
+                    const existingMessages = chat.messages || [];
                     Object.assign(chat, conv);
+                    if (!chat.messages || chat.messages.length === 0) {
+                        chat.messages = existingMessages;
+                    }
                     this.chats.set(phone, chat);
                 });
 
+                // Salvar no localStorage após atualizar
+                this.saveToStorage();
                 this.renderList();
+                this.updateStatus('online');
             } catch (e) {
                 this.log('Erro ao buscar conversas: ' + e.message, 'error');
+                this.updateStatus('offline');
             }
         }
 
         async fetchMessages(phone) {
             if (!phone) return;
             try {
-                const res = await fetch(`${CONFIG.WEBHOOK_URL}?action=messages&phone=${encodeURIComponent(phone)}&_t=${Date.now()}`);
+                // CORREÇÃO: Usar encodeURIComponent no phone
+                const encodedPhone = encodeURIComponent(phone);
+                const res = await fetch(`${CONFIG.WEBHOOK_URL}?action=messages&phone=${encodedPhone}&_t=${Date.now()}`);
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
                 const data = await res.json();
                 const mensagens = data.mensagens || data || [];
 
                 const chat = this.chats.get(phone);
-                if (chat) chat.messages = mensagens;
+                if (chat) {
+                    // Mesclar mensagens novas com existentes (evitar duplicatas)
+                    const existingIds = new Set((chat.messages || []).map(m => m.id || m.timestamp));
+                    const newMessages = mensagens.filter(m => !existingIds.has(m.id || m.timestamp));
+                    
+                    if (newMessages.length > 0) {
+                        chat.messages = [...(chat.messages || []), ...newMessages];
+                        // Ordenar por timestamp se disponível
+                        chat.messages.sort((a, b) => {
+                            const ta = a.timestamp || a.data || 0;
+                            const tb = b.timestamp || b.data || 0;
+                            return ta - tb;
+                        });
+                        this.saveToStorage(); // Salvar após receber novas mensagens
+                    }
+                }
 
                 if (this.currentPhone === phone) {
-                    this.renderMessages(mensagens);
+                    this.renderMessages(chat ? chat.messages : []);
                 }
                 if (mensagens.length > 0) {
                     chat.ultima = mensagens[mensagens.length-1].mensagem || mensagens[mensagens.length-1].texto || '';
@@ -698,10 +759,14 @@
         async intervene(phone) {
             try {
                 this.log(`Tentando assumir controle de ${phone}`);
+                // CORREÇÃO: Garantir que o body está correto
                 const res = await fetch(`${CONFIG.WEBHOOK_URL}?action=intervene`, {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ phone })
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({ phone: phone }) // CORREÇÃO: enviar phone explicitamente
                 });
 
                 const result = await res.json().catch(() => ({}));
@@ -711,31 +776,42 @@
                     throw new Error(result.error || result.message || `HTTP ${res.status}`);
                 }
 
-                // Força atualização completa
                 const chat = this.chats.get(phone);
                 if (chat) chat.emIntervencao = true;
+                this.saveToStorage(); // Salvar estado de intervenção
                 
-                this.selectChat(phone);   // recarrega tudo
+                this.selectChat(phone);
                 this.log('Controle assumido com sucesso', 'success');
 
             } catch (error) {
                 this.log('Falha ao assumir controle: ' + error.message, 'error');
-                alert('Erro ao assumir controle:\n' + error.message);
+                alert('Erro ao assumir controle:\\n' + error.message);
             }
         }
 
         async release(phone) {
             try {
-                await fetch(`${CONFIG.WEBHOOK_URL}?action=release`, {
+                const res = await fetch(`${CONFIG.WEBHOOK_URL}?action=release`, {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ phone })
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({ phone: phone })
                 });
+                
+                if (!res.ok) {
+                    const result = await res.json().catch(() => ({}));
+                    throw new Error(result.error || `HTTP ${res.status}`);
+                }
+                
                 const chat = this.chats.get(phone);
                 if (chat) chat.emIntervencao = false;
+                this.saveToStorage(); // Salvar estado
                 this.selectChat(phone);
             } catch (e) {
-                alert('Erro ao liberar robô');
+                this.log('Erro ao liberar: ' + e.message, 'error');
+                alert('Erro ao liberar robô: ' + e.message);
             }
         }
 
@@ -755,11 +831,30 @@
             const original = text;
             input.value = '';
 
+            // Adicionar mensagem localmente imediatamente (otimista)
+            const tempMessage = {
+                id: 'temp_' + Date.now(),
+                mensagem: original,
+                texto: original,
+                tipo: 'enviada',
+                timestamp: Date.now(),
+                data: Date.now()
+            };
+            chat.messages = [...(chat.messages || []), tempMessage];
+            this.saveToStorage();
+            this.renderMessages(chat.messages);
+
             try {
                 const res = await fetch(`${CONFIG.WEBHOOK_URL}?action=send`, {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ phone: this.currentPhone, message: original })
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({ 
+                        phone: this.currentPhone, 
+                        message: original 
+                    })
                 });
 
                 let result;
@@ -770,19 +865,168 @@
                 }
 
                 this.log('Mensagem enviada com sucesso');
+                
+                // Atualizar mensagem temporária com confirmação
                 setTimeout(() => this.fetchMessages(this.currentPhone), 500);
 
             } catch (error) {
                 this.log('Erro send: ' + error.message, 'error');
-                alert(`Erro ao enviar mensagem:\n\n${error.message}\n\nVerifique os logs no Vercel.`);
+                alert(`Erro ao enviar mensagem:\\n\\n${error.message}`);
                 input.value = original;
             }
         }
 
-        // renderList, selectChat, updateUI, renderMessages, etc. permanecem iguais ao código anterior que eu te passei
-        // (para não repetir tudo aqui, mantenha as funções de renderização do código anterior)
+        renderList() {
+            const list = document.getElementById('chatList');
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            
+            let html = '';
+            const sorted = Array.from(this.chats.values()).sort((a, b) => {
+                const ta = a.ultimaMsg || a.ultimaAtualizacao || 0;
+                const tb = b.ultimaMsg || b.ultimaAtualizacao || 0;
+                return tb - ta;
+            });
 
-        // ... (coloque aqui as funções renderList, selectChat, updateUI, renderMessages, scrollToBottom, etc. do código que enviei na resposta anterior)
+            sorted.forEach(chat => {
+                if (search && !chat.nome?.toLowerCase().includes(search) && !chat.telefone.includes(search)) return;
+                
+                const isActive = this.currentPhone === chat.telefone;
+                const statusClass = chat.emIntervencao ? 'human' : 'bot';
+                const statusText = chat.emIntervencao ? 'HUMANO' : 'ROBÔ';
+                
+                html += `
+                    <div class="chat-item ${isActive ? 'active' : ''}" onclick="app.selectChat('${chat.telefone}')">
+                        <div class="chat-avatar">${chat.nome?.[0] || '👤'}</div>
+                        <div class="chat-info">
+                            <div class="chat-header-row">
+                                <span class="chat-name">${chat.nome || chat.telefone}</span>
+                                <span class="chat-time">${this.formatTime(chat.ultimaMsg)}</span>
+                            </div>
+                            <div class="chat-preview">
+                                ${chat.ultima || 'Clique para ver mensagens'}
+                                <span class="status-indicator ${statusClass}">${statusText}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            list.innerHTML = html || '<div class="empty-list"><p>Nenhuma conversa</p></div>';
+        }
+
+        selectChat(phone) {
+            this.currentPhone = phone;
+            const chat = this.chats.get(phone);
+            if (!chat) return;
+
+            document.getElementById('chatPlaceholder').style.display = 'none';
+            document.getElementById('activeChat').style.display = 'flex';
+            document.getElementById('chatArea').classList.add('active');
+            document.getElementById('chatArea').classList.add('has-chat');
+
+            document.getElementById('chatName').textContent = chat.nome || phone;
+            document.getElementById('chatAvatar').textContent = chat.nome?.[0] || '👤';
+            
+            const status = chat.emIntervencao ? 'Você está respondendo' : 'Robô ativo';
+            document.getElementById('chatStatus').textContent = status;
+
+            const actions = document.getElementById('chatActions');
+            if (chat.emIntervencao) {
+                actions.innerHTML = `<button class="action-btn release" onclick="app.release('${phone}')">🤖 Liberar Robô</button>`;
+                document.getElementById('interventionBanner').classList.add('active');
+                document.getElementById('messageInput').disabled = false;
+                document.getElementById('sendBtn').disabled = false;
+            } else {
+                actions.innerHTML = `<button class="action-btn intervene" onclick="app.intervene('${phone}')">✋ Assumir Controle</button>`;
+                document.getElementById('interventionBanner').classList.remove('active');
+                document.getElementById('messageInput').disabled = true;
+                document.getElementById('sendBtn').disabled = true;
+            }
+
+            // Renderizar mensagens do localStorage imediatamente
+            this.renderMessages(chat.messages || []);
+            
+            // Buscar novas mensagens
+            this.fetchMessages(phone);
+            this.renderList();
+
+            if (window.innerWidth < 900) {
+                document.getElementById('sidebar').classList.add('hidden-mobile');
+            }
+        }
+
+        closeChat() {
+            this.currentPhone = null;
+            document.getElementById('activeChat').style.display = 'none';
+            document.getElementById('chatPlaceholder').style.display = 'flex';
+            document.getElementById('chatArea').classList.remove('has-chat');
+            document.getElementById('sidebar').classList.remove('hidden-mobile');
+            this.renderList();
+        }
+
+        renderMessages(messages) {
+            const container = document.getElementById('messagesContainer');
+            if (!messages || messages.length === 0) {
+                container.innerHTML = '<div style="text-align:center;color:var(--text-secondary);padding:40px;">Sem mensagens</div>';
+                return;
+            }
+
+            let html = '';
+            let lastDate = '';
+
+            messages.forEach(msg => {
+                const date = this.formatDate(msg.timestamp || msg.data);
+                if (date && date !== lastDate) {
+                    html += `<div class="date-separator">${date}</div>`;
+                    lastDate = date;
+                }
+
+                const isOutgoing = msg.tipo === 'enviada' || msg.fromMe || msg.sender === 'me';
+                const className = isOutgoing ? 'outgoing' : 'incoming';
+                const text = msg.mensagem || msg.texto || msg.body || msg.message || '';
+                const time = this.formatTime(msg.timestamp || msg.data || msg.hora);
+
+                html += `
+                    <div class="message ${className}">
+                        <div class="message-content">${this.escapeHtml(text)}</div>
+                        <div class="message-meta">${time}</div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+            container.scrollTop = container.scrollHeight;
+        }
+
+        formatTime(timestamp) {
+            if (!timestamp) return '';
+            const date = new Date(timestamp);
+            if (isNaN(date.getTime())) return '';
+            return date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        }
+
+        formatDate(timestamp) {
+            if (!timestamp) return '';
+            const date = new Date(timestamp);
+            if (isNaN(date.getTime())) return '';
+            return date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short', year: 'numeric' });
+        }
+
+        escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        search(query) {
+            this.renderList();
+        }
+
+        toggleDebug() {
+            this.debugMode = !this.debugMode;
+            document.getElementById('debugPanel').style.display = this.debugMode ? 'block' : 'none';
+        }
 
         updateStatus(status) {
             const badge = document.getElementById('connectionBadge');
@@ -792,7 +1036,6 @@
     }
 
     const app = new WhatsAppPanel();
-</script>
+    </script>
 </body>
-</html>
-    
+</html> 

@@ -1,13 +1,18 @@
 {
   "version": 2,
-  "headers": [
+  "functions": {
+    "api/webhook.js": {
+      "maxDuration": 30
+    }
+  },
+  "crons": [
     {
-      "source": "/api/(.*)",
-      "headers": [
-        { "key": "Access-Control-Allow-Origin", "value": "*" },
-        { "key": "Access-Control-Allow-Methods", "value": "GET, POST, OPTIONS" },
-        { "key": "Access-Control-Allow-Headers", "value": "Content-Type" }
-      ]
+      "path": "/api/webhook",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/webhook",
+      "schedule": "0 19 * * *"
     }
   ]
 }

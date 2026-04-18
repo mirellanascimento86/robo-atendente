@@ -1818,12 +1818,4 @@ testarConexoes();
 // EXPORTAÇÕES ADICIONAIS
 // ============================================
 
-export { 
-  clientes, 
-  agendamentos, 
-  conversas, 
-  intervenções,
-  enviarWhatsApp,
-  enviarTelegramAdmin,
-  gerarRelatorioDiario
-};
+

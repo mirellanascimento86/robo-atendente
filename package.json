@@ -1,7 +1,11 @@
+// package.json
 {
-  "name": "robo-atendente-rc",
-  "version": "2.0.0",
+  "name": "whatsapp-atendimento-bot",
+  "version": "1.0.0",
   "dependencies": {
-    "@supabase/supabase-js": "^2.39.0"
+    "@supabase/supabase-js": "^2.39.0",
+    "googleapis": "^128.0.0",
+    "node-telegram-bot-api": "^0.64.0",
+    "axios": "^1.6.0"
   }
 }

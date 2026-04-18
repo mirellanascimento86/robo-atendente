@@ -4,15 +4,5 @@
     "api/webhook.js": {
       "maxDuration": 30
     }
-  },
-  "crons": [
-    {
-      "path": "/api/webhook",
-      "schedule": "*/5 * * * *"
-    },
-    {
-      "path": "/api/webhook",
-      "schedule": "0 19 * * *"
-    }
-  ]
+  }
 }

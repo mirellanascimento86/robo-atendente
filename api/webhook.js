@@ -1182,46 +1182,67 @@ function detectarRisco(texto) {
 // ============================================
 
 async function enviarWhatsApp(numero, texto) {
-  console.log(`📤 PARA ${numero}: ${texto.substring(0, 80)}...`);
+  // LIMPA O NÚMERO - remove tudo exceto dígitos
+  let numeroLimpo = numero.replace(/\D/g, '');
   
+  // Adiciona DDI 55 se não tiver
+  if (!numeroLimpo.startsWith('55')) {
+    numeroLimpo = '55' + numeroLimpo;
+  }
+
+  console.log(`📤 ENVIANDO PARA ${numeroLimpo}: ${texto.substring(0, 80)}...`);
+
   if (!CONFIG.whatsappToken || !CONFIG.whatsappPhoneId) {
-    console.error('❌ WhatsApp não configurado');
+    console.error('❌ WhatsApp não configurado!');
+    await enviarTelegramAdmin(`🚨 FALHA: WhatsApp não configurado\nPara: ${numero}`);
     return false;
   }
-  
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
-    
-    const res = await fetch(`https://graph.facebook.com/v18.0/${CONFIG.whatsappPhoneId}/messages`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${CONFIG.whatsappToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        messaging_product: 'whatsapp',
-        recipient_type: 'individual',
-        to: numero,
-        type: 'text',
-        text: { body: texto }
-      }),
-      signal: controller.signal
-    });
-    
-    clearTimeout(timeout);
-    
-    if (!res.ok) {
+
+  // Retry com backoff
+  for (let tentativa = 1; tentativa <= 3; tentativa++) {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000);
+
+      // ATUALIZADO: v20.0 ao invés de v18.0
+      const res = await fetch(`https://graph.facebook.com/v20.0/${CONFIG.whatsappPhoneId}/messages`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${CONFIG.whatsappToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messaging_product: 'whatsapp',
+          recipient_type: 'individual',
+          to: numeroLimpo,
+          type: 'text',
+          text: { body: texto }
+        }),
+        signal: controller.signal
+      });
+
+      clearTimeout(timeout);
       const data = await res.json();
-      console.error('❌ Erro WhatsApp:', res.status, data);
-      return false;
+
+      if (!res.ok) {
+        console.error(`❌ Tentativa ${tentativa} falhou:`, data);
+        if (tentativa === 3) {
+          await enviarTelegramAdmin(`🚨 ERRO WHATSAPP: ${JSON.stringify(data).substring(0, 200)}`);
+          return false;
+        }
+        await new Promise(r => setTimeout(r, tentativa * 1000));
+        continue;
+      }
+
+      console.log('✅ Mensagem enviada:', data.messages?.[0]?.id);
+      return true;
+
+    } catch (e) {
+      console.error(`❌ Exceção (tentativa ${tentativa}):`, e.message);
+      if (tentativa === 3) return false;
     }
-    
-    return true;
-  } catch (e) {
-    console.error('❌ Erro envio WhatsApp:', e.message);
-    return false;
   }
+  return false;
 }
 
 async function enviarTelegramAdmin(mensagem) {
@@ -1454,11 +1475,19 @@ async function atualizarEventoCalendar(telefone, status) {
   try {
     const calendar = google.calendar({ version: 'v3', auth: googleAuthClient });
     
+    // Busca evento atual para preservar dados
+    const eventoAtual = await calendar.events.get({
+      calendarId: CONFIG.googleCalendarId,
+      eventId: agendamento.googleEventId
+    });
+    
+    const descricaoAtual = eventoAtual.data.description || '';
+    
     await calendar.events.patch({
       calendarId: CONFIG.googleCalendarId,
       eventId: agendamento.googleEventId,
       resource: {
-        description: agendamento.description + `\n\nSTATUS: ${status}`
+        description: descricaoAtual + `\n\nSTATUS: ${status}\nAtualizado em: ${new Date().toLocaleString('pt-BR')}`
       }
     });
     
@@ -1515,7 +1544,7 @@ async function gerarRelatorioDiario() {
     `👥 *Atendimento:*\n` +
     `• Novos clientes: ${novosClientes.length}\n` +
     `• Total de mensagens: ${mensagensOntem}\n` +
-    `• Intervenções humanas: ${Array.from(intervenções).length}\n\n` +
+        `• Intervenções humanas: ${Array.from(intervenções).length}\n\n` +
     `📅 *Agendamentos:*\n` +
     `• Visitas marcadas: ${visitasOntem.length}\n` +
     `• Orçamentos aceitos: ${orcamentosAceitos} ✅\n` +
@@ -1544,7 +1573,7 @@ async function gerarRelatorioDiario() {
 // Exporta função para ser chamada por cron job externo
 export { gerarRelatorioDiario };
 
-// ============================================// ============================================
+// ============================================
 // CONFIGURAÇÃO VARIÁVEIS DE AMBIENTE (CONTINUAÇÃO)
 // ============================================
 

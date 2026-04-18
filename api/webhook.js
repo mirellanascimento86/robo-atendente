@@ -1,833 +1,226 @@
-# Vou criar a estrutura completa do novo código seguindo RIGOROSAMENTE o documento de treinamento
-# e adicionando integração com Google Calendar
-
-codigo_completo = '''// ============================================
-// RC REFORMA E CONSTRUÇÃO - VERSÃO HUMANA PROFISSIONAL
-// Integração Google Calendar + Atendimento Humanizado
+// ============================================
+// RC REFORMA E CONSTRUÇÃO - SISTEMA COMPLETO v2.0
+// Integração: WhatsApp + Google Calendar + Telegram + Painel Admin
 // ============================================
 
-const { google } = require('googleapis');
+import { google } from 'googleapis';
+import { JWT } from 'google-auth-library';
 
-// ============================================
-// CONFIGURAÇÕES
-// ============================================
 const CONFIG = {
+  // Dados da Empresa
   empresa: {
     nome: 'RC Reforma e Construção',
-    polo: 'Botafogo'
+    instagram: 'https://share.google/5n4VM0DwDTlDgEX3C',
+    polo: 'Botafogo',
+    cnpj: process.env.CNPJ_EMPRESA || ''
   },
-
-  // Profissionais conforme documento de treinamento
-  profissionais: {
-    joao: {
-      nome: 'João',
-      telefone: '5521978791765',
-      especialidade: 'marcenaria',
-      calendarId: process.env.CALENDAR_JOAO_ID || 'primary'
+  
+  // Técnicos por categoria
+  tecnicos: {
+    // Reformas e construção
+    marcenaria: { nome: 'Técnico Marcenaria', telefone: '5521978791765', email: '' },
+    reforma: { nome: 'Técnico Reforma', telefone: '5521968112176', email: '' },
+    hidraulica: { nome: 'Técnico Hidráulica', telefone: '5521968112176', email: '' },
+    eletrica: { nome: 'Técnico Elétrica', telefone: '5521968112176', email: '' },
+    pintura: { nome: 'Técnico Pintura', telefone: '5521968112176', email: '' },
+    gesso: { nome: 'Técnico Gesso', telefone: '5521968112176', email: '' },
+    pedreiro: { nome: 'Técnico Pedreiro', telefone: '5521968112176', email: '' },
+    
+    // Eletrodomésticos (NOVOS)
+    ar_condicionado: { nome: 'Técnico Ar Condicionado', telefone: '5521XXXXXXXX', email: '' },
+    lavadora: { nome: 'Técnico Lava e Seca', telefone: '5521XXXXXXXX', email: '' },
+    geladeira: { nome: 'Técnico Refrigerador', telefone: '5521XXXXXXXX', email: '' },
+    eletrodomesticos: { nome: 'Técnico Eletrodomésticos', telefone: '5521XXXXXXXX', email: '' }
+  },
+  
+  // Preços
+  precoVisita: 180,
+  precoZonaSulComDesconto: 90,
+  
+  // Bairros atendidos (Zona Sul + Centro prioritários)
+  bairrosAtendidos: [
+    // Zona Sul
+    'ipanema', 'leblon', 'copacabana', 'botafogo', 'flamengo', 
+    'lagoa', 'gavea', 'jardim botanico', 'humaita', 'urca', 
+    'catete', 'gloria', 'laranjeiras', 'cosme velho', 'leme', 
+    'sao conrado', 'vidigal', 'rocinha',
+    // Centro e adjacências
+    'centro', 'lapa', 'santa teresa', 'cinelândia', 'cinelandida',
+    'praça mauá', 'praca maua', 'carioca', 'uruguaiana', 'saara',
+    // Outros com prioridade menor
+    'tijuca', 'vila isabel', 'grajau', 'maracana', 'vila da pena'
+  ],
+  
+  // CATEGORIAS DE SERVIÇOS EXPANDIDAS
+  categorias: {
+    // REFORMAS E CONSTRUÇÃO
+    marcenaria: {
+      sinonimos: ['marcenaria', 'marceneiro', 'armário', 'armario', 'guarda roupa', 'cozinha planejada', 
+                 'closet', 'escritório', 'escritorio', 'bancada', 'prateleira', 'nicho', 'porta', 
+                 'janela', 'madeira', 'mdf', 'compensado', 'sarrafo', 'tábua', 'tabua', 'carpintaria'],
+      tecnicos: ['marcenaria']
     },
-    anderson: {
-      nome: 'Anderson', 
-      telefone: '5521978791765',
-      especialidade: 'reformas',
-      calendarId: process.env.CALENDAR_ANDERSON_ID || 'primary'
+    
+    hidraulica: {
+      sinonimos: ['hidráulica', 'hidraulica', 'encanamento', 'encanador', 'vazamento', 'vazando', 
+                 'cano', 'cano estourado', 'torneira', 'torneira pingando', 'ralo', 'pia entupida', 
+                 'vaso sanitário', 'vaso sanitario', 'privada', 'descarga', 'caixa d\'água', 
+                 'caixa dagua', 'bomba d\'água', 'bomba dagua', 'aquecedor', 'boiler', 'sifão', 
+                 'sifao', 'registro', 'válvula', 'valvula', 'hidrante', 'água quente', 'agua quente',
+                 'fogão', 'fogao', 'fogareiro', 'instalação de gás', 'instalacao de gas', 'gas'],
+      tecnicos: ['hidraulica']
+    },
+    
+    eletrica: {
+      sinonimos: ['elétrica', 'eletrica', 'eletricista', 'fiação', 'fiacao', 'disjuntor', 'tomada', 
+                 'interruptor', 'lâmpada', 'lampada', 'lustre', 'pendente', 'spot', 'led', 'chuveiro', 
+                 'ducha', 'aquecedor elétrico', 'aquecedor eletrico', 'fio', 'cabo', 'quadro', 
+                 'quadro de luz', 'terra', 'aterramento', 'curto circuito', 'energia', 'luz'],
+      tecnicos: ['eletrica']
+    },
+    
+    pintura: {
+      sinonimos: ['pintura', 'pintor', 'pintar', 'tinta', 'massa corrida', 'massa acrílica', 
+                 'textura', 'grafiato', 'látex', 'latex', 'esmalte', 'verniz', 'selador', 
+                 'fundos', 'acabamento', 'acabamento fino', 'parede', 'teto', 'muro', 'portão',
+                 'portao', 'grade', 'serralheria pintada', 'retoque', 'mancha', 'mofo', 'umidade'],
+      tecnicos: ['pintura']
+    },
+    
+    alvenaria: {
+      sinonimos: ['pedreiro', 'alvenaria', 'construção', 'construcao', 'reforma', 'obra', 'tijolo', 
+                 'bloco', 'cimento', 'areia', 'brita', 'concreto', 'ferro', 'vergalhão', 'vergalhao',
+                 'sapata', 'alicerce', 'parede', 'divisória', 'divisoria', 'reboco', 'rebocar',
+                 'assentar', 'assentamento', 'piso', 'cerâmica', 'ceramica', 'porcelanato', 
+                 'azulejo', 'pastilha', 'revestimento', 'impermeabilização', 'impermeabilizacao',
+                 'laje', 'forro', 'telhado', 'cobertura', 'calha', 'rufo', 'churrasqueira',
+                 'bancada', 'pia', 'tanque', 'nicho', 'box', 'box blindex'],
+      tecnicos: ['pedreiro', 'reforma']
+    },
+    
+    gesso: {
+      sinonimos: ['gesso', 'gesseiro', 'drywall', 'placa de gesso', 'forro de gesso', 'sanca', 
+                 'sanca aberta', 'sanca fechada', 'moldura', 'roda teto', 'cantoneira', 'divisória',
+                 'divisoria de gesso', 'parede de drywall', 'estrutura de gesso', 'acartonado',
+                 'gesso 3d', 'gesso acartonado', 'steel frame', 'perfil de aço', 'perfil de aco'],
+      tecnicos: ['gesso']
+    },
+    
+    serralheria: {
+      sinonimos: ['serralheria', 'serralheiro', 'portão', 'portao', 'grade', 'janela de ferro', 
+                 'porta de ferro', 'cobertura metálica', 'cobertura metalica', 'mezanino', 
+                 'escada de ferro', 'corrimão', 'corrimao', 'guarda corpo', 'estrutura metálica',
+                 'estrutura metalica', 'solda', 'soldagem', 'alumínio', 'aluminio', 'inox'],
+      tecnicos: ['reforma', 'marcenaria']
+    },
+    
+    // ELETRODOMÉSTICOS (NOVOS)
+    ar_condicionado: {
+      sinonimos: ['ar condicionado', 'arcondicionado', 'split', 'janela', 'portátil', 'portatil', 
+                 'inverter', 'quente e frio', 'frio', 'somente frio', 'instalação de ar', 
+                 'instalacao de ar', 'desinstalação', 'desinstalacao', 'manutenção', 'manutencao',
+                 'limpeza', 'higienização', 'higienizacao', 'gas', 'recarga', 'vazamento de gas',
+                 'compressor', 'condensadora', 'evaporadora', 'controle remoto', 'sensor', 
+                 'filtro', 'barulho', 'vibração', 'vibracao', 'não liga', 'nao liga', 'não gela',
+                 'nao gela', 'pingando', 'gelo', 'congelando', 'termostato', 'placa', 'placa eletronica',
+                 'placa eletrônica', 'capacitor', 'motor', 'ventilador', 'serpentina', 'tubulação',
+                 'tubulacao', 'dreno', 'bomba dreno'],
+      tecnicos: ['ar_condicionado', 'eletrodomesticos']
+    },
+    
+    lavadora: {
+      sinonimos: ['lava e seca', 'lavaeseca', 'máquina de lavar', 'maquina de lavar', 'lavadora', 
+                 'secadora', 'lava roupa', 'louça', 'louca', 'lava louça', 'lava louca', 
+                 'eletrodoméstico', 'eletrodomestico', 'brastemp', 'consul', 'electrolux', 'samsung',
+                 'lg', 'panasonic', 'midea', 'springer', 'ge', 'continental', 'bosch', 'siemens',
+                 'não centrifuga', 'nao centrifuga', 'não seca', 'nao seca', 'vazando água', 
+                 'não drena', 'nao drena', 'não liga', 'nao liga', 'trava de segurança', 
+                 'porta não abre', 'mangueira', 'filtro', 'bomba', 'atuador', 'placa', 
+                 'motor', 'variator', 'correia', 'embreagem', 'cesto', 'tambor', 'aquece',
+                 'não aquece', 'nao aquece', 'erro', 'código de erro', 'codigo de erro', 'display'],
+      tecnicos: ['lavadora', 'eletrodomesticos']
+    },
+    
+    geladeira: {
+      sinonimos: ['geladeira', 'refrigerador', 'frigobar', 'freezer', 'cônsul', 'consul', 'brastemp', 
+                 'electrolux', 'samsung', 'lg', 'panasonic', 'midea', 'springer', 'ge', 'continental',
+                 'bosch', 'siemens', 'duplex', 'inverse', 'frost free', 'cycle defrost', 
+                 'não gela', 'nao gela', 'não congela', 'nao congela', 'muito gelo', 
+                 'formando gelo', 'vazando água', 'água no piso', 'barulho', 'ventilador', 
+                 'compressor', 'motor', 'termostato', 'sensor', 'bimetal', 'resistência', 
+                 'resistencia', 'lâmpada', 'lampada', 'placa', 'placa eletrônica', 'placa eletronica',
+                 'display', 'painel', 'código de erro', 'codigo de erro', 'degelo', 'dreno entupido',
+                 'borracha', 'borracha de vedação', 'prateleira', 'gaveta', 'porta', 'dobradiça',
+                 'dobradica', 'pé', 'pe', 'nivelador', '127v', '220v', 'inverter', 'duplex'],
+      tecnicos: ['geladeira', 'eletrodomesticos']
     }
   },
-
-  // Preços conforme documento
-  precoVisita: 180,
   
-  // Bairros atendidos (Zona Sul + Centro)
-  bairrosZonaSul: [
-    'botafogo', 'flamengo', 'copacabana', 'ipanema', 'leblon',
-    'lagoa', 'gavea', 'jardim botanico', 'humaita', 'urca',
-    'catete', 'gloria', 'laranjeiras', 'cosme velho', 'leme',
-    'sao conrado', 'vidigal', 'rocinha'
-  ],
+  // Configurações de ambiente
+  numeroRC: process.env.NUMERO_RC || '',
+  whatsappToken: process.env.WHATSAPP_TOKEN,
+  whatsappPhoneId: process.env.WHATSAPP_PHONE_ID,
+  telegramBotToken: process.env.TELEGRAM_BOT_TOKEN,
+  telegramChatId: process.env.TELEGRAM_CHAT_ID,
+  telegramChatIdRelatorios: process.env.TELEGRAM_CHAT_ID_RELATORIOS || process.env.TELEGRAM_CHAT_ID,
   
-  bairrosCentro: [
-    'centro', 'lapa', 'santa teresa', 'cinelândia', 'cinelandida',
-    'praça mauá', 'praca maua', 'carioca', 'uruguaiana'
-  ],
-
-  // Palavras-chave para identificação de serviços
-  servicosMarcenaria: [
-    'marcenaria', 'móveis', 'moveis', 'armários', 'armarios', 
-    'portas', 'porta', 'móvel planejado', 'movel planejado',
-    'cozinha planejada', 'closet', 'estante', 'bancada'
-  ],
+  // Google Calendar
+  googleCalendarId: process.env.GOOGLE_CALENDAR_ID,
+  googleServiceAccountKey: process.env.GOOGLE_SERVICE_ACCOUNT_KEY,
   
-  servicosReforma: [
-    'pedreiro', 'pintura', 'pintor', 'hidráulica', 'hidraulica',
-    'elétrica', 'eletrica', 'eletricista', 'gesso', 'gesseiro',
-    'azulejo', 'ladrilheiro', 'reforma', 'reparo', 'conserto',
-    'vazamento', 'encanamento', 'encanador', 'bombeiro hidráulico',
-    'drywall', 'porcelanato', 'revestimento', 'impermeabilização',
-    'impermeabilizacao', 'serralheria'
-  ],
-
   // Palavras de risco para intervenção humana
   palavrasRisco: [
     'processo', 'judicial', 'advogado', 'procon', 'reclamação', 'reclamacao',
     'polícia', 'policia', 'denunciar', 'denúncia', 'denuncia', 'crime',
     'golpe', 'fraude', 'enganado', 'enganaram', 'calote', 'caloteiro',
+    'não entendi nada', 'nao entendi nada', 'tá me enrolando', 'tah me enrolando',
     'quero falar com humano', 'quero falar com pessoa', 'atendente humano',
     'você não entende', 'voce nao entende', 'robô burro', 'robo burro',
-    'cancelar tudo', 'não quero mais', 'nao quero mais', 'desisto'
-  ],
-
-  // Configurações WhatsApp
-  whatsappToken: process.env.WHATSAPP_TOKEN,
-  whatsappPhoneId: process.env.WHATSAPP_PHONE_ID,
-  
-  // Configurações Google Calendar
-  googleClientEmail: process.env.GOOGLE_CLIENT_EMAIL,
-  googlePrivateKey: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\\n'),
-  
-  // Configurações Telegram (notificações)
-  telegramBotToken: process.env.TELEGRAM_BOT_TOKEN,
-  telegramChatId: process.env.TELEGRAM_CHAT_ID
-};
-
-// ============================================
-// ESTADO DOS CLIENTES (persistência em memória)
-// ============================================
-const clientes = {};
-const processadas = new Set();
-const conversas = [];
-const intervenções = new Set();
-
-// ============================================
-// GOOGLE CALENDAR INTEGRATION
-// ============================================
-
-let authClient = null;
-let calendar = null;
-
-async function inicializarGoogleCalendar() {
-  try {
-    if (!CONFIG.googleClientEmail || !CONFIG.googlePrivateKey) {
-      console.log('⚠️ Google Calendar não configurado');
-      return false;
-    }
-
-    authClient = new google.auth.JWT(
-      CONFIG.googleClientEmail,
-      null,
-      CONFIG.googlePrivateKey,
-      ['https://www.googleapis.com/auth/calendar']
-    );
-
-    await authClient.authorize();
-    calendar = google.calendar({ version: 'v3', auth: authClient });
-    
-    console.log('✅ Google Calendar conectado');
-    return true;
-  } catch (error) {
-    console.error('❌ Erro ao conectar Google Calendar:', error.message);
-    return false;
-  }
-}
-
-// Verificar disponibilidade em um horário específico
-async function verificarDisponibilidade(calendarId, dataInicio, dataFim) {
-  try {
-    if (!calendar) await inicializarGoogleCalendar();
-    if (!calendar) return { disponivel: false, erro: 'Calendar não configurado' };
-
-    const response = await calendar.freebusy.query({
-      requestBody: {
-        timeMin: dataInicio.toISOString(),
-        timeMax: dataFim.toISOString(),
-        items: [{ id: calendarId }]
-      }
-    });
-
-    const busy = response.data.calendars[calendarId].busy;
-    return {
-      disponivel: busy.length === 0,
-      conflitos: busy
-    };
-  } catch (error) {
-    console.error('Erro ao verificar disponibilidade:', error);
-    return { disponivel: false, erro: error.message };
-  }
-}
-
-// Encontrar próximo horário disponível
-async function encontrarProximoHorario(calendarId, dataBase = new Date()) {
-  try {
-    if (!calendar) await inicializarGoogleCalendar();
-    if (!calendar) return null;
-
-    // Buscar eventos dos próximos 7 dias
-    const timeMin = dataBase.toISOString();
-    const timeMax = new Date(dataBase.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();
-
-    const response = await calendar.events.list({
-      calendarId: calendarId,
-      timeMin: timeMin,
-      timeMax: timeMax,
-      singleEvents: true,
-      orderBy: 'startTime'
-    });
-
-    const eventos = response.data.items || [];
-    
-    // Horário comercial: 8h às 18h
-    const horariosDisponiveis = [];
-    let dataAtual = new Date(dataBase);
-    dataAtual.setHours(8, 0, 0, 0);
-    
-    // Se já passou das 8h, começar amanhã
-    if (dataBase.getHours() >= 18) {
-      dataAtual.setDate(dataAtual.getDate() + 1);
-    }
-
-    // Gerar slots de 2 horas
-    for (let dia = 0; dia < 7; dia++) {
-      const diaAtual = new Date(dataAtual);
-      diaAtual.setDate(diaAtual.getDate() + dia);
-      
-      for (let hora = 8; hora <= 16; hora += 2) {
-        const slotInicio = new Date(diaAtual);
-        slotInicio.setHours(hora, 0, 0, 0);
-        
-        const slotFim = new Date(slotInicio);
-        slotFim.setHours(hora + 2, 0, 0, 0);
-
-        // Verificar se há conflito
-        const temConflito = eventos.some(evento => {
-          const eventoInicio = new Date(evento.start.dateTime || evento.start.date);
-          const eventoFim = new Date(evento.end.dateTime || evento.end.date);
-          
-          return (slotInicio < eventoFim && slotFim > eventoInicio);
-        });
-
-        if (!temConflito && slotInicio > new Date()) {
-          horariosDisponiveis.push(slotInicio);
-          if (horariosDisponiveis.length >= 3) break;
-        }
-      }
-      if (horariosDisponiveis.length >= 3) break;
-    }
-
-    return horariosDisponiveis;
-  } catch (error) {
-    console.error('Erro ao encontrar horários:', error);
-    return [];
-  }
-}
-
-// Criar evento na agenda
-async function criarEventoVisita(dadosCliente, profissional) {
-  try {
-    if (!calendar) await inicializarGoogleCalendar();
-    if (!calendar) return { sucesso: false, erro: 'Calendar não configurado' };
-
-    const { nome, telefone, servico, bairro, endereco, data, hora, valorVisita } = dadosCliente;
-    
-    // Parse da data e hora
-    let dataEvento = new Date();
-    
-    if (data === 'hoje') {
-      // Manter data de hoje
-    } else if (data === 'amanhã' || data === 'amanha') {
-      dataEvento.setDate(dataEvento.getDate() + 1);
-    } else if (data.includes('/')) {
-      const [d, m] = data.split('/');
-      dataEvento.setDate(parseInt(d));
-      dataEvento.setMonth(parseInt(m) - 1);
-    }
-
-    // Parse do horário
-    let horaInicio = 9;
-    let minutoInicio = 0;
-    
-    if (hora.includes(':')) {
-      const [h, m] = hora.split(':');
-      horaInicio = parseInt(h);
-      minutoInicio = parseInt(m);
-    } else if (hora.includes('manhã') || hora.includes('manha')) {
-      horaInicio = 9;
-    } else if (hora.includes('tarde')) {
-      horaInicio = 14;
-    }
-
-    dataEvento.setHours(horaInicio, minutoInicio, 0, 0);
-    
-    const dataFim = new Date(dataEvento);
-    dataFim.setHours(dataEvento.getHours() + 1);
-
-    const evento = {
-      summary: `Visita Técnica - ${nome} - ${bairro} - ${servico}`,
-      description: `Cliente: ${nome}
-WhatsApp: ${telefone}
-Profissional: ${profissional.nome}
-Valor da visita: ${valorVisita === 0 ? 'Isento' : 'R$ ' + valorVisita}
-Endereço: ${endereco}
-Serviço: ${servico}`,
-      start: {
-        dateTime: dataEvento.toISOString(),
-        timeZone: 'America/Sao_Paulo'
-      },
-      end: {
-        dateTime: dataFim.toISOString(),
-        timeZone: 'America/Sao_Paulo'
-      },
-      reminders: {
-        useDefault: false,
-        overrides: [
-          { method: 'popup', minutes: 60 }
-        ]
-      }
-    };
-
-    const response = await calendar.events.insert({
-      calendarId: profissional.calendarId,
-      requestBody: evento
-    });
-
-    console.log('✅ Evento criado:', response.data.id);
-    return { 
-      sucesso: true, 
-      eventId: response.data.id,
-      link: response.data.htmlLink
-    };
-
-  } catch (error) {
-    console.error('❌ Erro ao criar evento:', error);
-    return { sucesso: false, erro: error.message };
-  }
-}
-
-// ============================================
-// VARIAÇÕES DE RESPOSTAS (conforme documento)
-// ============================================
-
-const VARIACOES = {
-  saudacao: [
-    "Boa tarde. Aqui é o atendimento digital da RC Reforma e Construção. Em que posso auxiliá-lo hoje com serviços de reforma ou marcenaria?",
-    "Boa tarde. Aqui é o atendimento digital da RC Reforma e Construção. Poderia informar o bairro e o tipo de serviço que necessita?",
-    "Boa tarde. Aqui é o atendimento digital da RC Reforma e Construção. Como posso ajudá-lo com seu projeto de reforma?"
-  ],
-  
-  confirmacaoImagem: [
-    "Recebi as imagens. Já encaminhei ao profissional responsável para análise. Retornarei em breve com o retorno.",
-    "As fotos foram recebidas e encaminhadas ao profissional. Aguarde um momento que já retorno com o feedback.",
-    "Imagens recebidas com sucesso. Já enviei ao profissional responsável. Em breve retorno com mais informações."
-  ],
-
-  confirmacaoVideo: [
-    "Recebi o vídeo. Já encaminhei ao profissional responsável para análise. Retornarei em breve com o retorno.",
-    "O vídeo foi recebido e encaminhado ao profissional. Aguarde um momento que já retorno com o feedback.",
-    "Vídeo recebido com sucesso. Já enviei ao profissional responsável. Em breve retorno com mais informações."
-  ],
-
-  clienteConhecido: [
-    "Boa tarde. Identifiquei que já nos falamos anteriormente. Como posso dar continuidade ao seu projeto de reforma?",
-    "Boa tarde. Vejo que já tivemos contato anterior. Em que posso auxiliá-lo hoje?",
-    "Boa tarde. Bem-vindo novamente. Como posso prosseguir com seu atendimento?"
-  ],
-
-  visitaConfirmada: [
-    "Excelente. Já realizei o agendamento na agenda do profissional.",
-    "Perfeito. Agendamento confirmado com sucesso.",
-    "Ótimo. Visita técnica agendada conforme solicitado."
+    'cancelar tudo', 'não quero mais', 'nao quero mais', 'desisto',
+    'horrível', 'horrivel', 'péssimo', 'pessimo', 'terrível', 'terrivel',
+    'ódio', 'odio', 'raiva', 'estressei', 'nervoso', 'indignado'
   ]
 };
 
-function escolherVariacao(tipo) {
-  const variacoes = VARIACOES[tipo];
-  if (!variacoes) return "";
-  return variacoes[Math.floor(Math.random() * variacoes.length)];
-}
-
 // ============================================
-// FUNÇÕES AUXILIARES
+// ESTADO GLOBAL (persiste durante execução)
 // ============================================
 
-function detectarRisco(texto) {
-  const t = texto.toLowerCase();
-  return CONFIG.palavrasRisco.some(p => t.includes(p));
-}
-
-function identificarServico(texto) {
-  const t = texto.toLowerCase();
-  
-  // Verifica marcenaria primeiro
-  for (const servico of CONFIG.servicosMarcenaria) {
-    if (t.includes(servico)) return { tipo: 'marcenaria', nome: 'marcenaria' };
-  }
-  
-  // Verifica reformas
-  for (const servico of CONFIG.servicosReforma) {
-    if (t.includes(servico)) return { tipo: 'reforma', nome: servico };
-  }
-  
-  return null;
-}
-
-function identificarBairro(texto) {
-  const t = texto.toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g, '');
-  
-  for (const bairro of CONFIG.bairrosZonaSul) {
-    const b = bairro.normalize('NFD').replace(/[\\u0300-\\u036f]/g, '');
-    if (t.includes(b)) return { nome: bairro, regiao: 'zona_sul' };
-  }
-  
-  for (const bairro of CONFIG.bairrosCentro) {
-    const b = bairro.normalize('NFD').replace(/[\\u0300-\\u036f]/g, '');
-    if (t.includes(b)) return { nome: bairro, regiao: 'centro' };
-  }
-  
-  // Tenta extrair bairro genérico
-  const match = texto.match(/(?:em|no|na)\\s+([A-Za-zÀ-ÿ\\s]+?)(?:[,\\.]|$)/i);
-  if (match) {
-    return { nome: match[1].trim(), regiao: 'desconhecida' };
-  }
-  
-  return null;
-}
-
-function determinarProfissional(servico) {
-  if (servico && servico.tipo === 'marcenaria') {
-    return CONFIG.profissionais.joao;
-  }
-  return CONFIG.profissionais.anderson;
-}
-
-function calcularValorVisita(bairro) {
-  if (!bairro) return CONFIG.precoVisita;
-  
-  const b = bairro.toLowerCase();
-  if (b.includes('botafogo')) return 0;
-  if (CONFIG.bairrosZonaSul.some(bz => b.includes(bz))) return 90;
-  
-  return CONFIG.precoVisita;
-}
-
-function extrairData(texto) {
-  const t = texto.toLowerCase();
-  
-  if (t.includes('hoje')) return 'hoje';
-  if (t.includes('amanhã') || t.includes('amanha')) return 'amanhã';
-  
-  // Padrão DD/MM
-  const match = texto.match(/(\\d{1,2})[\\/](\\d{1,2})/);
-  if (match) return `${match[1].padStart(2,'0')}/${match[2].padStart(2,'0')}`;
-  
-  // Dias da semana
-  const diasSemana = ['domingo', 'segunda', 'terça', 'terca', 'quarta', 'quinta', 'sexta', 'sábado', 'sabado'];
-  for (const dia of diasSemana) {
-    if (t.includes(dia)) return dia;
-  }
-  
-  return null;
-}
-
-function extrairHorario(texto) {
-  const t = texto.toLowerCase();
-  
-  if (t.includes('manhã') || t.includes('manha')) return 'manhã (9h-12h)';
-  if (t.includes('tarde')) return 'tarde (14h-17h)';
-  if (t.includes('noite')) return 'noite (18h-20h)';
-  
-  // Horário específico
-  const match = texto.match(/(\\d{1,2})[:h]?(\\d{2})?/);
-  if (match) {
-    const hora = match[1].padStart(2, '0');
-    const minuto = match[2] || '00';
-    return `${hora}:${minuto}`;
-  }
-  
-  return null;
-}
-
-function formatarData(data) {
-  if (data === 'hoje') {
-    return new Date().toLocaleDateString('pt-BR');
-  }
-  if (data === 'amanhã') {
-    const amanha = new Date();
-    amanha.setDate(amanha.getDate() + 1);
-    return amanha.toLocaleDateString('pt-BR');
-  }
-  return data;
-}
+const clientes = {};
+const processadas = new Set();
+const conversas = [];
+const agendamentos = [];
+const intervenções = new Set();
+let googleAuthClient = null;
 
 // ============================================
-// PROCESSAMENTO DE MENSAGENS
+// INICIALIZAÇÃO GOOGLE CALENDAR
 // ============================================
 
-async function processarMensagem(cliente, texto, nome, telefone) {
-  const t = texto.toLowerCase().trim();
-  const d = cliente.dados;
-
-  // Verifica intervenção humana
-  if (intervenções.has(telefone)) {
-    conversas.push({
-      telefone,
-      tipo: 'cliente',
-      mensagem: texto,
-      data: new Date().toISOString()
+async function inicializarGoogleCalendar() {
+  if (!CONFIG.googleServiceAccountKey || !CONFIG.googleCalendarId) {
+    console.log('⚠️ Google Calendar não configurado');
+    return false;
+  }
+  
+  try {
+    const credentials = JSON.parse(
+      Buffer.from(CONFIG.googleServiceAccountKey, 'base64').toString()
+    );
+    
+    googleAuthClient = new JWT({
+      email: credentials.client_email,
+      key: credentials.private_key,
+      scopes: ['https://www.googleapis.com/auth/calendar']
     });
-    return null;
-  }
-
-  // Detecta risco
-  if (detectarRisco(t)) {
-    intervenções.add(telefone);
-    await enviarTelegram(`🚨 INTERVENÇÃO AUTOMÁTICA\\n${nome} (${telefone})\\nMensagem: ${texto.substring(0, 100)}`);
-    return "Entendo sua frustração. Vou transferir você imediatamente para um atendente humano. Por favor, aguarde um momento.";
-  }
-
-  // Fluxo principal baseado na etapa
-  switch (cliente.etapa) {
-    case 'INICIO':
-      return await etapaInicio(cliente, t, texto, nome, telefone);
-    case 'AGUARDANDO_BAIRRO':
-      return etapaAguardandoBairro(cliente, t, texto);
-    case 'AGUARDANDO_SERVICO':
-      return etapaAguardandoServico(cliente, t, texto);
-    case 'CONFIRMA_ATENDIMENTO_HOJE':
-      return etapaConfirmaAtendimentoHoje(cliente, t, texto);
-    case 'APRESENTA_VALOR':
-      return etapaApresentaValor(cliente, t, texto);
-    case 'VERIFICAR_AGENDA':
-      return await etapaVerificarAgenda(cliente, t, texto);
-    case 'AGUARDANDO_HORARIO':
-      return etapaAguardandoHorario(cliente, t, texto);
-    case 'AGUARDANDO_ENDERECO':
-      return etapaAguardandoEndereco(cliente, t, texto);
-    case 'CONFIRMAR_VISITA':
-      return await etapaConfirmarVisita(cliente, t, texto, telefone);
-    case 'AGENDADO':
-      return etapaAgendado(cliente, t, texto);
-    default:
-      cliente.etapa = 'INICIO';
-      return await etapaInicio(cliente, t, texto, nome, telefone);
-  }
-}
-
-// ETAPA 1: Início / Saudação
-async function etapaInicio(cliente, t, original, nome, telefone) {
-  const d = cliente.dados;
-  
-  // Verifica se é cliente conhecido
-  const historico = conversas.filter(c => c.telefone === telefone && c.tipo === 'cliente');
-  if (historico.length > 2 && cliente.etapa === 'INICIO') {
-    cliente.etapa = 'CLIENTE_CONHECIDO';
-    return escolherVariacao('clienteConhecido');
-  }
-
-  // Saudação inicial
-  if (t.match(/^(oi|olá|ola|bom dia|boa tarde|boa noite|hey|bom)/)) {
-    return escolherVariacao('saudacao');
-  }
-
-  // Tenta extrair serviço e bairro
-  const servico = identificarServico(t);
-  const bairro = identificarBairro(t);
-
-  if (servico && bairro) {
-    d.servico = servico.nome;
-    d.bairro = bairro.nome;
-    d.tipoServico = servico.tipo;
     
-    cliente.etapa = 'CONFIRMA_ATENDIMENTO_HOJE';
-    
-    return `Entendi. ${d.servico} em ${d.bairro}. Qual data e horário seriam mais convenientes para a realização da visita técnica?`;
+    await googleAuthClient.authorize();
+    console.log('✅ Google Calendar conectado');
+    return true;
+  } catch (e) {
+    console.error('❌ Erro Google Calendar:', e.message);
+    return false;
   }
-
-  if (servico) {
-    d.servico = servico.nome;
-    d.tipoServico = servico.tipo;
-    cliente.etapa = 'AGUARDANDO_BAIRRO';
-    return `Certo. Você precisa de ${d.servico}. Poderia informar o bairro?`;
-  }
-
-  if (bairro) {
-    d.bairro = bairro.nome;
-    cliente.etapa = 'AGUARDANDO_SERVICO';
-    return `Entendi, ${d.bairro}. Qual serviço você necessita?`;
-  }
-
-  // Pergunta sobre valor
-  if (t.match(/(quanto custa|qual o valor|preço|preco)/)) {
-    return `A visita técnica tem o valor de R$ 180,00 e é paga no ato da visita. O profissional irá avaliar o local, tirar as medidas necessárias e preparar o orçamento detalhado. Para valores específicos, preciso saber o serviço e o bairro. Poderia informar?`;
-  }
-
-  return escolherVariacao('saudacao');
-}
-
-// ETAPA: Cliente Conhecido
-function etapaClienteConhecido(cliente, t, original) {
-  const d = cliente.dados;
-  
-  const servico = identificarServico(t);
-  const bairro = identificarBairro(t);
-
-  if (servico) d.servico = servico.nome;
-  if (bairro) d.bairro = bairro.nome;
-
-  if (d.servico && d.bairro) {
-    cliente.etapa = 'CONFIRMA_ATENDIMENTO_HOJE';
-    return `Entendi. ${d.servico} em ${d.bairro}. Qual data e horário seriam mais convenientes para a realização da visita técnica?`;
-  }
-
-  if (!d.servico) {
-    cliente.etapa = 'AGUARDANDO_SERVICO';
-    return `Qual serviço você necessita?`;
-  }
-
-  if (!d.bairro) {
-    cliente.etapa = 'AGUARDANDO_BAIRRO';
-    return `Poderia informar o bairro?`;
-  }
-}
-
-// ETAPA: Aguardando Bairro
-function etapaAguardandoBairro(cliente, t, original) {
-  const d = cliente.dados;
-  const bairro = identificarBairro(t);
-
-  if (bairro) {
-    d.bairro = bairro.nome;
-    cliente.etapa = 'CONFIRMA_ATENDIMENTO_HOJE';
-    return `Entendi. ${d.servico} em ${d.bairro}. Qual data e horário seriam mais convenientes para a realização da visita técnica?`;
-  }
-
-  return `Poderia informar o bairro?`;
-}
-
-// ETAPA: Aguardando Serviço
-function etapaAguardandoServico(cliente, t, original) {
-  const d = cliente.dados;
-  const servico = identificarServico(t);
-
-  if (servico) {
-    d.servico = servico.nome;
-    d.tipoServico = servico.tipo;
-    cliente.etapa = 'CONFIRMA_ATENDIMENTO_HOJE';
-    return `Entendi. ${d.servico} em ${d.bairro}. Qual data e horário seriam mais convenientes para a realização da visita técnica?`;
-  }
-
-  return `Qual serviço você necessita em ${d.bairro}?`;
-}
-
-// ETAPA: Confirma Atendimento Hoje
-function etapaConfirmaAtendimentoHoje(cliente, t, original) {
-  const d = cliente.dados;
-  
-  const data = extrairData(original);
-  
-  if (data) {
-    d.data = data;
-    cliente.etapa = 'APRESENTA_VALOR';
-    
-    const valor = calcularValorVisita(d.bairro);
-    d.valorVisita = valor;
-    
-    let resposta = `Consultei a agenda e temos disponibilidade para ${data}. `;
-    
-    if (valor === 0) {
-      resposta += `Como se trata de Botafogo, posso isentar completamente o valor da visita técnica. Podemos prosseguir com o agendamento?`;
-    } else if (valor === 90) {
-      resposta += `A visita técnica tem o valor de R$ 180,00, mas para a Zona Sul posso reduzir para R$ 90,00. O profissional irá avaliar o local, tirar as medidas necessárias e preparar o orçamento detalhado. Podemos confirmar?`;
-    } else {
-      resposta += `A visita técnica tem o valor de R$ 180,00 e é paga no ato da visita. O profissional irá avaliar o local, tirar as medidas necessárias e preparar o orçamento detalhado. Podemos confirmar?`;
-    }
-    
-    return resposta;
-  }
-
-  return `Qual data e horário seriam mais convenientes para a realização da visita técnica?`;
-}
-
-// ETAPA: Apresenta Valor / Negociação
-function etapaApresentaValor(cliente, t, original) {
-  const d = cliente.dados;
-
-  // Cliente aceita
-  if (t.match(/(sim|ok|pode|claro|confirmo|vamos)/)) {
-    cliente.etapa = 'VERIFICAR_AGENDA';
-    return `Perfeito. Qual horário seria mais adequado? Tenho disponibilidade para hoje às 14h ou amanhã às 10h, ou prefere outro horário?`;
-  }
-
-  // Cliente questiona valor
-  if (t.match(/(caro|muito|alto|reduzir|desconto|barato)/)) {
-    if (d.bairro && d.bairro.toLowerCase().includes('botafogo')) {
-      d.valorVisita = 0;
-      cliente.etapa = 'VERIFICAR_AGENDA';
-      return `Compreendo. Como se trata de Botafogo, posso isentar completamente o valor da visita técnica. Podemos prosseguir com o agendamento?`;
-    }
-    
-    if (d.bairro && CONFIG.bairrosZonaSul.some(b => d.bairro.toLowerCase().includes(b))) {
-      return `Compreendo. Posso reduzir o valor da visita para facilitar o agendamento. Qual valor seria adequado para o senhor?`;
-    }
-    
-    return `Entendo sua consideração. Posso reduzir o valor da visita para facilitar o agendamento. Qual valor seria adequado?`;
-  }
-
-  // Cliente sugere valor
-  if (t.match(/(\\d+)/) && (t.includes('reais') || t.includes('r$') || t.includes('real'))) {
-    const match = t.match(/(\\d+)/);
-    if (match) {
-      const valorSugerido = parseInt(match[1]);
-      if (valorSugerido <= 180) {
-        d.valorVisita = valorSugerido;
-        cliente.etapa = 'VERIFICAR_AGENDA';
-        return `Perfeito. Vou confirmar com o profissional e retornar com os detalhes do agendamento. Qual horário seria mais adequado?`;
-      }
-    }
-  }
-
-  // Cliente quer orçamento sem visita
-  if (t.match(/(fotos|imagens|sem visita|orçamento por foto)/)) {
-    return `As imagens ajudam a ter uma ideia inicial, porém somente a avaliação presencial permite um orçamento exato e sem necessidade de revisões. A visita é breve e resolve essa questão de forma definitiva. Posso agendar para hoje?`;
-  }
-
-  return `A visita técnica garante um orçamento preciso sem surpresas posteriores. Podemos confirmar o agendamento?`;
-}
-
-// ETAPA: Verificar Agenda
-async function etapaVerificarAgenda(cliente, t, original) {
-  const d = cliente.dados;
-  const horario = extrairHorario(original);
-  
-  if (horario) {
-    d.hora = horario;
-    cliente.etapa = 'AGUARDANDO_ENDERECO';
-    return `Anotado. Agora preciso do endereço completo para finalizar o agendamento.`;
-  }
-
-  // Verificar disponibilidade real no Google Calendar
-  const profissional = determinarProfissional({ tipo: d.tipoServico });
-  const horariosDisponiveis = await encontrarProximoHorario(profissional.calendarId);
-  
-  if (horariosDisponiveis.length > 0) {
-    const opcoes = horariosDisponiveis.map(h => {
-      const dia = h.toLocaleDateString('pt-BR', { weekday: 'short', day: 'numeric', month: 'short' });
-      const hora = h.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-      return `${dia} às ${hora}`;
-    }).join(', ');
-    
-    return `Consultei a agenda do profissional. Os próximos horários disponíveis são: ${opcoes}. Qual seria mais conveniente?`;
-  }
-
-  return `Consultei a agenda. Temos disponibilidade para hoje às 14h ou amanhã às 10h. Qual seria mais conveniente?`;
-}
-
-// ETAPA: Aguardando Horário
-function etapaAguardandoHorario(cliente, t, original) {
-  const d = cliente.dados;
-  const horario = extrairHorario(original);
-  
-  if (horario) {
-    d.hora = horario;
-    cliente.etapa = 'AGUARDANDO_ENDERECO';
-    return `Anotado. Agora preciso do endereço completo para finalizar o agendamento.`;
-  }
-
-  return `Qual horário seria mais adequado?`;
-}
-
-// ETAPA: Aguardando Endereço
-function etapaAguardandoEndereco(cliente, t, original) {
-  const d = cliente.dados;
-  
-  if (original.length > 8 && (t.match(/(rua|av|avenida|número|numero|ap|apartamento|casa)/) || t.match(/\\d+/))) {
-    d.endereco = original;
-    cliente.etapa = 'CONFIRMAR_VISITA';
-    
-    const dataFormatada = formatarData(d.data);
-    
-    return `Resumo do agendamento:
-
-Serviço: ${d.servico}
-Data: ${dataFormatada}
-Horário: ${d.hora}
-Endereço: ${original}
-Valor: ${d.valorVisita === 0 ? 'Isento' : 'R$ ' + d.valorVisita}
-
-Tudo correto?`;
-  }
-
-  return `Preciso do endereço completo (rua, número, complemento). Qual é?`;
-}
-
-// ETAPA: Confirmar Visita
-async function etapaConfirmarVisita(cliente, t, original, telefone) {
-  const d = cliente.dados;
-
-  if (t.match(/(sim|correto|ok|pode|confirmo)/)) {
-    cliente.etapa = 'AGENDADO';
-    
-    // Determina profissional
-    const profissional = determinarProfissional({ tipo: d.tipoServico });
-    
-    // Cria evento no Google Calendar
-    const resultado = await criarEventoVisita(d, profissional);
-    
-    if (resultado.sucesso) {
-      // Notifica profissional
-      await enviarWhatsApp(profissional.telefone, 
-        `Nova visita agendada:
-${d.servico} | ${d.data} ${d.hora}
-${d.endereco}
-Cliente: ${cliente.nome}
-Tel: ${telefone}
-Valor: ${d.valorVisita === 0 ? 'Isento' : 'R$' + d.valorVisita}`
-      );
-      
-      // Notifica Telegram
-      await enviarTelegram(
-        `Visita Confirmada:
-${d.data} às ${d.hora}
-${d.servico} em ${d.bairro}
-${d.endereco}
-${cliente.nome} - ${telefone}
-Profissional: ${profissional.nome}
-Valor: ${d.valorVisita === 0 ? 'Isento' : 'R$' + d.valorVisita}`
-      );
-      
-      const dataFormatada = formatarData(d.data);
-      
-      return `${escolherVariacao('visitaConfirmada')} O ${profissional.nome} irá atendê-lo no dia ${dataFormatada} às ${d.hora}.
-
-Endereço: ${d.endereco}
-Valor: ${d.valorVisita === 0 ? 'Isento' : 'R$ ' + d.valorVisita + ' (pago no ato)'}
-
-Se precisar remarcar, por favor avise com antecedência.`;
-    } else {
-      return `Houve um problema ao criar o agendamento. Vou verificar e retornar em breve.`;
-    }
-  }
-
-  if (t.match(/(não|nao|errado|alterar|mudar)/)) {
-    cliente.etapa = 'VERIFICAR_AGENDA';
-    return `Sem qualquer problema. Qual informação precisa alterar?`;
-  }
-
-  return `Posso confirmar o agendamento?`;
-}
-
-// ETAPA: Agendado
-function etapaAgendado(cliente, t, original) {
-  const d = cliente.dados;
-
-  // Remarcação
-  if (t.match(/(remarcar|alterar|mudar|trocar)/)) {
-    cliente.etapa = 'VERIFICAR_AGENDA';
-    return `Sem qualquer problema. Qual data e horário alternativo seriam mais convenientes? Vou verificar a disponibilidade imediatamente.`;
-  }
-
-  // Cancelamento
-  if (t.match(/(cancelar|desmarcar|não vou)/)) {
-    return `Entendido. O agendamento foi cancelado. Se precisar reagendar no futuro, é só entrar em contato.`;
-  }
-
-  return `Sua visita está confirmada para ${d.data} às ${d.hora}. Se precisar remarcar ou tirar dúvidas, é só avisar.`;
 }
 
 // ============================================
@@ -839,14 +232,20 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
+  
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
 
   try {
+    // Inicializa Google Calendar na primeira requisição
+    if (!googleAuthClient && CONFIG.googleServiceAccountKey) {
+      await inicializarGoogleCalendar();
+    }
+    
     // Verificação webhook Meta
     if (req.method === 'GET' && req.query['hub.mode'] === 'subscribe') {
+      console.log('🔔 Verificação webhook:', req.query);
       if (req.query['hub.verify_token'] === 'roboatendente') {
         return res.status(200).send(req.query['hub.challenge']);
       }
@@ -858,142 +257,141 @@ export default async function handler(req, res) {
       return await handlePainel(req, res);
     }
 
-    // Webhook WhatsApp
+    // Webhook WhatsApp - resposta imediata + processamento async
     if (req.method === 'POST') {
       res.status(200).send('OK');
       
       // Processa em background
       processarWebhookAsync(req.body).catch(err => {
         console.error('Erro async:', err);
+        enviarTelegramAdmin(`🚨 ERRO CRÍTICO: ${err.message}`);
       });
+      
       return;
     }
 
     res.status(200).send('OK');
-
+    
   } catch (e) {
     console.error('ERRO GERAL:', e.message);
     res.status(200).send('OK');
   }
 }
 
+// ============================================
+// PROCESSAMENTO ASSÍNCRONO WHATSAPP
+// ============================================
+
 async function processarWebhookAsync(body) {
-  console.log('📥 Webhook recebido');
-
-  if (!body || body.object !== 'whatsapp_business_account') return;
-
+  console.log('📥 Webhook recebido:', JSON.stringify(body).substring(0, 500));
+  
+  if (!body || body.object !== 'whatsapp_business_account') {
+    console.log('❌ Não é WhatsApp business account');
+    return;
+  }
+  
   const entry = body.entry?.[0];
   if (!entry) return;
-
+  
   const changes = entry.changes?.[0]?.value;
   if (!changes || changes.statuses) return;
-
+  
   const msg = changes.messages?.[0];
   if (!msg || !msg.id) return;
-
+  
   // Evita duplicados
-  if (processadas.has(msg.id)) return;
+  if (processadas.has(msg.id)) {
+    console.log('♻️ Mensagem já processada:', msg.id);
+    return;
+  }
   processadas.add(msg.id);
   setTimeout(() => processadas.delete(msg.id), 3600000);
-
+  
   const telefone = msg.from;
   const nome = changes.contacts?.[0]?.profile?.name || 'Cliente';
-
-  console.log(`\\n📨 ${nome} (${telefone}): [${msg.type}]`);
-
-  // Ignora próprio número
-  if (telefone === process.env.NUMERO_RC) return;
-
-  // Inicializa cliente
-  if (!clientes[telefone]) {
-    clientes[telefone] = {
-      nome,
-      etapa: 'INICIO',
-      dados: {},
-      ultimaAtividade: Date.now()
-    };
+  
+  if (telefone === CONFIG.numeroRC) return;
+  
+  // Notifica Telegram de nova mensagem
+  await enviarTelegramAdmin(
+    `💬 *NOVA MENSAGEM*\n` +
+    `👤 ${nome}\n` +
+    `📱 ${telefone}\n` +
+    `📝 ${msg.type === 'text' ? msg.text.body.substring(0, 100) : `[${msg.type}]`}`
+  );
+  
+  // Verifica intervenção humana
+  if (intervenções.has(telefone)) {
+    conversas.push({
+      telefone,
+      tipo: 'cliente',
+      mensagem: msg.text?.body || `[${msg.type}]`,
+      data: new Date().toISOString()
+    });
+    return;
   }
-
-  const cliente = clientes[telefone];
-  cliente.ultimaAtividade = Date.now();
-
-  let texto = '';
-  let resposta = '';
-
+  
   // Processa por tipo
+  let texto = '';
+  
   if (msg.type === 'text') {
     texto = msg.text.body;
-    resposta = await processarMensagem(cliente, texto, nome, telefone);
   } else if (msg.type === 'image') {
-    await processarImagem(telefone, nome, msg.image, cliente);
-    return;
-  } else if (msg.type === 'video') {
-    await processarVideo(telefone, nome, msg.video, cliente);
-    return;
+    texto = '[imagem recebida]';
+    await processarImagem(telefone, nome, msg.image);
   } else if (msg.type === 'audio' || msg.type === 'voice') {
-    resposta = "No momento não consigo ouvir áudios. Pode descrever por escrito o que precisa? Se quiser, envie fotos do local.";
+    await enviarWhatsApp(telefone, 
+      "No momento não consigo ouvir áudios. Pode descrever por escrito? 📸 Se quiser, envie fotos do problema!"
+    );
+    return;
   } else {
     return;
   }
-
-  // Registra e envia resposta
-  if (resposta) {
+  
+  // Registra conversa
+  conversas.push({
+    telefone,
+    tipo: 'cliente',
+    mensagem: texto,
+    data: new Date().toISOString()
+  });
+  
+  // Inicializa cliente
+  if (!clientes[telefone]) {
+    clientes[telefone] = { 
+      nome, 
+      etapa: 'INICIO', 
+      dados: {},
+      ultimaAtividade: Date.now(),
+      telefone
+    };
+  }
+  
+  const cli = clientes[telefone];
+  cli.ultimaAtividade = Date.now();
+  
+  // Detecta risco
+  if (detectarRisco(texto.toLowerCase())) {
+    intervenções.add(telefone);
+    await enviarWhatsApp(telefone, 
+      `Entendo sua frustração. Vou transferir você imediatamente para um atendente humano. Por favor, aguarde um momento. 🙏`
+    );
+    await enviarTelegramAdmin(`🚨 *INTERVENÇÃO AUTOMÁTICA*\n${nome} (${telefone})\nMensagem: ${texto.substring(0, 100)}`);
+    return;
+  }
+  
+  // Processa resposta
+  const resp = await processarMensagem(cli, texto.toLowerCase(), texto, nome, telefone);
+  
+  if (resp) {
+    await enviarWhatsApp(telefone, resp);
     conversas.push({
       telefone,
       tipo: 'bot',
-      mensagem: resposta,
+      mensagem: resp,
       data: new Date().toISOString()
     });
-    await enviarWhatsApp(telefone, resposta);
   }
-}
-
-// ============================================
-// PROCESSAMENTO DE MÍDIA
-// ============================================
-
-async function processarImagem(telefone, nome, imagemData, cliente) {
-  const d = cliente?.dados || {};
-  const isMarcenaria = d.tipoServico === 'marcenaria' || 
-    (!d.tipoServico && d.servico && CONFIG.servicosMarcenaria.some(s => d.servico.includes(s)));
-  
-  const profissional = isMarcenaria ? CONFIG.profissionais.joao : CONFIG.profissionais.anderson;
-  
-  // Encaminha imagem para profissional
-  if (imagemData.id) {
-    await encaminharMidia(profissional.telefone, 'image', imagemData.id, 
-      `Imagem de ${nome} (${telefone})\\nServiço: ${d.servico || 'Não informado'}`
-    );
-  }
-
-  // Notifica Telegram
-  await enviarTelegram(`📸 Nova imagem de ${nome} (${telefone})\\nEncaminhada para: ${profissional.nome}`);
-
-  // Responde cliente
-  const resposta = escolherVariacao('confirmacaoImagem');
-  await enviarWhatsApp(telefone, resposta);
-}
-
-async function processarVideo(telefone, nome, videoData, cliente) {
-  const d = cliente?.dados || {};
-  const isMarcenaria = d.tipoServico === 'marcenaria' || 
-    (!d.tipoServico && d.servico && CONFIG.servicosMarcenaria.some(s => d.servico.includes(s)));
-  
-  const profissional = isMarcenaria ? CONFIG.profissionais.joao : CONFIG.profissionais.anderson;
-  
-  // Encaminha vídeo para profissional
-  if (videoData.id) {
-    await encaminharMidia(profissional.telefone, 'video', videoData.id,
-      `Vídeo de ${nome} (${telefone})\\nServiço: ${d.servico || 'Não informado'}`
-    );
-  }
-
-  // Notifica Telegram
-  await enviarTelegram(`🎥 Novo vídeo de ${nome} (${telefone})\\nEncaminhado para: ${profissional.nome}`);
-
-  // Responde cliente
-  const resposta = escolherVariacao('confirmacaoVideo');
-  await enviarWhatsApp(telefone, resposta);
 }
 
 // ============================================
@@ -1002,29 +400,29 @@ async function processarVideo(telefone, nome, videoData, cliente) {
 
 async function handlePainel(req, res) {
   const { action } = req.query;
-
+  
   switch (action) {
     case 'list': {
-      const lista = Object.entries(clientes).map(([telefone, dados]) => ({
-        telefone,
-        nome: dados.nome,
-        etapa: dados.etapa,
-        ultimaAtividade: new Date(dados.ultimaAtividade).toLocaleString('pt-BR'),
-        emIntervencao: intervenções.has(telefone),
-        resumo: dados.dados.servico && dados.dados.bairro 
-          ? `${dados.dados.servico} em ${dados.dados.bairro}` 
+      const lista = Object.entries(clientes).map(([tel, d]) => ({
+        telefone: tel,
+        nome: d.nome,
+        etapa: d.etapa,
+        ultimaAtividade: new Date(d.ultimaAtividade).toLocaleString('pt-BR'),
+        emIntervencao: intervenções.has(tel),
+        resumo: d.dados.servico && d.dados.bairro 
+          ? `${d.dados.servico} em ${d.dados.bairro}` 
           : 'Iniciando'
       }));
       return res.json({ conversas: lista, total: lista.length });
     }
-
+    
     case 'messages': {
       const { phone } = req.query;
       if (!phone) return res.status(400).json({ erro: 'Telefone obrigatório' });
-
+      
       const historico = conversas.filter(c => c.telefone === phone);
       const cliente = clientes[phone];
-
+      
       return res.json({
         telefone: phone,
         nome: cliente?.nome || 'Desconhecido',
@@ -1034,67 +432,767 @@ async function handlePainel(req, res) {
         dados: cliente?.dados || {}
       });
     }
-
+    
     case 'intervene': {
       const { phone, usuario } = req.body || req.query;
       if (!phone) return res.status(400).json({ erro: 'Telefone obrigatório' });
-
+      
       intervenções.add(phone);
-      await enviarWhatsApp(phone, `Olá. Um atendente humano assumiu esta conversa. Em que posso ajudar?`);
-      await enviarTelegram(`🚨 INTERVENÇÃO\\n${phone}\\nAtendente: ${usuario || 'Não informado'}`);
-
-      return res.json({ sucesso: true, mensagem: 'Intervenção ativada' });
+      await enviarWhatsApp(phone, `Olá! Um atendente humano assumiu esta conversa. Em que posso ajudar?`);
+      await enviarTelegramAdmin(`🚨 *INTERVENÇÃO MANUAL*\n${phone}\nPor: ${usuario || 'Sistema'}`);
+      
+      return res.json({ sucesso: true });
     }
-
+    
     case 'release': {
       const { phone } = req.body || req.query;
       if (!phone) return res.status(400).json({ erro: 'Telefone obrigatório' });
-
+      
       intervenções.delete(phone);
-      await enviarWhatsApp(phone, `Obrigado. Retomando atendimento automatizado. Como posso ajudar?`);
-
-      return res.json({ sucesso: true, mensagem: 'Robô liberado' });
+      await enviarWhatsApp(phone, `Obrigado! Retomando atendimento automatizado. Como posso ajudar?`);
+      
+      return res.json({ sucesso: true });
     }
-
+    
     case 'send': {
       const { phone, mensagem, usuario } = req.body;
       if (!phone || !mensagem) return res.status(400).json({ erro: 'Telefone e mensagem obrigatórios' });
-
+      
       await enviarWhatsApp(phone, mensagem);
-      conversas.push({ telefone: phone, tipo: 'humano', mensagem, data: new Date().toISOString(), atendente: usuario || 'Sistema' });
-
+      conversas.push({ telefone: phone, tipo: 'humano', mensagem, data: new Date().toISOString(), atendente: usuario });
+      
       return res.json({ sucesso: true });
     }
-
+    
+    case 'orcamento_status': {
+      // Recebe status do orçamento (aceito ou recusado)
+      const { phone, status, valor, observacao, usuario } = req.body;
+      
+      if (status === 'aceito') {
+        await enviarTelegramAdmin(
+          `✅ *ORÇAMENTO ACEITO*\n` +
+          `👤 ${clientes[phone]?.nome || phone}\n` +
+          `💰 Valor: R$${valor}\n` +
+          `📝 ${observacao || ''}`
+        );
+        
+        // Atualiza evento no Google Calendar
+        await atualizarEventoCalendar(phone, 'Orçamento Aceito - ' + valor);
+        
+      } else if (status === 'recusado') {
+        await enviarTelegramAdmin(
+          `❌ *ORÇAMENTO RECUSADO*\n` +
+          `👤 ${clientes[phone]?.nome || phone}\n` +
+          `📝 Motivo: ${observacao || 'Não informado'}`
+        );
+      }
+      
+      return res.json({ sucesso: true });
+    }
+    
+    case 'relatorio_diario': {
+      // Gera relatório diário manual
+      await gerarRelatorioDiario();
+      return res.json({ sucesso: true, mensagem: 'Relatório enviado ao Telegram' });
+    }
+    
     case 'stats': {
+      const hoje = new Date().toDateString();
+      const visitasHoje = agendamentos.filter(a => 
+        new Date(a.criadoEm).toDateString() === hoje
+      ).length;
+      
       return res.json({
         totalConversas: Object.keys(clientes).length,
-        emAtendimento: Object.values(clientes).filter(c => c.etapa !== 'AGENDADO' && c.etapa !== 'INICIO').length,
-        intervencoesAtivas: intervenções.size
+        emAtendimento: Object.values(clientes).filter(c => 
+          c.etapa !== 'AGENDADO' && c.etapa !== 'INICIO'
+        ).length,
+        agendamentosHoje: visitasHoje,
+        totalAgendamentos: agendamentos.length,
+        intervencoesAtivas: intervenções.size,
+        orcamentosPendentes: agendamentos.filter(a => a.status === 'aguardando_orcamento').length
       });
     }
-
+    
     default:
       return res.status(400).json({ erro: 'Ação desconhecida' });
   }
 }
 
 // ============================================
-// INTEGRAÇÕES
+// LÓGICA DE VENDAS
+// ============================================
+
+async function processarMensagem(cli, t, original, nome, telefone) {
+  const d = cli.dados;
+  
+  // Saudação inicial
+  if (cli.etapa === 'INICIO' && t.match(/(oi|olá|ola|bom dia|boa tarde|boa noite|hey)/)) {
+    return `Olá, ${nome}! 👋 Sou da *RC Reforma e Construção*.
+
+Posso ajudar com:
+🔧 *Reformas*: Marcenaria, Hidráulica, Elétrica, Pintura, Gesso, Pedreiro
+❄️ *Eletrodomésticos*: Ar Condicionado, Lava e Seca, Geladeira
+
+Para agilizar, me informe:
+1️⃣ Qual serviço você precisa?
+2️⃣ Qual bairro do Rio?
+
+Se quiser, envie fotos do problema! 📸`;
+  }
+
+  // Objeções
+  if (t.match(/(caro|muito caro|tá caro|absurdo|roubando|não tenho dinheiro)/)) {
+    const ehEletro = d.categoria && ['ar_condicionado', 'lavadora', 'geladeira'].includes(d.categoria);
+    
+    if (ehEletro) {
+      return `Entendo sua preocupação, ${nome}!
+
+Para *eletrodomésticos*, o valor da visita técnica é *R$180*, mas:
+✅ Diagnóstico completo do aparelho
+✅ Orçamento detalhado na hora
+✅ Se aprovar o conserto: visita fica *GRÁTIS* (abatida do valor)
+
+Também temos desconto de *50% na Zona Sul* (R$90) e *GRÁTIS* em Botafogo!
+
+Posso verificar disponibilidade do técnico especializado?`;
+    }
+    
+    return `Entendo, ${nome}! 
+
+📋 *Visita Técnica: R$180*
+• Profissional vai até você
+• Orçamento detalhado no local
+• Se aprovar: R$180 vira desconto no total
+
+💰 *Descontos especiais:*
+• Zona Sul: 50% OFF (R$90)
+• Botafogo: *GRÁTIS* 🎉
+
+Posso verificar disponibilidade?`;
+  }
+
+  if (t.match(/(quem é você|você é robô|atendente)/)) {
+    return `Sou o assistente virtual da *RC Reforma e Construção*! 🤖
+
+Estou aqui para agilizar seu atendimento 24h. Se precisar de um humano, é só dizer *"falar com pessoa"* a qualquer momento.
+
+Como posso ajudar hoje?`;
+  }
+
+  // Fluxo principal
+  switch (cli.etapa) {
+    case 'INICIO':
+      return await etapaInicio(cli, t, original, nome);
+    case 'AGUARDANDO_BAIRRO':
+      return etapaAguardandoBairro(cli, t, original);
+    case 'AGUARDANDO_SERVICO':
+      return etapaAguardandoServico(cli, t, original);
+    case 'CONFIRMA_ATENDIMENTO_HOJE':
+      return etapaConfirmaAtendimentoHoje(cli, t, original);
+    case 'APRESENTA_VALOR':
+      return etapaApresentaValor(cli, t, original);
+    case 'VERIFICAR_AGENDA':
+      return await etapaVerificarAgenda(cli, t, original);
+    case 'AGUARDANDO_HORARIO':
+      return etapaAguardandoHorario(cli, t, original);
+    case 'AGUARDANDO_ENDERECO':
+      return etapaAguardandoEndereco(cli, t, original);
+    case 'CONFIRMAR_VISITA':
+      return await etapaConfirmarVisita(cli, t, original, telefone);
+    case 'AGENDADO':
+      return etapaPosAgendamento(cli, t, original);
+    default:
+      cli.etapa = 'INICIO';
+      return `Olá, ${nome}! Qual serviço você precisa e em qual bairro?`;
+  }
+}
+
+// ===== ETAPAS DO FUNIL =====
+
+async function etapaInicio(cli, t, original, nome) {
+  const d = cli.dados;
+  const { categoria, servico, bairro } = extrairCategoriaServicoEBairro(t, original);
+  
+  if (categoria && bairro) {
+    d.categoria = categoria;
+    d.servico = servico;
+    d.bairro = bairro;
+    cli.etapa = 'CONFIRMA_ATENDIMENTO_HOJE';
+    
+    const tipoServico = ['ar_condicionado', 'lavadora', 'geladeira'].includes(categoria) 
+      ? 'eletrodoméstico' 
+      : 'reforma';
+    
+    return `Perfeito! ${servico} em ${bairro}.
+
+Você precisa de atendimento *urgente para hoje* ou podemos agendar para amanhã/outro dia?
+
+📅 Verifico disponibilidade do técnico de ${tipoServico} especializado!`;
+  }
+  
+  if (categoria) {
+    d.categoria = categoria;
+    d.servico = servico;
+    cli.etapa = 'AGUARDANDO_BAIRRO';
+    return `Certo! Você precisa de *${servico}*. 
+
+Qual bairro do Rio de Janeiro?`;
+  }
+  
+  if (bairro) {
+    d.bairro = bairro;
+    cli.etapa = 'AGUARDANDO_SERVICO';
+    return `Entendi, *${bairro}*. 
+
+Qual serviço você precisa?
+
+*Reformas*: Marcenaria, Hidráulica, Elétrica, Pintura, Gesso, Pedreiro
+*Eletrodomésticos*: Ar Condicionado, Lava e Seca, Geladeira`;
+  }
+  
+  if (t.match(/(quanto custa|qual o preço|valor)/)) {
+    return `Depende do serviço e bairro! 
+
+*Reformas*: Visita R$180 (R$90 Zona Sul, GRÁTIS Botafogo)
+*Eletrodomésticos*: Visita R$180 (diagnóstico + orçamento)
+
+Qual serviço e bairro? Aí te passo valores exatos!`;
+  }
+  
+  return `Oi! Sou da RC Reforma. Para ajudar:
+
+Qual serviço você precisa?
+🔧 Marcenaria, Hidráulica, Elétrica, Pintura, Gesso, Pedreiro
+❄️ Ar Condicionado, Lava e Seca, Geladeira
+
+E qual bairro do Rio?`;
+}
+
+function etapaAguardandoBairro(cli, t, original) {
+  const d = cli.dados;
+  const bairro = extrairBairro(t, original);
+  
+  if (bairro) {
+    d.bairro = bairro;
+    cli.etapa = 'CONFIRMA_ATENDIMENTO_HOJE';
+    return `Ótimo! ${d.servico} em ${bairro}.
+
+Precisa de atendimento *para hoje* (urgente) ou podemos agendar?`;
+  }
+  
+  return `Qual bairro do Rio de Janeiro?`;
+}
+
+function etapaAguardandoServico(cli, t, original) {
+  const d = cli.dados;
+  const { categoria, servico } = extrairCategoriaServicoEBairro(t, original);
+  
+  if (categoria) {
+    d.categoria = categoria;
+    d.servico = servico;
+    cli.etapa = 'CONFIRMA_ATENDIMENTO_HOJE';
+    return `Perfeito! ${servico} em ${d.bairro}.
+
+Precisa de atendimento *urgente para hoje* ou podemos agendar?`;
+  }
+  
+  return `Qual serviço você precisa em ${d.bairro}?
+
+🔧 Reformas: Marcenaria, Hidráulica, Elétrica, Pintura, Gesso, Pedreiro
+❄️ Eletrodomésticos: Ar Condicionado, Lava e Seca, Geladeira`;
+}
+
+function etapaConfirmaAtendimentoHoje(cli, t, original) {
+  const d = cli.dados;
+  
+  if (t.match(/(hoje|urgente|urgência|vazando|quebrou|emergência|não liga|nao liga|não gela|nao gela)/)) {
+    d.urgente = true;
+    cli.etapa = 'APRESENTA_VALOR';
+    
+    const ehEletro = ['ar_condicionado', 'lavadora', 'geladeira'].includes(d.categoria);
+    const valor = d.bairro.toLowerCase().includes('botafogo') ? 0 : 
+                  verificarAtendimento(d.bairro) ? 90 : 180;
+    
+    return `Entendi que é urgente! 🚨
+
+${ehEletro ? 'Técnico em eletrodomésticos' : 'Profissional'} para *HOJE*:
+
+📋 *Visita Técnica: ${valor === 0 ? 'GRÁTIS' : 'R$' + valor}*
+• Diagnóstico completo no local
+• Orçamento detalhado
+• ${valor > 0 ? 'Valor abatido se aprovar' : 'Cortesia especial Botafogo!'}
+
+Posso verificar disponibilidade na agenda para hoje?`;
+  }
+  
+  if (t.match(/(amanhã|amanha|depois|próximo|outro dia)/)) {
+    d.urgente = false;
+    cli.etapa = 'APRESENTA_VALOR';
+    return `Sem problemas! Para agendar:
+
+📋 Visita técnica com descontos especiais
+💰 Zona Sul: R$90 | Botafogo: GRÁTIS
+
+Posso verificar na agenda?`;
+  }
+  
+  return `Você precisa de atendimento *para hoje* (urgente) ou *amanhã/outro dia*?`;
+}
+
+function etapaApresentaValor(cli, t, original) {
+  const d = cli.dados;
+  const ehEletro = ['ar_condicionado', 'lavadora', 'geladeira'].includes(d.categoria);
+  
+  if (t.match(/(não|nao|não vou pagar|grátis|caro)/)) {
+    if (d.bairro.toLowerCase().includes('botafogo')) {
+      d.valorVisita = 0;
+      cli.etapa = 'VERIFICAR_AGENDA';
+      return `Como você é de *Botafogo*, visita técnica é *GRÁTIS*! 🎉
+
+Sem custo nenhum. Posso verificar disponibilidade?`;
+    }
+    
+    if (verificarAtendimento(d.bairro)) {
+      d.valorVisita = 90;
+      return `Posso oferecer *50% de desconto*: *R$90*
+
+${ehEletro ? 'Inclui diagnóstico completo do aparelho!' : 'Inclui avaliação técnica completa!'}
+
+Podemos prosseguir?`;
+    }
+  }
+  
+  if (t.match(/(sim|pode|ok|claro|verifica|agenda)/)) {
+    cli.etapa = 'VERIFICAR_AGENDA';
+    return `Ótimo! Consultando agenda do técnico... ⏳
+
+Para *quando* você prefere?
+• Hoje
+• Amanhã  
+• Outro dia específico
+
+Me informa!`;
+  }
+  
+  return `Posso verificar disponibilidade para ${d.servico} em ${d.bairro}?`;
+}
+
+async function etapaVerificarAgenda(cli, t, original) {
+  const d = cli.dados;
+  
+  let dataPreferida = null;
+  let dataFormatada = null;
+  
+  if (t.match(/(hoje)/)) {
+    const horaAtual = new Date().getHours();
+    if (horaAtual >= 18) {
+      return `Já são mais de 18h. Posso agendar o primeiro horário de *amanhã*?
+
+Ou prefere outro dia?`;
+    }
+    dataPreferida = 'hoje';
+    dataFormatada = new Date().toLocaleDateString('pt-BR');
+  } else if (t.match(/(amanhã|amanha)/)) {
+    const amanha = new Date();
+    amanha.setDate(amanha.getDate() + 1);
+    dataPreferida = 'amanhã';
+    dataFormatada = amanha.toLocaleDateString('pt-BR');
+  } else {
+    const dataEsp = extrairData(t, original);
+    if (dataEsp) {
+      dataPreferida = dataEsp;
+      dataFormatada = dataEsp;
+    }
+  }
+  
+  if (!dataPreferida) {
+    return `Para *quando* você precisa? (hoje, amanhã, ou data específica)`;
+  }
+  
+  // Verifica disponibilidade no Google Calendar
+  const tecnicosDisponiveis = await verificarDisponibilidadeTecnicos(
+    d.categoria, 
+    dataPreferida
+  );
+  
+  if (tecnicosDisponiveis.length === 0) {
+    // Tenta próximo dia
+    const amanha = new Date();
+    amanha.setDate(amanha.getDate() + 1);
+    const tecnicosAmanha = await verificarDisponibilidadeTecnicos(
+      d.categoria,
+      amanha.toLocaleDateString('pt-BR')
+    );
+    
+    if (tecnicosAmanha.length > 0) {
+      return `Para ${dataPreferida} nossos técnicos estão com agenda cheia. 😕
+
+Mas tenho disponibilidade para *amanhã*! Posso agendar para amanhã?`;
+    }
+    
+    return `Estamos com alta demanda nesse período. 😕
+
+Posso verificar para ${getProximosDias(2)} ou ${getProximosDias(3)}?
+
+Qual desses dias te atende?`;
+  }
+  
+  d.data = dataPreferida;
+  d.dataFormatada = dataFormatada;
+  d.tecnicoAlocado = tecnicosDisponiveis[0]; // Pega primeiro disponível
+  cli.etapa = 'AGUARDANDO_HORARIO';
+  
+  return `✅ *Temos vaga para ${dataPreferida}!*
+
+Qual horário seria melhor?
+• Manhã (9h às 12h)
+• Tarde (14h às 17h)
+• Noite (18h às 20h) - se urgente
+
+Qual prefere?`;
+}
+
+function etapaAguardandoHorario(cli, t, original) {
+  const d = cli.dados;
+  const hora = extrairHora(original);
+  
+  if (hora) {
+    d.hora = hora;
+    cli.etapa = 'AGUARDANDO_ENDERECO';
+    return `✅ ${hora} anotado!
+
+Agora preciso do *endereço completo*:
+
+📍 Rua, número, complemento
+🏢 Apartamento ou Casa
+
+Qual o endereço?`;
+  }
+  
+  if (t.match(/manhã|manha/)) {
+    d.hora = '09:00-12:00';
+    cli.etapa = 'AGUARDANDO_ENDERECO';
+    return `✅ Manhã (9h-12h) anotado! 
+
+Endereço completo, por favor:`;
+  }
+  
+  if (t.match(/tarde/)) {
+    d.hora = '14:00-17:00';
+    cli.etapa = 'AGUARDANDO_ENDERECO';
+    return `✅ Tarde (14h-17h) anotada!
+
+Endereço completo, por favor:`;
+  }
+  
+  if (t.match(/noite/)) {
+    d.hora = '18:00-20:00';
+    cli.etapa = 'AGUARDANDO_ENDERECO';
+    return `✅ Noite (18h-20h) anotada!
+
+Endereço completo, por favor:`;
+  }
+  
+  return `Qual horário? (ex: 10h, 14:30, manhã, tarde, noite)`;
+}
+
+function etapaAguardandoEndereco(cli, t, original) {
+  const d = cli.dados;
+  
+  if (original.length > 8 && (t.match(/(rua|av|avenida|número|apartamento|casa)/) || t.match(/\d+/))) {
+    d.endereco = original;
+    cli.etapa = 'CONFIRMAR_VISITA';
+    
+    const valor = d.bairro.toLowerCase().includes('botafogo') ? 0 : 
+                  verificarAtendimento(d.bairro) ? 90 : 180;
+    d.valorVisita = valor;
+    
+    const ehEletro = ['ar_condicionado', 'lavadora', 'geladeira'].includes(d.categoria);
+    
+    return `📋 *RESUMO DO AGENDAMENTO*
+
+Serviço: ${d.servico}
+Data: ${d.data} (${d.dataFormatada})
+Horário: ${d.hora}
+Endereço: ${original}
+Valor: ${valor === 0 ? '*GRÁTIS* 🎉' : `R$${valor}`}
+${ehEletro ? 'Técnico: Especialista em eletrodomésticos' : 'Profissional: ' + d.tecnicoAlocado}
+
+*Tudo correto?* Responda *sim* para confirmar!`;
+  }
+  
+  return `Preciso do endereço completo (rua, número, complemento). Qual é?`;
+}
+
+async function etapaConfirmarVisita(cli, t, original, telefone) {
+  const d = cli.dados;
+  
+  if (t.match(/(sim|pode|ok|confirmo|tá bom|perfeito)/)) {
+    cli.etapa = 'AGENDADO';
+    
+    const agendamento = {
+      id: Date.now().toString(),
+      telefone,
+      nome: cli.nome,
+      categoria: d.categoria,
+      servico: d.servico,
+      bairro: d.bairro,
+      data: d.data,
+      dataFormatada: d.dataFormatada,
+      hora: d.hora,
+      endereco: d.endereco,
+      valor: d.valorVisita,
+      tecnico: d.tecnicoAlocado,
+      status: 'confirmado',
+      criadoEm: new Date().toISOString(),
+      orcamentoStatus: 'pendente'
+    };
+    
+    agendamentos.push(agendamento);
+    
+    // Cria evento no Google Calendar
+    await criarEventoCalendar(agendamento);
+    
+    // Notifica técnico específico
+    await notificarTecnico(agendamento);
+    
+    // Notifica Telegram admin
+    await enviarTelegramAdmin(
+      `✅ *NOVA VISITA MARCADA*\n\n` +
+      `📅 ${d.data} às ${d.hora}\n` +
+      `🔧 ${d.servico} (${d.categoria})\n` +
+      `📍 ${d.endereco}\n` +
+      `👤 ${cli.nome}\n` +
+      `📱 ${telefone}\n` +
+      `💰 ${d.valorVisita === 0 ? 'GRÁTIS' : 'R$'+d.valorVisita}\n` +
+      `👨‍🔧 Técnico: ${d.tecnicoAlocado}`
+    );
+    
+    // Agenda lembrete
+    agendarLembrete(agendamento);
+    
+    const ehEletro = ['ar_condicionado', 'lavadora', 'geladeira'].includes(d.categoria);
+    
+    return `🎉 *VISITA CONFIRMADA!*
+
+📅 ${d.data} às ${d.hora}
+📍 ${d.endereco}
+🔧 ${d.servico}
+${ehEletro ? '❄️ Técnico especializado em eletrodomésticos' : ''}
+${d.valorVisita > 0 ? `💰 R$${d.valorVisita} (pagar no ato)` : '💰 GRÁTIS'}
+
+*O que acontece agora:*
+1️⃣ Técnico confirmará em até *48h*
+2️⃣ Lembrete automático 2h antes
+3️⃣ ${ehEletro ? 'Diagnóstico e orçamento do aparelho' : 'Orçamento detalhado no local'}
+
+Precisa remarcar? Avise com *2h de antecedência*.
+
+Mais alguma dúvida? 😊`;
+  }
+  
+  if (t.match(/(não|nao|mudar|alterar)/)) {
+    cli.etapa = 'VERIFICAR_AGENDA';
+    return `Sem problema! O que precisa alterar?
+
+• Data/horário
+• Endereço
+• Serviço
+
+Me informa!`;
+  }
+  
+  return `Posso confirmar para ${d.data} às ${d.hora}? Responda *sim* ou diga o que alterar.`;
+}
+
+function etapaPosAgendamento(cli, t, original) {
+  const d = cli.dados;
+  
+  if (t.match(/(remarcar|mudar data|alterar)/)) {
+    cli.etapa = 'VERIFICAR_AGENDA';
+    return `Entendido! Vamos remarcar.
+
+Para qual novo dia você prefere?
+• Hoje (outro horário)
+• Amanhã
+• Outro dia
+
+Me informa que verifico na agenda!`;
+  }
+  
+  if (t.match(/(cancelar|desistir|não quero mais)/)) {
+    // Remove agendamento
+    const idx = agendamentos.findIndex(a => 
+      a.telefone === cli.telefone && a.status === 'confirmado'
+    );
+    if (idx > -1) {
+      agendamentos[idx].status = 'cancelado';
+      enviarTelegramAdmin(`❌ CANCELAMENTO\n${cli.nome} cancelou visita de ${d.servico}`);
+    }
+    
+    cli.etapa = 'INICIO';
+    return `Cancelamento anotado. 😔
+
+Se mudar de ideia ou precisar no futuro, é só chamar!
+
+Boa sorte!`;
+  }
+  
+  if (t.match(/(orçamento aprovado|aceitei|vou fazer|quero fazer)/)) {
+    // Atualiza status
+    const agendamento = agendamentos.find(a => 
+      a.telefone === cli.telefone && a.status === 'confirmado'
+    );
+    if (agendamento) {
+      agendamento.orcamentoStatus = 'aceito';
+      enviarTelegramAdmin(`✅ *ORÇAMENTO ACEITO PELO CLIENTE*\n${cli.nome} - ${d.servico}\nValor: ${d.valorOrçamento || 'Não informado'}`);
+    }
+    
+    return `Que ótimo, ${cli.nome}! 🎉 
+
+Agradecemos a confiança! O técnico entrará em contato para confirmar detalhes do serviço.
+
+Se precisar de mais alguma coisa, estou por aqui!`;
+  }
+  
+  if (t.match(/(orçamento recusado|não vou fazer|muito caro o serviço)/)) {
+    const agendamento = agendamentos.find(a => 
+      a.telefone === cli.telefone && a.status === 'confirmado'
+    );
+    if (agendamento) {
+      agendamento.orcamentoStatus = 'recusado';
+      enviarTelegramAdmin(`❌ *ORÇAMENTO RECUSADO*\n${cli.nome} - ${d.servico}\nMotivo: Preço alto ou outro`);
+    }
+    
+    return `Entendido, ${cli.nome}. Sem problemas!
+
+Agradecemos a oportunidade. Se precisar no futuro ou quiser uma segunda opinião, é só chamar.
+
+Boa sorte! 🍀`;
+  }
+  
+  return `Olá! Sua visita está confirmada. 
+
+Se precisar *remarcar*, *tirar dúvidas* ou *falar com pessoa*, é só avisar! 😊`;
+}
+
+// ============================================
+// FUNÇÕES AUXILIARES
+// ============================================
+
+function extrairCategoriaServicoEBairro(t, original) {
+  const categoria = identificarCategoria(t);
+  const servico = categoria ? extrairServicoEspecifico(t, categoria) : null;
+  const bairro = extrairBairro(t, original);
+  
+  return { categoria, servico, bairro };
+}
+
+function identificarCategoria(texto) {
+  for (const [cat, dados] of Object.entries(CONFIG.categorias)) {
+    for (const sinonimo of dados.sinonimos) {
+      if (texto.includes(sinonimo)) {
+        return cat;
+      }
+    }
+  }
+  return null;
+}
+
+function extrairServicoEspecifico(texto, categoria) {
+  const cat = CONFIG.categorias[categoria];
+  if (!cat) return categoria;
+  
+  // Retorna o primeiro sinônimo encontrado ou o nome da categoria
+  for (const sinonimo of cat.sinonimos) {
+    if (texto.includes(sinonimo)) {
+      return sinonimo.charAt(0).toUpperCase() + sinonimo.slice(1);
+    }
+  }
+  
+  return categoria.charAt(0).toUpperCase() + categoria.slice(1);
+}
+
+function extrairBairro(t, original) {
+  for (const b of CONFIG.bairrosAtendidos) {
+    if (t.includes(b)) return b.charAt(0).toUpperCase() + b.slice(1);
+  }
+  
+  const m = original.match(/(em|no|na)\s+([A-Za-zÀ-ÿ\s]+)/i);
+  if (m) {
+    const possivel = m[2].trim().toLowerCase();
+    for (const b of CONFIG.bairrosAtendidos) {
+      if (possivel.includes(b)) return b.charAt(0).toUpperCase() + b.slice(1);
+    }
+    if (possivel.length > 2) return possivel.charAt(0).toUpperCase() + possivel.slice(1);
+  }
+  return null;
+}
+
+function extrairHora(txt) {
+  const m = txt.match(/(\d{1,2})[:h]?(\d{2})?/);
+  return m ? `${m[1].padStart(2,'0')}:${m[2]||'00'}` : null;
+}
+
+function extrairData(t, original) {
+  const hoje = new Date();
+  
+  if (t.match(/segunda/)) return getDataFutura(1);
+  if (t.match(/terça|terca/)) return getDataFutura(2);
+  if (t.match(/quarta/)) return getDataFutura(3);
+  if (t.match(/quinta/)) return getDataFutura(4);
+  if (t.match(/sexta/)) return getDataFutura(5);
+  
+  const m = original.match(/(\d{1,2})[\/\-](\d{1,2})/);
+  if (m) return `${m[1].padStart(2,'0')}/${m[2].padStart(2,'0')}`;
+  
+  const d = original.match(/dia\s+(\d{1,2})/i);
+  if (d) return `${d[1].padStart(2,'0')}/${(hoje.getMonth()+1).toString().padStart(2,'0')}`;
+  
+  return null;
+}
+
+function getDataFutura(diasSemana) {
+  const hoje = new Date();
+  const atual = hoje.getDay();
+  const dias = (diasSemana + 7 - atual) % 7 || 7;
+  hoje.setDate(hoje.getDate() + dias);
+  return hoje.toLocaleDateString('pt-BR');
+}
+
+function getProximosDias(dias) {
+  const data = new Date();
+  data.setDate(data.getDate() + dias);
+  return data.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric' });
+}
+
+function verificarAtendimento(bairro) {
+  if (!bairro) return false;
+  const n = bairro.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  return CONFIG.bairrosAtendidos.some(b => n.includes(b));
+}
+
+function detectarRisco(texto) {
+  return CONFIG.palavrasRisco.some(p => texto.includes(p));
+}
+
+// ============================================
+// INTEGRAÇÕES EXTERNAS
 // ============================================
 
 async function enviarWhatsApp(numero, texto) {
   console.log(`📤 PARA ${numero}: ${texto.substring(0, 80)}...`);
-
+  
   if (!CONFIG.whatsappToken || !CONFIG.whatsappPhoneId) {
     console.error('❌ WhatsApp não configurado');
     return false;
   }
-
+  
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 8000);
-
+    
     const res = await fetch(`https://graph.facebook.com/v18.0/${CONFIG.whatsappPhoneId}/messages`, {
       method: 'POST',
       headers: {
@@ -1110,72 +1208,36 @@ async function enviarWhatsApp(numero, texto) {
       }),
       signal: controller.signal
     });
-
+    
     clearTimeout(timeout);
-
+    
     if (!res.ok) {
       const data = await res.json();
-      console.error('❌ Erro WhatsApp API:', res.status, data);
+      console.error('❌ Erro WhatsApp:', res.status, data);
       return false;
     }
-
-    console.log('✅ Enviado');
+    
     return true;
-
   } catch (e) {
-    console.error('❌ Erro ao enviar:', e.message);
+    console.error('❌ Erro envio WhatsApp:', e.message);
     return false;
   }
 }
 
-async function encaminharMidia(numeroDestino, tipo, midiaId, caption = '') {
-  console.log(`📤 ENCAMINHANDO ${tipo} PARA ${numeroDestino}`);
-
-  if (!CONFIG.whatsappToken || !CONFIG.whatsappPhoneId) return false;
-
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15000);
-
-    const body = {
-      messaging_product: 'whatsapp',
-      recipient_type: 'individual',
-      to: numeroDestino,
-      type: tipo,
-      [tipo]: { id: midiaId }
-    };
-
-    if (caption) body[tipo].caption = caption;
-
-    const res = await fetch(`https://graph.facebook.com/v18.0/${CONFIG.whatsappPhoneId}/messages`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${CONFIG.whatsappToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-      signal: controller.signal
-    });
-
-    clearTimeout(timeout);
-    return res.ok;
-
-  } catch (e) {
-    console.error('❌ Erro ao encaminhar mídia:', e.message);
+async function enviarTelegramAdmin(mensagem) {
+  if (!CONFIG.telegramBotToken || !CONFIG.telegramChatId) {
+    console.log('ℹ️ Telegram não configurado');
     return false;
   }
-}
-
-async function enviarTelegram(mensagem) {
-  if (!CONFIG.telegramBotToken || !CONFIG.telegramChatId) return false;
-
+  
   try {
     await fetch(`https://api.telegram.org/bot${CONFIG.telegramBotToken}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         chat_id: CONFIG.telegramChatId,
-        text: mensagem
+        text: mensagem,
+        parse_mode: 'Markdown'
       })
     });
     return true;
@@ -1185,23 +1247,554 @@ async function enviarTelegram(mensagem) {
   }
 }
 
-// Inicialização
-inicializarGoogleCalendar();
-'''
+async function processarImagem(telefone, nome, imagemData) {
+  const cli = clientes[telefone];
+  const categoria = cli?.dados?.categoria;
+  
+  let tecnicoTel = CONFIG.tecnicos.reforma.telefone;
+  if (categoria && CONFIG.tecnicos[categoria]) {
+    tecnicoTel = CONFIG.tecnicos[categoria].telefone;
+  }
+  
+  await enviarWhatsApp(tecnicoTel, 
+    `📸 ${nome} (${telefone}) enviou foto de ${cli?.dados?.servico || 'serviço'}.\nVerifique no painel ou solicite mais fotos.`
+  );
+  
+  await enviarTelegramAdmin(`📸 Nova imagem de ${nome} (${telefone})\nCategoria: ${categoria || 'Não identificada'}`);
+}
 
-# Salvar o arquivo
-with open('/mnt/kimi/output/rc_reforma_robo_humano.js', 'w', encoding='utf-8') as f:
-    f.write(codigo_completo)
+async function notificarTecnico(agendamento) {
+  const { categoria, servico, data, hora, endereco, nome, telefone, valor, tecnico } = agendamento;
+  
+  // Encontra telefone do técnico
+  let tecnicoTel = null;
+  if (categoria && CONFIG.tecnicos[categoria]) {
+    tecnicoTel = CONFIG.tecnicos[categoria].telefone;
+  } else {
+    tecnicoTel = CONFIG.tecnicos.reforma.telefone;
+  }
+  
+  const ehEletro = ['ar_condicionado', 'lavadora', 'geladeira'].includes(categoria);
+  
+  const mensagem = 
+    `🔔 *NOVA VISITA AGENDADA*\n\n` +
+    `Serviço: ${servico}\n` +
+    `Data: ${data} às ${hora}\n` +
+    `Endereço: ${endereco}\n` +
+    `Cliente: ${nome}\n` +
+    `WhatsApp: ${telefone}\n` +
+    `Valor visita: ${valor === 0 ? 'GRÁTIS' : 'R$'+valor}\n` +
+    `${ehEletro ? '⚠️ Eletrodoméstico - Levar ferramentas específicas\n' : ''}` +
+    `\nEntre em contato em até 48h para confirmar.`;
+  
+  await enviarWhatsApp(tecnicoTel, mensagem);
+}
 
-print("✅ Código principal salvo em: /mnt/kimi/output/rc_reforma_robo_humano.js")
-print(f"📊 Tamanho: {len(codigo_completo)} caracteres")
-print("\n📋 Resumo das mudanças:")
-print("1. ✅ ZERO emojis")
-print("2. ✅ ZERO menus numerados")
-print("3. ✅ Tom profissional formal")
-print("4. ✅ Variações de respostas (3+ por situação)")
-print("5. ✅ Integração Google Calendar (consulta disponibilidade real)")
-print("6. ✅ Criação de eventos na agenda")
-print("7. ✅ Profissionais: João (marcenaria) e Anderson (reformas)")
-print("8. ✅ Preços: R$180 / Zona Sul R$90 / Botafogo GRÁTIS")
-print("9. ✅ Fluxo rigoroso conforme documento de treinamento")
+// ============================================
+// GOOGLE CALENDAR INTEGRAÇÃO
+// ============================================
+
+async function verificarDisponibilidadeTecnicos(categoria, dataStr) {
+  if (!googleAuthClient) {
+    // Se não tiver Google Calendar configurado, permite agendar (controle manual)
+    console.log('⚠️ Google Calendar não conectado - permitindo agendamento');
+    const cat = CONFIG.categorias[categoria];
+    return cat ? cat.tecnicos : ['reforma'];
+  }
+  
+  try {
+    const calendar = google.calendar({ version: 'v3', auth: googleAuthClient });
+    
+    // Converte data string para objeto Date
+    let dataBusca;
+    if (dataStr === 'hoje') {
+      dataBusca = new Date();
+    } else if (dataStr === 'amanhã') {
+      dataBusca = new Date();
+      dataBusca.setDate(dataBusca.getDate() + 1);
+    } else {
+      const [dia, mes] = dataStr.split('/');
+      dataBusca = new Date(new Date().getFullYear(), parseInt(mes) - 1, parseInt(dia));
+    }
+    
+    // Define início e fim do dia
+    const timeMin = new Date(dataBusca);
+    timeMin.setHours(0, 0, 0, 0);
+    const timeMax = new Date(dataBusca);
+    timeMax.setHours(23, 59, 59, 999);
+    
+    // Busca eventos do dia
+    const response = await calendar.events.list({
+      calendarId: CONFIG.googleCalendarId,
+      timeMin: timeMin.toISOString(),
+      timeMax: timeMax.toISOString(),
+      singleEvents: true,
+      orderBy: 'startTime'
+    });
+    
+    const eventos = response.data.items || [];
+    const horariosOcupados = eventos.map(e => ({
+      inicio: new Date(e.start.dateTime),
+      fim: new Date(e.end.dateTime),
+      titulo: e.summary
+    }));
+    
+    // Verifica quais técnicos da categoria têm disponibilidade
+    const cat = CONFIG.categorias[categoria];
+    const tecnicosPossiveis = cat ? cat.tecnicos : ['reforma'];
+    
+    // Simulação: verifica se há muitos agendamentos no dia
+    // Na prática, você precisaria marcar qual técnico em cada evento
+    const agendamentosNoDia = eventos.length;
+    
+    if (agendamentosNoDia >= 8) { // Limite arbitrário de 8 visitas por dia
+      return []; // Dia cheio
+    }
+    
+    return tecnicosPossiveis;
+    
+  } catch (e) {
+    console.error('❌ Erro ao verificar agenda:', e.message);
+    // Em caso de erro, permite agendar para não bloquear vendas
+    const cat = CONFIG.categorias[categoria];
+    return cat ? cat.tecnicos : ['reforma'];
+  }
+}
+
+async function criarEventoCalendar(agendamento) {
+  if (!googleAuthClient) {
+    console.log('⚠️ Google Calendar não conectado - evento não criado');
+    return false;
+  }
+  
+  try {
+    const calendar = google.calendar({ version: 'v3', auth: googleAuthClient });
+    
+    // Parse data e hora
+    let dataEvento;
+    if (agendamento.data === 'hoje') {
+      dataEvento = new Date();
+    } else if (agendamento.data === 'amanhã') {
+      dataEvento = new Date();
+      dataEvento.setDate(dataEvento.getDate() + 1);
+    } else {
+      const [dia, mes] = agendamento.data.split('/');
+      dataEvento = new Date(new Date().getFullYear(), parseInt(mes) - 1, parseInt(dia));
+    }
+    
+    // Define horário (padrão 10h se não especificado)
+    let hora = 10;
+    let minuto = 0;
+    if (agendamento.hora && agendamento.hora.includes(':')) {
+      const [h, m] = agendamento.hora.split(':');
+      hora = parseInt(h);
+      minuto = parseInt(m) || 0;
+    }
+    
+    const inicio = new Date(dataEvento);
+    inicio.setHours(hora, minuto, 0);
+    
+    const fim = new Date(inicio);
+    fim.setHours(fim.getHours() + 1); // 1 hora de duração
+    
+    const ehEletro = ['ar_condicionado', 'lavadora', 'geladeira'].includes(agendamento.categoria);
+    
+    const event = {
+      summary: `${ehEletro ? '❄️' : '🔧'} ${agendamento.servico} - ${agendamento.nome}`,
+      location: agendamento.endereco,
+      description: 
+        `Cliente: ${agendamento.nome}\n` +
+        `Telefone: ${agendamento.telefone}\n` +
+        `Serviço: ${agendamento.servico}\n` +
+        `Categoria: ${agendamento.categoria}\n` +
+        `Valor visita: R$${agendamento.valor}\n` +
+        `Técnico: ${agendamento.tecnico}\n` +
+        `Status: Aguardando orçamento`,
+      start: {
+        dateTime: inicio.toISOString(),
+        timeZone: 'America/Sao_Paulo'
+      },
+      end: {
+        dateTime: fim.toISOString(),
+        timeZone: 'America/Sao_Paulo'
+      },
+      reminders: {
+        useDefault: false,
+        overrides: [
+          { method: 'popup', minutes: 120 } // 2h antes
+        ]
+      }
+    };
+    
+    const response = await calendar.events.insert({
+      calendarId: CONFIG.googleCalendarId,
+      resource: event
+    });
+    
+    console.log('✅ Evento criado no Google Calendar:', response.data.id);
+    
+    // Salva ID do evento para atualizações futuras
+    agendamento.googleEventId = response.data.id;
+    
+    return true;
+    
+  } catch (e) {
+    console.error('❌ Erro ao criar evento:', e.message);
+    return false;
+  }
+}
+
+async function atualizarEventoCalendar(telefone, status) {
+  const agendamento = agendamentos.find(a => 
+    a.telefone === telefone && a.googleEventId
+  );
+  
+  if (!agendamento || !googleAuthClient) return false;
+  
+  try {
+    const calendar = google.calendar({ version: 'v3', auth: googleAuthClient });
+    
+    await calendar.events.patch({
+      calendarId: CONFIG.googleCalendarId,
+      eventId: agendamento.googleEventId,
+      resource: {
+        description: agendamento.description + `\n\nSTATUS: ${status}`
+      }
+    });
+    
+    return true;
+  } catch (e) {
+    console.error('❌ Erro ao atualizar evento:', e.message);
+    return false;
+  }
+}
+
+// ============================================
+// SISTEMA DE LEMBRETES E RELATÓRIOS
+// ============================================
+
+function agendarLembrete(agendamento) {
+  // Calcula tempo até 2h antes do agendamento
+  // Na Vercel, isso precisa ser feito via Cron Job externo ou Redis
+  console.log(`⏰ Lembrete agendado para ${agendamento.data} ${agendamento.hora}`);
+  
+  // Aqui você implementaria integração com serviço de cron
+  // Exemplo: enviar para Redis, ou usar Vercel Cron Jobs (pago)
+}
+
+// Relatório diário automático (deve ser chamado por cron job)
+async function gerarRelatorioDiario() {
+  const hoje = new Date();
+  const ontem = new Date(hoje);
+  ontem.setDate(ontem.getDate() - 1);
+  
+  const dataStr = ontem.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+  
+  // Filtra atividades do dia anterior
+  const visitasOntem = agendamentos.filter(a => {
+    const dataAgendamento = new Date(a.criadoEm);
+    return dataAgendamento.toDateString() === ontem.toDateString();
+  });
+  
+  const novosClientes = Object.values(clientes).filter(c => {
+    const dataCadastro = new Date(c.ultimaAtividade);
+    return dataCadastro.toDateString() === ontem.toDateString();
+  });
+  
+  const mensagensOntem = conversas.filter(c => {
+    const dataMsg = new Date(c.data);
+    return dataMsg.toDateString() === ontem.toDateString();
+  }).length;
+  
+  const orcamentosAceitos = visitasOntem.filter(a => a.orcamentoStatus === 'aceito').length;
+  const orcamentosRecusados = visitasOntem.filter(a => a.orcamentoStatus === 'recusado').length;
+  const orcamentosPendentes = visitasOntem.filter(a => a.orcamentoStatus === 'pendente').length;
+  
+  const relatorio = 
+    `📊 *RELATÓRIO DIÁRIO - ${dataStr}*\n\n` +
+    `👥 *Atendimento:*\n` +
+    `• Novos clientes: ${novosClientes.length}\n` +
+    `• Total de mensagens: ${mensagensOntem}\n` +
+    `• Intervenções humanas: ${Array.from(intervenções).length}\n\n` +
+    `📅 *Agendamentos:*\n` +
+    `• Visitas marcadas: ${visitasOntem.length}\n` +
+    `• Orçamentos aceitos: ${orcamentosAceitos} ✅\n` +
+    `• Orçamentos recusados: ${orcamentosRecusados} ❌\n` +
+    `• Aguardando resposta: ${orcamentosPendentes} ⏳\n\n` +
+    `💰 *Conversão:*\n` +
+    `${visitasOntem.length > 0 ? Math.round((orcamentosAceitos / visitasOntem.length) * 100) : 0}% de aprovação\n\n` +
+    `Próximo passo: Acompanhar pendentes! 🚀`;
+  
+  await enviarTelegramAdmin(relatorio);
+  
+  // Envia para canal de relatórios separado se configurado
+  if (CONFIG.telegramChatIdRelatorios && CONFIG.telegramChatIdRelatorios !== CONFIG.telegramChatId) {
+    await fetch(`https://api.telegram.org/bot${CONFIG.telegramBotToken}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: CONFIG.telegramChatIdRelatorios,
+        text: relatorio,
+        parse_mode: 'Markdown'
+      })
+    });
+  }
+}
+
+// Exporta função para ser chamada por cron job externo
+export { gerarRelatorioDiario };
+
+// ============================================// ============================================
+// CONFIGURAÇÃO VARIÁVEIS DE AMBIENTE (CONTINUAÇÃO)
+// ============================================
+
+/*
+Configurações necessárias na Vercel:
+
+WHATSAPP_TOKEN=EAAXXXXX...
+WHATSAPP_PHONE_ID=3XXXXXXXXX...
+NUMERO_RC=5521XXXXXXXX
+CNPJ_EMPRESA=XX.XXX.XXX/0001-XX (opcional)
+
+TELEGRAM_BOT_TOKEN=7XXXXXX:XXXXXXXXXXXXXXXX
+TELEGRAM_CHAT_ID=-100XXXXXXXXXX
+TELEGRAM_CHAT_ID_RELATORIOS=-100XXXXXXXXXX (opcional - canal separado para relatórios)
+
+GOOGLE_CALENDAR_ID=seu-email@gmail.com ou ID do calendário
+GOOGLE_SERVICE_ACCOUNT_KEY=base64_do_json_do_service_account
+
+// IMPORTANTE: Para Google Calendar, você precisa:
+// 1. Criar projeto no Google Cloud Console (https://console.cloud.google.com)
+// 2. Ativar Google Calendar API
+// 3. Criar Service Account em IAM & Admin > Service Accounts
+// 4. Gerar chave JSON e fazer download
+// 5. Converter JSON para base64: cat arquivo.json | base64
+// 6. Compartilhar calendário com o email do Service Account (com permissão de edição)
+*/
+
+// ============================================
+// DEPENDÊNCIAS package.json
+// ============================================
+
+/*
+{
+  "dependencies": {
+    "googleapis": "^128.0.0",
+    "google-auth-library": "^9.0.0"
+  }
+}
+*/
+
+// ============================================
+// VERCEL.JSON CONFIGURAÇÃO RECOMENDADA
+// ============================================
+
+/*
+{
+  "functions": {
+    "api/index.js": {
+      "maxDuration": 30
+    }
+  },
+  "crons": [
+    {
+      "path": "/api/cron/relatorio",
+      "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/lembretes",
+      "schedule": "*/15 * * * *"
+    }
+  ]
+}
+*/
+
+// ============================================
+// ENDPOINTS ADICIONAIS PARA CRON JOBS (criar arquivos separados)
+// ============================================
+
+// api/cron/relatorio.js
+/*
+import { gerarRelatorioDiario } from '../index.js';
+
+export default async function handler(req, res) {
+  // Verifica secret para segurança
+  if (req.headers.authorization !== `Bearer ${process.env.CRON_SECRET}`) {
+    return res.status(401).json({ erro: 'Não autorizado' });
+  }
+  
+  await gerarRelatorioDiario();
+  res.json({ sucesso: true, mensagem: 'Relatório enviado' });
+}
+*/
+
+// api/cron/lembretes.js
+/*
+export default async function handler(req, res) {
+  if (req.headers.authorization !== `Bearer ${process.env.CRON_SECRET}`) {
+    return res.status(401).json({ erro: 'Não autorizado' });
+  }
+  
+  // Verifica agendamentos nas próximas 2h30min e envia lembretes
+  const agora = new Date();
+  const daqui2h = new Date(agora.getTime() + 2.5 * 60 * 60 * 1000);
+  
+  for (const ag of agendamentos) {
+    if (ag.status !== 'confirmado') continue;
+    
+    // Parse data/hora do agendamento
+    let dataAgendamento;
+    if (ag.data === 'hoje') {
+      dataAgendamento = new Date();
+    } else if (ag.data === 'amanhã') {
+      dataAgendamento = new Date();
+      dataAgendamento.setDate(dataAgendamento.getDate() + 1);
+    } else {
+      const [dia, mes] = ag.data.split('/');
+      dataAgendamento = new Date(new Date().getFullYear(), parseInt(mes) - 1, parseInt(dia));
+    }
+    
+    // Ajusta hora
+    if (ag.hora && ag.hora.includes(':')) {
+      const [h, m] = ag.hora.split(':');
+      dataAgendamento.setHours(parseInt(h), parseInt(m), 0);
+    }
+    
+    // Se está dentro da janela de 2h-2h30min
+    if (dataAgendamento > agora && dataAgendamento <= daqui2h && !ag.lembreteEnviado) {
+      // Envia lembrete para cliente
+      await enviarWhatsApp(ag.telefone, 
+        `⏰ *Lembrete de Visita Técnica*\n\n` +
+        `Olá! Passando para lembrar que temos agendado para *hoje* às *${ag.hora}*.\n\n` +
+        `📍 ${ag.endereco}\n` +
+        `🔧 ${ag.servico}\n\n` +
+        `O técnico confirmará quando estiver a caminho. Qualquer imprevisto, avise!`
+      );
+      
+      // Envia lembrete para técnico
+      const tecnicoTel = CONFIG.tecnicos[ag.categoria]?.telefone || CONFIG.tecnicos.reforma.telefone;
+      await enviarWhatsApp(tecnicoTel,
+        `⏰ *Lembrete de Visita*\n\n` +
+        `Daqui 2h - ${ag.hora}\n` +
+        `${ag.servico}\n` +
+        `${ag.endereco}\n` +
+        `Cliente: ${ag.nome} - ${ag.telefone}`
+      );
+      
+      ag.lembreteEnviado = true;
+      
+      await enviarTelegramAdmin(`⏰ *Lembrete enviado*\n${ag.nome} - ${ag.data} ${ag.hora}`);
+    }
+  }
+  
+  res.json({ sucesso: true, lembretesEnviados: agendamentos.filter(a => a.lembreteEnviado).length });
+}
+*/
+
+// ============================================
+// CHECKLIST DE IMPLEMENTAÇÃO
+// ============================================
+
+/*
+1. ✅ Criar projeto no Google Cloud Console
+2. ✅ Ativar Google Calendar API
+3. ✅ Criar Service Account e baixar chave JSON
+4. ✅ Converter chave para base64 e adicionar à Vercel
+5. ✅ Compartilhar calendário com email do Service Account
+6. ✅ Criar bot no Telegram (@BotFather)
+7. ✅ Adicionar bot ao grupo e pegar chat ID
+8. ✅ Configurar webhook no Meta Developers
+9. ✅ Adicionar números dos técnicos de eletrodomésticos
+10. ✅ Testar fluxo completo
+11. ✅ Configurar cron jobs na Vercel (requer plano Pro ou usar serviço externo)
+*/
+
+// ============================================
+// TELEFONES DOS TÉCNICOS - ATUALIZAR AQUI
+// ============================================
+
+/*
+Substituir no CONFIG.tecnicos:
+
+ar_condicionado: { 
+  nome: 'Técnico Ar Condicionado', 
+  telefone: '5521XXXXXXXX',  // <-- COLOQUE O NÚMERO REAL AQUI
+  email: '' 
+},
+
+lavadora: { 
+  nome: 'Técnico Lava e Seca', 
+  telefone: '5521XXXXXXXX',  // <-- COLOQUE O NÚMERO REAL AQUI
+  email: '' 
+},
+
+geladeira: { 
+  nome: 'Técnico Refrigerador', 
+  telefone: '5521XXXXXXXX',  // <-- COLOQUE O NÚMERO REAL AQUI
+  email: '' 
+}
+*/
+// ============================================
+// TRATAMENTO DE ERROS E RECUPERAÇÃO
+// ============================================
+
+// Captura erros não tratados
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  enviarTelegramAdmin(`🚨 *ERRO NÃO TRATADO*\n\`\`\`${reason}\`\`\``);
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught Exception:', error);
+  enviarTelegramAdmin(`🚨 *EXCEÇÃO CRÍTICA*\n\`\`\`${error.message}\`\`\``);
+});
+
+// ============================================
+// FUNÇÃO DE TESTE E DIAGNÓSTICO
+// ============================================
+
+async function testarConexoes() {
+  console.log('🧪 Testando conexões...');
+  
+  // Testa WhatsApp
+  if (CONFIG.whatsappToken && CONFIG.whatsappPhoneId) {
+    console.log('✅ WhatsApp configurado');
+  } else {
+    console.error('❌ WhatsApp NÃO configurado');
+  }
+  
+  // Testa Telegram
+  if (CONFIG.telegramBotToken && CONFIG.telegramChatId) {
+    console.log('✅ Telegram configurado');
+    await enviarTelegramAdmin('🤖 *Bot iniciado* - Sistema RC Reformas online');
+  } else {
+    console.error('❌ Telegram NÃO configurado');
+  }
+  
+  // Testa Google Calendar
+  if (CONFIG.googleServiceAccountKey && CONFIG.googleCalendarId) {
+    const ok = await inicializarGoogleCalendar();
+    if (ok) {
+      console.log('✅ Google Calendar conectado');
+    }
+  } else {
+    console.log('⚠️ Google Calendar não configurado (opcional)');
+  }
+}
+
+// Executa teste na primeira importação
+testarConexoes();
+
+// ============================================
+// EXPORTAÇÕES ADICIONAIS
+// ============================================
+
+export { 
+  clientes, 
+  agendamentos, 
+  conversas, 
+  intervenções,
+  enviarWhatsApp,
+  enviarTelegramAdmin,
+  gerarRelatorioDiario
+};

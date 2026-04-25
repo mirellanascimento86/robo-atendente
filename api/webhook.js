@@ -1,631 +1,1041 @@
-// ========================================================
-// webhook.js - ATENDIMENTO AUTOMÁTICO WHATSAPP (IMPECÁVEL)
-// Empresa: Conserta Rio + RC Reforma + Mab Construção
-// Versão: 1.0 - Produção Vercel - Robusto e sem erros
-// ========================================================
+// ============================================
+// RC ATENDIMENTO - ROBÔ IMPECÁVEL v2.0
+// PONTE DE COMUNICAÇÃO CLIENTE ↔ PROFISSIONAL
+// ============================================
 
-const express = require('express');
-const bodyParser = require('body-parser');
-const axios = require('axios');
-const { google } = require('googleapis');
-const cron = require('node-cron');
-const TelegramBot = require('node-telegram-bot-api');
+import { createClient } from '@supabase/supabase-js';
 
-// ==================== CONFIGURAÇÃO (Vercel Environment Variables) ====================
-const ACCESS_TOKEN = process.env.ACCESS_TOKEN;
-const PHONE_ID = process.env.PHONE_ID;
-const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
-const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
-const GOOGLE_CREDENTIALS = process.env.GOOGLE_CREDENTIALS;
-const CALENDAR_ID = process.env.CALENDAR_ID || 'primary'; // ÚNICA AGENDA GOOGLE
-
-const AC_TECH_WHATSAPP = '5521968122176';      // Ar-condicionado, lava-seca, geladeira
-const REFORM_TECH_WHATSAPP = '5521978791765'; // Marcenaria, reformas, etc.
-
-// ==================== ESTADO DAS CONVERSAS (Map em memória) ====================
-const conversations = new Map(); // from → state
-
-// ==================== ESTATÍSTICAS DIÁRIAS ====================
-let dailyStats = {
-  date: new Date().toISOString().split('T')[0],
-  newClients: 0,
-  visitsScheduled: 0,
-  servicesScheduled: 0,
-  serviceCount: {},
-  bairroCount: {},
-  proCount: {},
-  clients: []
+// ============ CONFIGURAÇÕES ============
+const CONFIG = {
+  // SUPABASE - SUBSTITUA COM SEUS DADOS
+  SUPABASE_URL: 'https://SEU-PROJETO.supabase.co',
+  SUPABASE_KEY: 'sua-chave-anon-aqui',
+  
+  // TELEGRAM
+  TELEGRAM_TOKEN: '8517608136:AAFJmE04CPd7DecwKVh_MzGA6bnGGmbT3zI',
+  TELEGRAM_CHAT_ID: '-5246111585',
+  
+  // NÚMERO DO ROBÔ
+  NUMERO_ROBO: '5521997653578',
+  
+  // PROFISSIONAIS - ADICIONE OS SEUS AQUI
+  PROFISSIONAIS: [
+    {
+      id: 'joao',
+      nome: 'João Silva',
+      telefone: '5521987654321',
+      servicos: ['Hidráulica', 'Elétrica', 'Encanamento'],
+      agenda: {}, // Será populado do banco
+      horariosPadrao: ['09:00', '11:00', '14:00', '16:00']
+    },
+    {
+      id: 'pedro',
+      nome: 'Pedro Santos',
+      telefone: '5521976543210',
+      servicos: ['Reforma', 'Construção', 'Gesso', 'Drywall'],
+      agenda: {},
+      horariosPadrao: ['08:00', '10:00', '13:00', '15:00']
+    },
+    {
+      id: 'maria',
+      nome: 'Maria Oliveira',
+      telefone: '5521965432109',
+      servicos: ['Pintura', 'Gesso', 'Textura'],
+      agenda: {},
+      horariosPadrao: ['09:30', '11:30', '14:30', '16:30']
+    }
+  ],
+  
+  // PREÇOS
+  precos: {
+    zonaSul: 180,
+    outros: 220,
+    descontoZonaSul: 90 // 50% off
+  },
+  
+  bairrosZonaSul: [
+    'ipanema', 'leblon', 'copacabana', 'botafogo', 'flamengo', 
+    'lagoa', 'gavea', 'jardim botanico', 'humaita', 'urca', 
+    'catete', 'gloria', 'laranjeiras', 'cosme velho', 'leme', 
+    'sao conrado', 'vidigal', 'rocinha'
+  ]
 };
 
-// ==================== PROFISSIONAIS ====================
-const PROFESSIONALS = {
-  repair: {
-    key: 'repair',
-    name: 'Técnico Conserta Rio',
-    whatsapp: AC_TECH_WHATSAPP,
-    fee: 180,
-    offsetMinutes: 0
-  },
-  marcenaria_joao: {
-    key: 'marcenaria_joao',
-    name: 'João',
-    whatsapp: REFORM_TECH_WHATSAPP,
-    fee: 180,
-    offsetMinutes: -60
-  },
-  marcenaria_eli: {
-    key: 'marcenaria_eli',
-    name: 'Eli',
-    whatsapp: REFORM_TECH_WHATSAPP,
-    fee: 160,
-    offsetMinutes: 0
-  },
-  reform: {
-    key: 'reform',
-    name: 'Técnico de Reformas',
-    whatsapp: REFORM_TECH_WHATSAPP,
-    fee: 180,
-    offsetMinutes: 0
-  }
-};
+// Inicializar Supabase
+const supabase = createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_KEY);
 
-// ==================== KEYWORDS PARA DETECÇÃO ====================
-const SERVICE_KEYWORDS = {
-  ar_condicionado: ['ar condicionado', 'arcondicionado', 'split', 'ar', 'condicionado'],
-  lava_seca: ['lava e seca', 'lavaseca', 'maquina lava', 'lavadora seca'],
-  geladeira: ['geladeira', 'refrigerador', 'geladeiro'],
-  marcenaria: ['marcenaria', 'carpintaria', 'armario', 'móvel', 'moveis'],
-  reforma: ['reforma', 'reformas', 'hidraulica', 'eletrica', 'pedreiro', 'pintor', 'ladrilheiro', 'construção']
-};
+// Estado em memória (rápido) + persistência no banco
+const sessoes = new Map();
+const conversasHumanas = new Set(); // Quem está com atendente humano
+const ponteComunicacao = new Map(); // numProfissional -> numCliente
 
-const COMMON_BAIRROS = [
-  'botafogo', 'copacabana', 'ipanema', 'leblon', 'flamengo', 'tijuca', 'barra da tijuca',
-  'lagoa', 'humaita', 'sao conrado', 'gavea', 'jardim botanico', 'zona sul', 'recreio',
-  'jacarepagua', 'campo grande', 'bangu', 'madureira'
-];
+// ============ UTILITÁRIOS ============
 
-const ZONA_SUL_BAIRROS = new Set([
-  'botafogo', 'copacabana', 'ipanema', 'leblon', 'flamengo', 'lagoa', 'humaita',
-  'sao conrado', 'gavea', 'jardim botanico'
-]);
+function normalizarTexto(texto) {
+  return texto.toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .trim();
+}
 
-// ==================== FUNÇÕES AUXILIARES ====================
-async function sendWhatsApp(to, text, mediaUrl = null, type = 'text') {
-  const url = `https://graph.facebook.com/v20.0/${PHONE_ID}/messages`;
-  let payload = {
-    messaging_product: 'whatsapp',
-    to,
-    type: type,
+function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function formatarTelefone(num) {
+  return num.replace(/\D/g, '').replace(/(\d{2})(\d{2})(\d{5})(\d{4})/, '+$1 ($2) $3-$4');
+}
+
+// ============ NOTIFICAÇÕES TELEGRAM ============
+
+async function notificarTelegram(mensagem, tipo = 'info') {
+  const icones = {
+    info: 'ℹ️',
+    sucesso: '✅',
+    alerta: '⚠️',
+    urgente: '🚨',
+    dinheiro: '💰',
+    novo: '🆕',
+    ponte: '🌉'
   };
-
-  if (type === 'text') {
-    payload.text = { body: text };
-  } else {
-    payload[type] = { link: mediaUrl };
-  }
-
+  
   try {
-    await axios.post(url, payload, {
-      headers: {
-        Authorization: `Bearer ${ACCESS_TOKEN}`,
-        'Content-Type': 'application/json'
-      }
+    await fetch(`https://api.telegram.org/bot${CONFIG.TELEGRAM_TOKEN}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: CONFIG.TELEGRAM_CHAT_ID,
+        text: `${icones[tipo] || 'ℹ️'} ${mensagem}`,
+        parse_mode: 'HTML'
+      })
     });
-  } catch (error) {
-    console.error(`❌ Erro ao enviar WA para ${to}:`, error.response?.data || error.message);
-  }
-}
-
-async function getMediaUrl(mediaId) {
-  try {
-    const url = `https://graph.facebook.com/v20.0/${mediaId}`;
-    const { data } = await axios.get(url, {
-      headers: { Authorization: `Bearer ${ACCESS_TOKEN}` }
-    });
-    return data.url;
   } catch (e) {
-    console.error('Erro ao obter URL da mídia:', e.message);
-    return null;
+    console.error('Erro Telegram:', e);
   }
 }
 
-function sendTelegram(message) {
-  if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) return;
-  const bot = new TelegramBot(TELEGRAM_BOT_TOKEN, { polling: false });
-  bot.sendMessage(TELEGRAM_CHAT_ID, message)
-    .catch(err => console.error('Erro Telegram:', err.message));
-}
+// ============ BANCO DE DADOS ============
 
-// ==================== GOOGLE CALENDAR (ÚNICA AGENDA) ====================
-let calendarClient = null;
-if (GOOGLE_CREDENTIALS) {
+async function salvarMensagem(numero, mensagem, tipo, metadata = {}) {
   try {
-    const auth = new google.auth.GoogleAuth({
-      credentials: JSON.parse(GOOGLE_CREDENTIALS),
-      scopes: ['https://www.googleapis.com/auth/calendar']
+    await supabase.from('mensagens').insert({
+      numero,
+      mensagem,
+      tipo, // 'cliente', 'profissional', 'robo', 'humano'
+      metadata,
+      created_at: new Date().toISOString()
     });
-    calendarClient = google.calendar({ version: 'v3', auth });
-    console.log('✅ Google Calendar conectado com sucesso');
   } catch (e) {
-    console.error('❌ Erro ao configurar Google Calendar:', e.message);
+    console.error('Erro salvar mensagem:', e);
   }
 }
 
-async function getNextFreeSlot() {
-  if (!calendarClient) {
-    // Fallback para desenvolvimento
-    const now = new Date();
-    let hour = Math.max(9, now.getHours() + 1);
-    if (hour > 18) hour = 9;
-    const start = `${hour.toString().padStart(2, '0')}:00`;
-    const end = `${(hour + 2).toString().padStart(2, '0')}:00`;
-    return { date: now.toISOString().split('T')[0], start, end };
-  }
-
-  const now = new Date();
-  const timeMin = new Date(now.getTime() + 30 * 60 * 1000).toISOString(); // +30min
-  const timeMax = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 22, 0).toISOString();
-
+async function atualizarConversa(numero, dados) {
   try {
-    const res = await calendarClient.events.list({
-      calendarId: CALENDAR_ID,
-      timeMin,
-      timeMax,
-      singleEvents: true,
-      orderBy: 'startTime'
-    });
-
-    const events = res.data.items || [];
-    let currentTime = new Date(now.getTime() + 60 * 60 * 1000); // 1h de buffer
-
-    for (const event of events) {
-      const eventStart = new Date(event.start.dateTime || event.start.date);
-      if (eventStart > currentTime) {
-        const gap = (eventStart - currentTime) / (1000 * 60 * 60);
-        if (gap >= 2) {
-          const startStr = currentTime.getHours().toString().padStart(2, '0') + ':' +
-                          currentTime.getMinutes().toString().padStart(2, '0');
-          const endStr = new Date(currentTime.getTime() + 120 * 60 * 1000).toTimeString().slice(0, 5);
-          return { date: now.toISOString().split('T')[0], start: startStr, end: endStr };
-        }
-      }
-      currentTime = new Date(event.end.dateTime || event.end.date);
-    }
-
-    // Último slot do dia
-    if (currentTime < new Date(now.getFullYear(), now.getMonth(), now.getDate(), 20, 0)) {
-      const startStr = currentTime.getHours().toString().padStart(2, '0') + ':' + currentTime.getMinutes().toString().padStart(2, '0');
-      return { date: now.toISOString().split('T')[0], start: startStr, end: '22:00' };
-    }
+    await supabase.from('conversas').upsert({
+      numero,
+      ...dados,
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'numero' });
   } catch (e) {
-    console.error('Erro ao buscar slot livre:', e.message);
+    console.error('Erro atualizar conversa:', e);
   }
-
-  return null;
 }
 
-async function createCalendarEvent(title, description, startISO, endISO) {
-  if (!calendarClient) return true;
+async function carregarAgendaProfissional(profissionalId) {
+  const hoje = new Date().toISOString().split('T')[0];
+  const { data } = await supabase
+    .from('agenda')
+    .select('*')
+    .eq('profissional_id', profissionalId)
+    .gte('data', hoje);
+  
+  return data || [];
+}
+
+async function bloquearHorario(profissionalId, data, horario, clienteNumero) {
   try {
-    await calendarClient.events.insert({
-      calendarId: CALENDAR_ID,
-      resource: {
-        summary: title,
-        description: description,
-        start: { dateTime: startISO, timeZone: 'America/Sao_Paulo' },
-        end: { dateTime: endISO, timeZone: 'America/Sao_Paulo' }
-      }
+    await supabase.from('agenda').insert({
+      profissional_id: profissionalId,
+      data,
+      horario,
+      cliente_numero: clienteNumero,
+      status: 'ocupado',
+      created_at: new Date().toISOString()
     });
     return true;
   } catch (e) {
-    console.error('Erro ao criar evento:', e.message);
+    console.error('Erro ao bloquear horário:', e);
     return false;
   }
 }
 
-// ==================== PARSER INTELIGENTE ====================
-function parseServiceAndBairro(text) {
-  const lower = text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-  let service = null;
+// ============ INTELIGÊNCIA DO ROBÔ ============
 
-  for (const [key, keywords] of Object.entries(SERVICE_KEYWORDS)) {
-    if (keywords.some(kw => lower.includes(kw))) {
-      service = key;
-      break;
-    }
+function detectarIntencao(texto) {
+  const t = normalizarTexto(texto);
+  
+  // Saudações
+  if (/^(oi|ola|olá|bom dia|boa tarde|boa noite|e ai|eae|hey|opa|tudo bem|tudo bom|como vai)/.test(t)) {
+    return 'saudacao';
   }
-
-  let bairro = null;
-  for (const b of COMMON_BAIRROS) {
-    if (lower.includes(b)) {
-      bairro = b;
-      break;
-    }
-  }
-  return { service, bairro };
-}
-
-function getProfessional(service, bairro) {
-  if (['ar_condicionado', 'lava_seca', 'geladeira'].includes(service)) {
-    return { ...PROFESSIONALS.repair };
-  }
-  if (service === 'marcenaria') {
-    // Prioriza Eli (taxa menor) quando possível
-    return Math.random() > 0.5 ? { ...PROFESSIONALS.marcenaria_eli } : { ...PROFESSIONALS.marcenaria_joao };
-  }
-  return { ...PROFESSIONALS.reform };
-}
-
-// ==================== FLUXO PRINCIPAL ROBUSTO ====================
-async function handleMessage(from, incomingText, mediaId = null) {
-  const text = incomingText || '';
-  const lowerText = text.toLowerCase();
-
-  // Novo cliente
-  if (!conversations.has(from)) {
-    dailyStats.newClients++;
-    conversations.set(from, {
-      step: 'initial',
-      service: null,
-      bairro: null,
-      pro: null,
-      fee: 0,
-      offsetMinutes: 0,
-      details: '',
-      address: '',
-      windowStart: '',
-      windowEnd: '',
-      date: new Date().toISOString().split('T')[0],
-      clientName: `Cliente_${from.slice(-4)}`,
-      mediaForwarded: false
-    });
-    await sendWhatsApp(from, 'Olá! Bem-vind(a) ao atendimento digital.\nQual serviço deseja e qual bairro?');
-    return;
-  }
-
-  const state = conversations.get(from);
-
-  // ==================== PASSO 1: INICIAL ====================
-  if (state.step === 'initial') {
-    const { service, bairro } = parseServiceAndBairro(text);
-
-    if (service && bairro) {
-      state.service = service;
-      state.bairro = bairro;
-      state.pro = getProfessional(service, bairro);
-      state.fee = state.pro.fee;
-      state.offsetMinutes = state.pro.offsetMinutes;
-      await sendWhatsApp(from, 'Gostaria de atendimento para hoje?');
-      state.step = 'waiting_today';
-    } else if (service) {
-      state.service = service;
-      state.pro = getProfessional(service, '');
-      state.fee = state.pro.fee;
-      state.offsetMinutes = state.pro.offsetMinutes;
-      await sendWhatsApp(from, 'Certo, e qual bairro gostaria?');
-      state.step = 'waiting_bairro';
-    } else if (bairro) {
-      state.bairro = bairro;
-      await sendWhatsApp(from, 'Certo, e qual serviço gostaria?');
-      state.step = 'waiting_service';
-    } else {
-      await sendWhatsApp(from, 'Preciso das informações solicitadas para prosseguir.\nQual serviço deseja e qual bairro?');
-    }
-    return;
-  }
-
-  // ==================== PASSO 2: FALTANDO BAIRRO ====================
-  if (state.step === 'waiting_bairro') {
-    const { bairro } = parseServiceAndBairro(text);
-    if (bairro) {
-      state.bairro = bairro;
-      await sendWhatsApp(from, 'Gostaria de atendimento para hoje?');
-      state.step = 'waiting_today';
-    } else {
-      await sendWhatsApp(from, 'Certo. E qual bairro?');
-    }
-    return;
-  }
-
-  // ==================== PASSO 3: FALTANDO SERVIÇO ====================
-  if (state.step === 'waiting_service') {
-    const { service } = parseServiceAndBairro(text);
-    if (service) {
-      state.service = service;
-      state.pro = getProfessional(service, state.bairro);
-      state.fee = state.pro.fee;
-      state.offsetMinutes = state.pro.offsetMinutes;
-      await sendWhatsApp(from, 'Gostaria de atendimento para hoje?');
-      state.step = 'waiting_today';
-    } else {
-      await sendWhatsApp(from, 'Certo, e qual serviço gostaria?');
-    }
-    return;
-  }
-
-  // ==================== PASSO 4: QUER ATENDIMENTO HOJE? ====================
-  if (state.step === 'waiting_today') {
-    if (lowerText.includes('sim') || lowerText.includes('hoje') || lowerText.includes('quero')) {
-      const feeMessage = `Para um orçamento mais preciso, é necessário uma visita. Há uma pequena taxa no valor de R$${state.fee}, que inclui o deslocamento do profissional e análise técnica. Caso o orçamento seja aprovado, essa taxa é descontada do valor final. Gostaria de prosseguir?`;
-      await sendWhatsApp(from, feeMessage);
-      state.step = 'waiting_visit_accept';
-    } else {
-      await sendWhatsApp(from, 'Tudo bem! Me avise quando quiser agendar.');
-    }
-    return;
-  }
-
-  // ==================== PASSO 5: ACEITA VISITA OU PEDIDO DE DESCONTO ====================
-  if (state.step === 'waiting_visit_accept') {
-    const isZonaSul = ZONA_SUL_BAIRROS.has(state.bairro) || lowerText.includes('zona sul');
-
-    if (lowerText.includes('desconto') || lowerText.includes('caro') || lowerText.includes('barato')) {
-      if (isZonaSul && state.bairro === 'botafogo') {
-        state.fee = 0;
-        await sendWhatsApp(from, 'Como o local é próximo de nós, o técnico pode realizar a visita sem a taxa. Gostaria de prosseguir?');
-        const prompt = ['ar_condicionado', 'lava_seca', 'geladeira'].includes(state.service)
-          ? 'Pode me informar o modelo e problema do aparelho?'
-          : 'Pode me explicar melhor o que deseja? Pode enviar foto ou vídeo se quiser.';
-        await sendWhatsApp(from, prompt);
-        state.step = 'waiting_details';
-      } else if (isZonaSul) {
-        const halfFee = Math.floor(state.fee / 2);
-        state.fee = halfFee;
-        await sendWhatsApp(from, `Para nós é muito importante ter você como um de nossos clientes. A visita pode ser realizada pela metade do valor, ou seja, R$${halfFee}. Esse é o valor mínimo que posso conseguir. Gostaria de prosseguir?`);
-      } else {
-        await sendWhatsApp(from, `O valor da visita é o mínimo possível (R$${state.fee}). Gostaria de prosseguir?`);
-      }
-      return;
-    }
-
-    if (lowerText.includes('sim') || lowerText.includes('aceito') || lowerText.includes('prosseguir')) {
-      state.step = 'waiting_details';
-      const prompt = ['ar_condicionado', 'lava_seca', 'geladeira'].includes(state.service)
-        ? 'Irei verificar a disponibilidade do profissional. Pode me informar o modelo e problema do aparelho?'
-        : 'Irei verificar a disponibilidade do profissional. Pode me explicar melhor o que deseja? Pode enviar foto ou vídeo se quiser.';
-      await sendWhatsApp(from, prompt);
-    } else {
-      await sendWhatsApp(from, 'Gostaria de prosseguir com a visita?');
-    }
-    return;
-  }
-
-  // ==================== PASSO 6: DETALHES DO SERVIÇO ====================
-  if (state.step === 'waiting_details') {
-    state.details = text || (mediaId ? '[Mídia enviada]' : 'Sem detalhes adicionais');
-
-    // Sempre confirma recebimento antes de buscar slot
-    await sendWhatsApp(from, 'Obrigado pelas informações! Vou verificar a disponibilidade do profissional...');
-
-    const slot = await getNextFreeSlot();
-    if (!slot) {
-      await sendWhatsApp(from, 'Desculpe, não há disponibilidade para hoje. Podemos agendar para outro dia?');
-      return;
-    }
-
-    state.windowStart = slot.start;
-    state.windowEnd = slot.end;
-
-    await sendWhatsApp(from, `O profissional possui disponibilidade para hoje entre ${slot.start} e ${slot.end}. Gostaria de agendar?`);
-    state.step = 'waiting_schedule_confirmation';
-    return;
-  }
-
-  // ==================== PASSO 7: CONFIRMAÇÃO DO HORÁRIO ====================
-  if (state.step === 'waiting_schedule_confirmation') {
-    if (lowerText.includes('sim') || lowerText.includes('agendar') || lowerText.includes('quero')) {
-      await sendWhatsApp(from, 'Perfeito! Pode me informar o endereço completo?');
-      state.step = 'waiting_address';
-    } else {
-      await sendWhatsApp(from, 'Gostaria de agendar nesse horário?');
-    }
-    return;
-  }
-
-  // ==================== PASSO 8: ENDEREÇO + AGENDAMENTO ====================
-  if (state.step === 'waiting_address') {
-    state.address = text;
-
-    // Horário ajustado para o técnico
-    let proStart = state.windowStart;
-    let proEnd = state.windowEnd;
-    if (state.offsetMinutes !== 0) {
-      const [h, m] = state.windowStart.split(':').map(Number);
-      let proTime = new Date();
-      proTime.setHours(h, m + state.offsetMinutes);
-      proStart = proTime.getHours().toString().padStart(2, '0') + ':' + proTime.getMinutes().toString().padStart(2, '0');
-
-      const [eh, em] = state.windowEnd.split(':').map(Number);
-      proTime.setHours(eh, em + state.offsetMinutes);
-      proEnd = proTime.getHours().toString().padStart(2, '0') + ':' + proTime.getMinutes().toString().padStart(2, '0');
-    }
-
-    const today = state.date;
-    const startISO = `${today}T${proStart}:00-03:00`;
-    const endISO = `${today}T${proEnd}:00-03:00`;
-
-    const title = `VISITA - ${state.service.toUpperCase()} - ${state.clientName}`;
-    const description = `Cliente: ${from}\nNome: ${state.clientName}\nServiço: ${state.service}\nBairro: ${state.bairro}\nEndereço: ${state.address}\nDetalhes: ${state.details}\nTaxa: R$${state.fee}\nJanela cliente: ${state.windowStart}–${state.windowEnd}\nJanela técnico: ${proStart}–${proEnd}`;
-
-    const success = await createCalendarEvent(title, description, startISO, endISO);
-
-    if (!success) {
-      await sendWhatsApp(from, 'Houve um erro ao agendar. Tente novamente ou fale com um atendente.');
-      return;
-    }
-
-    // Confirmação ao cliente
-    await sendWhatsApp(from, `✅ Visita agendada para dia ${today.split('-').reverse().join('/')} entre ${state.windowStart} e ${state.windowEnd} em ${state.address} com o profissional ${state.pro.name}.\n\nLembrando que a taxa da visita deve ser realizada no ato da visita.`);
-
-    // Estatísticas
-    dailyStats.visitsScheduled++;
-    dailyStats.serviceCount[state.service] = (dailyStats.serviceCount[state.service] || 0) + 1;
-    dailyStats.bairroCount[state.bairro] = (dailyStats.bairroCount[state.bairro] || 0) + 1;
-    dailyStats.proCount[state.pro.name] = (dailyStats.proCount[state.pro.name] || 0) + 1;
-    dailyStats.clients.push({ cliente: from, servico: state.service, bairro: state.bairro, pro: state.pro.name });
-
-    // Mensagem ao técnico
-    const techMessage = `🚨 NOVA VISITA AGENDADA!\nCliente: ${from}\nServiço: ${state.service}\nDetalhes: ${state.details}\nEndereço: ${state.address}\nHorário: ${proStart} - ${proEnd}\nTaxa: R$${state.fee}\nPor favor, confirme recebimento.`;
-    await sendWhatsApp(state.pro.whatsapp, techMessage);
-
-    // Encaminha mídia se houver
-    if (mediaId) {
-      const mediaUrl = await getMediaUrl(mediaId);
-      if (mediaUrl) {
-        await sendWhatsApp(state.pro.whatsapp, `📸 Mídia enviada pelo cliente ${from}`, mediaUrl, 'image');
-      }
-    }
-
-    state.step = 'visit_scheduled';
-    return;
-  }
-
-  // ==================== PÓS-VISITA (orçamento, serviço, avaliação) ====================
-  if (state.step === 'visit_scheduled') {
-    if (lowerText.includes('orçamento') || lowerText.includes('orcamento')) {
-      await sendWhatsApp(from, 'Um momento, o orçamento será analisado pelo nosso atendente.');
-      sendTelegram(`💰 Cliente ${from} solicitou orçamento.`);
-      return;
-    }
-
-    if (lowerText.includes('caro') || lowerText.includes('desconto')) {
-      await sendWhatsApp(from, 'Caso possua orçamento de outra empresa, me envie que analisarei se podemos cobrir!');
-      sendTelegram(`📨 Cliente ${from} achou o orçamento caro e enviou concorrente.`);
-      return;
-    }
-
-    if (lowerText.includes('prosseguir') || lowerText.includes('aceito') || lowerText.includes('sim')) {
-      await sendWhatsApp(from, 'Analisando agenda para realização do serviço...');
-      const slot = await getNextFreeSlot();
-      if (slot) {
-        await sendWhatsApp(from, `O profissional possui disponibilidade para o serviço dia ${slot.date.split('-').reverse().join('/')} às ${slot.start}. Lhe atenderia?`);
-        state.step = 'waiting_service_schedule';
-      } else {
-        await sendWhatsApp(from, 'Desculpe, não há disponibilidade no momento. Tente novamente mais tarde ou fale com um atendente.');
-      }
-      return;
-    }
-
-    // Avaliação após serviço
-    if (lowerText.includes('bom') || lowerText.includes('ótimo') || lowerText.includes('gostei') || lowerText.includes('excelente')) {
-      let reviewLink = 'https://share.google/iDf8oK9HV6J5Phkox'; // Conserta Rio (padrão)
-      if (state.service === 'reforma' || state.service === 'marcenaria') {
-        reviewLink = 'https://share.google/ggOWSN3tFyf1thw09'; // RC Reforma
-      }
-      await sendWhatsApp(from, `Que ótimo que gostou do serviço! 💙\nPoderia nos ajudar deixando uma avaliação rápida no Google?\n${reviewLink}`);
-      return;
-    }
-
-    // Fallback: responde qualquer mensagem não reconhecida
-    await sendWhatsApp(from, 'Entendido! Caso queira prosseguir com o serviço, é só me avisar. Se precisar de orçamento ou tiver dúvidas, estou por aqui!');
-    return;
-  }
-
-  // ==================== AGENDAMENTO DO SERVIÇO ====================
-  if (state.step === 'waiting_service_schedule') {
-    if (lowerText.includes('sim') || lowerText.includes('aceito')) {
-      const title = `SERVIÇO - ${state.service.toUpperCase()} - ${state.clientName}`;
-      const description = `Cliente: ${from}\nServiço: ${state.service}\nEndereço: ${state.address}\nDetalhes: ${state.details}`;
-      const today = state.date;
-      const startISO = `${today}T${state.windowStart}:00-03:00`;
-      const endISO = `${today}T${state.windowEnd}:00-03:00`;
-
-      await createCalendarEvent(title, description, startISO, endISO);
-
-      await sendWhatsApp(from, `✅ Serviço agendado com o profissional ${state.pro.name} dia ${today.split('-').reverse().join('/')} às ${state.windowStart}.\nAgradecemos por escolher nossa empresa!`);
-
-      sendTelegram(`🎉 SERVIÇO AGENDADO!\nCliente: ${from}\nServiço: ${state.service}\nProfissional: ${state.pro.name}`);
-
-      dailyStats.servicesScheduled++;
-      state.step = 'done';
-    } else {
-      await sendWhatsApp(from, `O horário das ${state.windowStart} não serve? Posso verificar outro horário. É só me confirmar!`);
-    }
-    return;
-  }
-
-  // ==================== FIM DO FLUXO ====================
-  if (state.step === 'done') {
-    await sendWhatsApp(from, 'Atendimento finalizado. Qualquer dúvida é só chamar!');
-  }
-}
-
-// ==================== WEBHOOK ====================
-const app = express();
-app.use(bodyParser.json({ limit: '50mb' })); // Suporte a mídias grandes
-
-// Verificação do webhook
-app.get('/webhook', (req, res) => {
-  if (req.query['hub.verify_token'] === VERIFY_TOKEN) {
-    console.log('✅ Webhook verificado com sucesso');
-    return res.send(req.query['hub.challenge']);
-  }
-  res.sendStatus(403);
-});
-
-// Recebimento de mensagens
-app.post('/webhook', async (req, res) => {
-  try {
-    const body = req.body;
-    if (!body.object || !body.entry || !body.entry[0]) {
-      return res.sendStatus(404);
-    }
-
-    const change = body.entry[0].changes?.[0];
-    if (!change || !change.value || !change.value.messages || !change.value.messages[0]) {
-      return res.sendStatus(200);
-    }
-
-    const message = change.value.messages[0];
-    const from = message.from;
-    let text = message.text?.body || '';
-    let mediaId = null;
-
-    if (message.image) mediaId = message.image.id;
-    if (message.video) mediaId = message.video.id;
-
-    if (!text && mediaId) text = '[Mídia enviada]';
-
-    await handleMessage(from, text, mediaId);
-    res.sendStatus(200);
-  } catch (error) {
-    console.error('❌ Erro no webhook:', error.message);
-    res.sendStatus(500);
-  }
-});
-
-// ==================== RELATÓRIO DIÁRIO 19:00 ====================
-cron.schedule('0 19 * * *', () => {
-  const report = `📊 RELATÓRIO DIÁRIO - ${new Date().toLocaleDateString('pt-BR')}\n\n` +
-    `👥 Novos clientes: ${dailyStats.newClients}\n` +
-    `📅 Visitas agendadas: ${dailyStats.visitsScheduled}\n` +
-    `🔧 Serviços agendados: ${dailyStats.servicesScheduled}\n\n` +
-    `📌 Serviços: ${JSON.stringify(dailyStats.serviceCount)}\n` +
-    `📍 Bairros: ${JSON.stringify(dailyStats.bairroCount)}\n` +
-    `🧑‍🔧 Profissionais: ${JSON.stringify(dailyStats.proCount)}\n\n` +
-    `Clientes: ${dailyStats.clients.map(c => `${c.cliente} (${c.servico} - ${c.bairro})`).join('\n')}`;
-
-  sendTelegram(report);
-
-  // Reset para o próximo dia
-  dailyStats = {
-    date: new Date().toISOString().split('T')[0],
-    newClients: 0,
-    visitsScheduled: 0,
-    servicesScheduled: 0,
-    serviceCount: {},
-    bairroCount: {},
-    proCount: {},
-    clients: []
+  
+  // Serviços específicos
+  const servicos = {
+    hidraulica: /hidraulica|encanamento|cano|vazamento|agua|esgoto|pia|vaso|chuveiro|torneira|ralo|descarga/,
+    eletrica: /eletrica|luz|tomada|disjuntor|fio|curto|energia|chuveiro eletrico|ventilador/,
+    pintura: /pintura|pintar|tinta|parede|latex|massa corrida|verniz/,
+    reforma: /reforma|reformar|construcao|construir|obra|casa|apartamento|reparo|conserto/,
+    gesso: /gesso|sanca|forro|drywall|divisoria|rebaixo/,
+    marcenaria: /marcenaria|marceneiro|armario|moveis|movel|porta|janela|madeira/,
+    azulejo: /azulejo|piso|ceramica|revestimento|banheiro|cozinha/,
+    pedreiro: /pedreiro|alvenaria|tijolo|cimento|concreto/fundação/
   };
-});
+  
+  for (const [servico, regex] of Object.entries(servicos)) {
+    if (regex.test(t)) return `servico_${servico}`;
+  }
+  
+  // Bairro
+  if (/(moro|fica|sou de|endereco|bairro|rua|av |avenida|apartamento|casa)/.test(t)) {
+    return 'bairro';
+  }
+  
+  // Urgência
+  if (/(hoje|agora|urgente|emergencia|preciso ja|muito urgente|vazando|quebrou|inundando)/.test(t)) {
+    return 'urgencia';
+  }
+  
+  // Confirmação
+  if (/^(sim|s|yes|ok|beleza|pode ser|tudo bem|combinado|fechado|show|top|perfeito|claro|pode|va em frente)/.test(t)) {
+    return 'confirmacao';
+  }
+  
+  // Negação
+  if (/^(nao|não|n|no|nope|depois|outro dia|outro horario|nao posso|não posso|ocupado|nao quero)/.test(t)) {
+    return 'negacao';
+  }
+  
+  // Preço
+  if (/(preco|preço|valor|custo|quanto custa|quanto fica|orcamento|barato|caro|dinheiro|pagar|taxa)/.test(t)) {
+    return 'preco';
+  }
+  
+  // Intervenção humana
+  if (/(atendente|humano|pessoa|gerente|chefe|proprietario|dono|reclamacao|problema|nao entendi|não entendi|dificil|complicado|errado|erro)/.test(t)) {
+    return 'intervencao';
+  }
+  
+  // Despedida
+  if (/(tchau|ate logo|obrigado|obrigada|valeu|flw|adeus)/.test(t)) {
+    return 'despedida';
+  }
+  
+  // Pergunta sobre visita
+  if (/(visita tecnica|visita|agendamento|marcar|horario|data|disponibilidade)/.test(t)) {
+    return 'agendamento';
+  }
+  
+  return 'generico';
+}
 
-// ==================== INICIALIZAÇÃO ====================
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`🚀 Webhook WhatsApp rodando na porta ${PORT}`);
-  console.log('✅ Sistema de atendimento automático 100% operacional e robusto');
-  console.log('📅 Relatório diário configurado para 19h');
-  console.log('🗓️  Usando única agenda Google');
-});
+function extrairServico(texto) {
+  const t = normalizarTexto(texto);
+  const servicos = ['hidraulica', 'eletrica', 'pintura', 'reforma', 'gesso', 'marcenaria', 'azulejo', 'pedreiro'];
+  
+  for (const s of servicos) {
+    if (t.includes(s)) return s;
+  }
+  return null;
+}
+
+function extrairBairro(texto) {
+  const t = normalizarTexto(texto);
+  
+  // Bairros específicos
+  const bairros = [...CONFIG.bairrosZonaSul, 'tijuca', 'madureira', 'meier', 'barra', 'recreio', 
+    'jacarepagua', 'centro', 'lapa', 'santa teresa', 'vila isabel', 'graçatiba'];
+  
+  for (const b of bairros) {
+    if (t.includes(b)) return b;
+  }
+  
+  // Tentar extrair após "bairro", "em", "na"
+  const match = texto.match(/(?:bairro|em|na|no)\s+([A-Za-zÀ-ÖØ-öø-ÿ\s]+)/i);
+  if (match) {
+    return match[1].trim().split(/[,\.]/)[0];
+  }
+  
+  return null;
+}
+
+function calcularPreco(bairro) {
+  const bairroNormalizado = normalizarTexto(bairro);
+  const isZonaSul = CONFIG.bairrosZonaSul.some(b => bairroNormalizado.includes(b));
+  
+  return {
+    valor: isZonaSul ? CONFIG.precos.zonaSul : CONFIG.precos.outros,
+    desconto: isZonaSul ? CONFIG.precos.descontoZonaSul : null,
+    isZonaSul
+  };
+}
+
+// ============ FLUXO DE ATENDIMENTO ============
+
+async function processarMensagem(numero, mensagem, isProfissional = false) {
+  // Verificar se está em intervenção humana
+  if (!isProfissional && conversasHumanas.has(numero)) {
+    await salvarMensagem(numero, mensagem, 'cliente');
+    // Notificar painel via broadcast (implementar no painel-data.js)
+    return { acao: 'intervencao', mensagem: 'Atendente humano no controle' };
+  }
+  
+  // Carregar ou criar sessão
+  let sessao = sessoes.get(numero);
+  if (!sessao) {
+    const { data } = await supabase.from('conversas').select('*').eq('numero', numero).single();
+    sessao = data || {
+      numero,
+      etapa: 'inicio',
+      dados: {},
+      historico: []
+    };
+  }
+  
+  const intencao = detectarIntencao(mensagem);
+  
+  // Salvar mensagem
+  await salvarMensagem(numero, mensagem, isProfissional ? 'profissional' : 'cliente');
+  sessao.historico.push({ tipo: 'recebida', conteudo: mensagem, hora: new Date() });
+  
+  // Se for profissional, processar como ponte de comunicação
+  if (isProfissional) {
+    return await processarProfissional(numero, mensagem, sessao);
+  }
+  
+  // Fluxo do cliente
+  let resposta = null;
+  let novaEtapa = sessao.etapa;
+  
+  switch (sessao.etapa) {
+    case 'inicio':
+      if (intencao === 'saudacao' || intencao.startsWith('servico_') || intencao === 'bairro') {
+        resposta = `Olá! Sou o assistente virtual da RC Reformas. 🏠\n\nVou te ajudar a agendar uma visita técnica. É rápido!\n\nPara começar, me informe:\n1️⃣ Qual serviço você precisa?\n2️⃣ Qual bairro você está?`;
+        novaEtapa = 'coletando_servico_bairro';
+      } else {
+        resposta = `Olá! Bem-vindo à RC Reformas. Sou o assistente virtual e vou te ajudar.\n\nQual serviço você precisa e em qual bairro? (Ex: "Preciso de pintura em Ipanema")`;
+        novaEtapa = 'coletando_servico_bairro';
+      }
+      break;
+      
+    case 'coletando_servico_bairro':
+      const servico = extrairServico(mensagem);
+      const bairro = extrairBairro(mensagem);
+      
+      if (servico) sessao.dados.servico = servico;
+      if (bairro) sessao.dados.bairro = bairro;
+      
+      if (sessao.dados.servico && sessao.dados.bairro) {
+        const preco = calcularPreco(sessao.dados.bairro);
+        sessao.dados.preco = preco;
+        
+        // Encontrar profissional
+        const profissional = CONFIG.PROFISSIONAIS.find(p => 
+          p.servicos.some(s => normalizarTexto(s).includes(sessao.dados.servico))
+        );
+        
+        if (!profissional) {
+          resposta = `No momento não temos profissional disponível para ${sessao.dados.servico} nessa região. Vou transferir para um atendente humano.`;
+          novaEtapa = 'intervencao';
+          await notificarTelegram(`🚨 Sem profissional para ${sessao.dados.servico} em ${sessao.dados.bairro}`, 'urgente');
+        } else {
+          sessao.dados.profissional = profissional;
+          
+          let msgPreco = `Perfeito! Encontrei o técnico ideal: *${profissional.nome}* 👨‍🔧\n\n`;
+          msgPreco += `Para enviar um orçamento preciso, precisamos de uma visita técnica.\n\n`;
+          
+          if (preco.isZonaSul) {
+            msgPreco += `💰 Valor da visita: R$${preco.valor}\n`;
+            msgPreco += `🎉 *Oferta especial*: 50% de desconto = R$${preco.desconto}!\n`;
+          } else {
+            msgPreco += `💰 Valor da visita: R$${preco.valor}\n`;
+          }
+          
+          msgPreco += `\n✅ Esse valor é *abatido do total* se aprovar o orçamento\n`;
+          msgPreco += `\nGostaria de agendar? (Sim/Não)`;
+          
+          resposta = msgPreco;
+          novaEtapa = 'confirmando_visita';
+        }
+      } else if (sessao.dados.servico) {
+        resposta = `Certo, serviço: *${sessao.dados.servico}* ✅\n\nAgora me informe o bairro:`;
+      } else if (sessao.dados.bairro) {
+        resposta = `Bairro: *${sessao.dados.bairro}* ✅\n\nQual serviço você precisa?`;
+      } else {
+        resposta = `Preciso saber:\n• Qual serviço?\n• Qual bairro?\n\nPode me informar ambos?`;
+      }
+      break;
+      
+    case 'confirmando_visita':
+      if (intencao === 'confirmacao' || intencao === 'urgencia') {
+        // Verificar agenda do profissional
+        const agenda = await carregarAgendaProfissional(sessao.dados.profissional.id);
+        const hoje = new Date().toLocaleDateString('pt-BR');
+        const amanha = new Date(Date.now() + 86400000).toLocaleDateString('pt-BR');
+        
+        // Filtrar horários disponíveis
+        const horariosOcupados = agenda
+          .filter(a => a.data === hoje)
+          .map(a => a.horario);
+        
+        const horariosLivres = sessao.dados.profissional.horariosPadrao
+          .filter(h => !horariosOcupados.includes(h));
+        
+        if (horariosLivres.length === 0) {
+          resposta = `O técnico está com agenda cheia para hoje. Posso verificar para amanhã (${amanha}) ou outro dia. Qual prefere?`;
+          novaEtapa = 'escolhendo_data';
+        } else {
+          sessao.dados.data = hoje;
+          let msg = `🕐 *Horários disponíveis para HOJE:*\n\n`;
+          horariosLivres.forEach((h, i) => {
+            msg += `${i + 1}️⃣ ${h}\n`;
+          });
+          msg += `\nQual horário prefere? (Digite o número)`;
+          
+          sessao.dados.horariosDisponiveis = horariosLivres;
+          resposta = msg;
+          novaEtapa = 'escolhendo_horario';
+        }
+      } else if (intencao === 'negacao') {
+        resposta = `Entendo. Posso oferecer um orçamento aproximado por foto/vídeo, mas a visita técnica garante precisão total.\n\nQuando mudar de ideia, é só chamar! 👋`;
+        novaEtapa = 'finalizado';
+      } else if (intencao === 'preco') {
+        resposta = `O valor cobre o deslocamento do profissional qualificado e a análise técnica detalhada. Se aprovar o orçamento, a visita sai de graça (valor abatido).\n\nPosso agendar?`;
+      } else {
+        resposta = `Gostaria de agendar a visita técnica? Responda *Sim* para ver horários ou *Não* se preferir orçamento online.`;
+      }
+      break;
+      
+    case 'escolhendo_data':
+      if (mensagem.toLowerCase().includes('hoje')) {
+        // Tentar hoje de novo
+        const agenda = await carregarAgendaProfissional(sessao.dados.profissional.id);
+        const hoje = new Date().toLocaleDateString('pt-BR');
+        const horariosOcupados = agenda.filter(a => a.data === hoje).map(a => a.horario);
+        const horariosLivres = sessao.dados.profissional.horariosPadrao.filter(h => !horariosOcupados.includes(h));
+        
+        if (horariosLivres.length > 0) {
+          sessao.dados.data = hoje;
+          let msg = `✅ Consegui um horário para hoje!\n\n`;
+          horariosLivres.forEach((h, i) => msg += `${i + 1}️⃣ ${h}\n`);
+          msg += `\nQual prefere?`;
+          
+          sessao.dados.horariosDisponiveis = horariosLivres;
+          resposta = msg;
+          novaEtapa = 'escolhendo_horario';
+        } else {
+          resposta = `Infelizmente hoje está realmente lotado. Amanhã tem mais disponibilidade. Pode ser?`;
+        }
+      } else if (mensagem.toLowerCase().includes('amanha') || mensagem.toLowerCase().includes('amanhã')) {
+        const amanha = new Date(Date.now() + 86400000).toLocaleDateString('pt-BR');
+        sessao.dados.data = amanha;
+        
+        let msg = `📅 *Amanhã (${amanha})* temos estes horários:\n\n`;
+        sessao.dados.profissional.horariosPadrao.forEach((h, i) => {
+          msg += `${i + 1}️⃣ ${h}\n`;
+        });
+        msg += `\nQual prefere?`;
+        
+        sessao.dados.horariosDisponiveis = sessao.dados.profissional.horariosPadrao;
+        resposta = msg;
+        novaEtapa = 'escolhendo_horario';
+      } else {
+        // Data específica
+        const dataMatch = mensagem.match(/(\d{1,2})[\/\-.](\d{1,2})/);
+        if (dataMatch) {
+          const data = `${dataMatch[1].padStart(2, '0')}/${dataMatch[2].padStart(2, '0')}/2025`;
+          sessao.dados.data = data;
+          
+          let msg = `📅 *${data}* anotado!\n\nHorários disponíveis:\n`;
+          sessao.dados.profissional.horariosPadrao.forEach((h, i) => {
+            msg += `${i + 1}️⃣ ${h}\n`;
+          });
+          msg += `\nQual prefere?`;
+          
+          sessao.dados.horariosDisponiveis = sessao.dados.profissional.horariosPadrao;
+          resposta = msg;
+          novaEtapa = 'escolhendo_horario';
+        } else {
+          resposta = `Para quando gostaria? Posso verificar:\n• Hoje (se houver cancelamento)\n• Amanhã\n• Outra data (digite DD/MM)`;
+        }
+      }
+      break;
+      
+    case 'escolhendo_horario':
+      let horarioEscolhido = null;
+      
+      // Verificar se digitou número da opção
+      const numOpcao = parseInt(mensagem);
+      if (numOpcao > 0 && numOpcao <= (sessao.dados.horariosDisponiveis?.length || 0)) {
+        horarioEscolhido = sessao.dados.horariosDisponiveis[numOpcao - 1];
+      } else {
+        // Verificar se digitou horário direto
+        const horaMatch = mensagem.match(/(\d{1,2})[:h]?(\d{2})?/);
+        if (horaMatch) {
+          horarioEscolhido = `${horaMatch[1].padStart(2, '0')}:${horaMatch[2] || '00'}`;
+        }
+      }
+      
+      if (horarioEscolhido) {
+        // Verificar se horário ainda está livre
+        const agenda = await carregarAgendaProfissional(sessao.dados.profissional.id);
+        const ocupado = agenda.some(a => a.data === sessao.dados.data && a.horario === horarioEscolhido);
+        
+        if (ocupado) {
+          resposta = `⚠️ Esse horário acabou de ser ocupado! Temos:\n`;
+          const livres = sessao.dados.horariosDisponiveis.filter(h => 
+            !agenda.some(a => a.data === sessao.dados.data && a.horario === h)
+          );
+          livres.forEach((h, i) => resposta += `${i + 1}️⃣ ${h}\n`);
+          resposta += `\nQual outro prefere?`;
+        } else {
+          sessao.dados.horario = horarioEscolhido;
+          resposta = `⏰ *${horarioEscolhido}* anotado!\n\nAgora preciso do endereço completo para confirmar:\n(Rua, número, complemento, ponto de referência)`;
+          novaEtapa = 'coletando_endereco';
+        }
+      } else {
+        resposta = `Qual horário prefere? Digite o número da opção ou o horário direto (ex: 14:00)`;
+      }
+      break;
+      
+    case 'coletando_endereco':
+      if (mensagem.length > 10 && /(rua|av|avenida|número|numero|ap|apartamento|casa)/i.test(mensagem)) {
+        sessao.dados.endereco = mensagem;
+        
+        // Resumo final
+        const d = sessao.dados;
+        resposta = `✅ *VISITA CONFIRMADA!*\n\n` +
+          `📋 *Resumo:*\n` +
+          `👤 Técnico: ${d.profissional.nome}\n` +
+          `🔧 Serviço: ${d.servico}\n` +
+          `📍 Bairro: ${d.bairro}\n` +
+          `📅 Data: ${d.data}\n` +
+          `🕐 Horário: ${d.horario}\n` +
+          `🏠 Endereço: ${d.endereco}\n` +
+          `💰 Valor visita: R$${d.preco.isZonaSul ? d.preco.desconto : d.preco.valor}\n\n` +
+          `O técnico confirmará em breve. Qualquer dúvida, estou por aqui! 👋`;
+        
+        // Bloquear na agenda
+        await bloquearHorario(d.profissional.id, d.data, d.horario, numero);
+        
+        // Notificar profissional
+        await notificarProfissional(d, numero);
+        
+        // Notificar Telegram
+        await notificarTelegram(
+          `✅ <b>NOVA VISITA</b>\n` +
+          `👤 ${formatarTelefone(numero)}\n` +
+          `🔧 ${d.servico} | ${d.bairro}\n` +
+          `📅 ${d.data} às ${d.horario}\n` +
+          `👨‍🔧 ${d.profissional.nome}`,
+          'sucesso'
+        );
+        
+        novaEtapa = 'agendado';
+      } else {
+        resposta = `Preciso do endereço completo para o técnico chegar:\n• Rua e número\n• Apartamento/bloco (se houver)\n• Ponto de referência`;
+      }
+      break;
+      
+    case 'agendado':
+      if (intencao === 'intervencao') {
+        resposta = `Vou transferir você para um atendente humano. Aguarde um momento...`;
+        novaEtapa = 'intervencao';
+        await notificarTelegram(`🚨 Cliente ${numero} pediu intervenção após agendamento`, 'alerta');
+      } else {
+        resposta = `Sua visita já está confirmada! Se precisar alterar algo, me avise. 👍`;
+      }
+      break;
+      
+    case 'intervencao':
+      resposta = null; // Não responde, atendente humano assume
+      break;
+      
+    default:
+      resposta = `Olá! Como posso ajudar?`;
+      novaEtapa = 'inicio';
+  }
+  
+  // Atualizar sessão
+  sessao.etapa = novaEtapa;
+  sessoes.set(numero, sessao);
+  
+  await atualizarConversa(numero, {
+    etapa: novaEtapa,
+    dados: sessao.dados,
+    intervencao: novaEtapa === 'intervencao'
+  });
+  
+  return { resposta, etapa: novaEtapa, dados: sessao.dados };
+}
+
+// ============ PONTE DE COMUNICAÇÃO ============
+
+async function processarProfissional(numeroProfissional, mensagem, sessaoCliente) {
+  // Identificar qual cliente está vinculado a este profissional
+  const numeroCliente = ponteComunicacao.get(numeroProfissional);
+  
+  if (!numeroCliente) {
+    // Profissional iniciou conversa, verificar se é sobre uma visita
+    // Buscar visitas pendentes deste profissional
+    const { data: visitas } = await supabase
+      .from('agenda')
+      .select('*')
+      .eq('profissional_id', sessaoCliente.dados?.profissional?.id)
+      .eq('status', 'agendada')
+      .order('created_at', { ascending: false })
+      .limit(1);
+    
+    if (visitas && visitas.length > 0) {
+      ponteComunicacao.set(numeroProfissional, visitas[0].cliente_numero);
+      // Continuar fluxo...
+    } else {
+      return { 
+        resposta: `Olá! Sou o assistente virtual. Para qual visita você está se referindo? Envie o número do cliente ou endereço.`,
+        etapa: 'aguardando_contexto'
+      };
+    }
+  }
+  
+  const t = normalizarTexto(mensagem);
+  
+  // Confirmação do profissional
+  if (/^(ok|confirmado|confirmo|vou|chegarei|estou indo|beleza|combinado)/.test(t)) {
+    // Notificar cliente
+    await enviarWhatsApp(numeroCliente, 
+      `✅ *${sessaoCliente.dados.profissional.nome} confirmou a visita!*\n` +
+      `Está tudo certo para ${sessaoCliente.dados.data} às ${sessaoCliente.dados.horario}.`
+    );
+    
+    await supabase.from('agenda')
+      .update({ status: 'confirmada' })
+      .eq('cliente_numero', numeroCliente)
+      .eq('data', sessaoCliente.dados.data);
+    
+    await notificarTelegram(
+      `✅ Profissional confirmou visita\n` +
+      `Cliente: ${numeroCliente}\n` +
+      `Data: ${sessaoCliente.dados.data} ${sessaoCliente.dados.horario}`,
+      'sucesso'
+    );
+    
+    return { resposta: 'Perfeito! Confirmado. Qualquer imprevisto, me avise.', etapa: 'confirmado' };
+  }
+  
+  // Cancelamento/recusa
+  if (/^(nao posso|não posso|cancelar|desmarcar|impedido|outro dia)/.test(t)) {
+    await enviarWhatsApp(numeroCliente,
+      `⚠️ *Atenção:* O técnico ${sessaoCliente.dados.profissional.nome} teve um imprevisto.\n` +
+      `Vou verificar outro horário para você. Um momento...`
+    );
+    
+    // Liberar horário
+    await supabase.from('agenda')
+      .update({ status: 'cancelada' })
+      .eq('cliente_numero', numeroCliente)
+      .eq('data', sessaoCliente.dados.data);
+    
+    await notificarTelegram(
+      `⚠️ Profissional CANCELOU visita\n` +
+      `Cliente: ${numeroCliente}\n` +
+      `Motivo: ${mensagem}`,
+      'alerta'
+    );
+    
+    // Tentar remarcar automaticamente
+    return await tentarRemarcar(numeroCliente, sessaoCliente);
+  }
+  
+  // Pergunta ao cliente (ponte)
+  if (/(estacionamento|portaria|elevador|predio|prédio|andar|bloco|numero|número|ap|casa|referencia)/.test(t)) {
+    // Enviar pergunta ao cliente
+    await enviarWhatsApp(numeroCliente,
+      `📢 *Pergunta do técnico ${sessaoCliente.dados.profissional.nome}:*\n` +
+      `"${mensagem}"\n\n` +
+      `Poderia responder?`
+    );
+    
+    // Marcar que estamos aguardando resposta do cliente
+    sessaoCliente.etapa = 'aguardando_resposta_cliente';
+    sessaoCliente.dados.perguntaPendente = mensagem;
+    sessoes.set(numeroCliente, sessaoCliente);
+    
+    await notificarTelegram(
+      `🌉 <b>PONTE:</b> Profissional pergunta\n` +
+      `"${mensagem}"\n` +
+      `Cliente: ${numeroCliente}`,
+      'ponte'
+    );
+    
+    return { 
+      resposta: `Pergunta enviada ao cliente. Assim que responder, te passo a resposta.`,
+      etapa: 'aguardando_cliente'
+    };
+  }
+  
+  // Resposta genérica - repassar contexto
+  return {
+    resposta: `Entendido. Vou repassar ao cliente se necessário. Precisa de mais alguma informação?`,
+    etapa: 'aguardando'
+  };
+}
+
+async function tentarRemarcar(numeroCliente, sessao) {
+  const profissional = sessao.dados.profissional;
+  const agenda = await carregarAgendaProfissional(profissional.id);
+  
+  // Buscar próximo horário livre
+  const datas = ['hoje', 'amanha', 'depois'];
+  let horarioEncontrado = null;
+  let dataEncontrada = null;
+  
+  for (const dataRef of datas) {
+    let dataStr;
+    if (dataRef === 'hoje') dataStr = new Date().toLocaleDateString('pt-BR');
+    else if (dataRef === 'amanha') dataStr = new Date(Date.now() + 86400000).toLocaleDateString('pt-BR');
+    else dataStr = new Date(Date.now() + 172800000).toLocaleDateString('pt-BR');
+    
+    const ocupados = agenda.filter(a => a.data === dataStr).map(a => a.horario);
+    const livres = profissional.horariosPadrao.filter(h => !ocupados.includes(h));
+    
+    if (livres.length > 0) {
+      dataEncontrada = dataStr;
+      horarioEncontrado = livres[0];
+      break;
+    }
+  }
+  
+  if (horarioEncontrado) {
+    await enviarWhatsApp(numeroCliente,
+      `✅ *Novo horário encontrado!*\n` +
+      `📅 ${dataEncontrada} às ${horarioEncontrado}\n` +
+      `👨‍🔧 Mesmo técnico: ${profissional.nome}\n\n` +
+      `Confirma? (Sim/Não)`
+    );
+    
+    sessao.dados.data = dataEncontrada;
+    sessao.dados.horario = horarioEncontrado;
+    sessao.etapa = 'confirmando_reagendamento';
+    sessoes.set(numeroCliente, sessao);
+    
+    return {
+      resposta: `Encontrei: ${dataEncontrada} às ${horarioEncontrado}. Aguardando confirmação do cliente.`,
+      etapa: 'aguardando_confirmacao'
+    };
+  } else {
+    await enviarWhatsApp(numeroCliente,
+      `⚠️ *Agenda lotada*\n` +
+      `Não encontrei horários disponíveis nos próximos dias.\n` +
+      `Um atendente humano entrará em contato para encontrar a melhor solução.`
+    );
+    
+    await notificarTelegram(
+      `🚨 Sem horários para remarcar\n` +
+      `Cliente: ${numeroCliente}\n` +
+      `Profissional: ${profissional.nome}`,
+      'urgente'
+    );
+    
+    return {
+      resposta: `Não encontrei horários livres. Vou solicitar intervenção humana.`,
+      etapa: 'intervencao_necessaria'
+    };
+  }
+}
+
+// ============ WHATSAPP API ============
+
+async function enviarWhatsApp(numero, mensagem) {
+  // Implementar conforme sua API atual (Meta/WhatsApp Business)
+  // Esta é uma simulação - adapte para sua API real
+  
+  console.log(`📤 ENVIANDO para ${numero}: ${mensagem.substring(0, 50)}...`);
+  
+  // Se estiver usando API oficial do Meta:
+  /*
+  await fetch(`https://graph.facebook.com/v18.0/${WHATSAPP_PHONE_ID}/messages`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${WHATSAPP_TOKEN}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      messaging_product: 'whatsapp',
+      to: numero,
+      type: 'text',
+      text: { body: mensagem }
+    })
+  });
+  */
+  
+  // Salvar no banco
+  await salvarMensagem(numero, mensagem, 'robo');
+  
+  return true;
+}
+
+async function notificarProfissional(dados, numeroCliente) {
+  const msg = `🔔 *NOVA VISITA AGENDADA*\n\n` +
+    `📅 ${dados.data} às ${dados.horario}\n` +
+    `📍 ${dados.bairro}\n` +
+    `🏠 ${dados.endereco}\n` +
+    `🔧 ${dados.servico}\n` +
+    `👤 Cliente: ${formatarTelefone(numeroCliente)}\n\n` +
+    `Responda *OK* para confirmar ou envie sua dúvida (ex: "Tem estacionamento?")`;
+  
+  await enviarWhatsApp(dados.profissional.telefone, msg);
+  
+  // Estabelecer ponte de comunicação
+  ponteComunicacao.set(dados.profissional.telefone, numeroCliente);
+  
+  // Agendar lembrete em 10 minutos se não confirmar
+  setTimeout(async () => {
+    const { data } = await supabase
+      .from('agenda')
+      .select('status')
+      .eq('cliente_numero', numeroCliente)
+      .eq('data', dados.data)
+      .single();
+    
+    if (data && data.status === 'agendada') {
+      await enviarWhatsApp(dados.profissional.telefone,
+        `⏰ *Lembrete:* Visita em ${dados.data} ${dados.horario} ainda não confirmada.\n` +
+        `Responda OK ou cancele se não puder ir.`
+      );
+      
+      await notificarTelegram(
+        `⏰ Profissional não confirmou visita\n` +
+        `Cliente: ${numeroCliente}\n` +
+        `Data: ${dados.data} ${dados.horario}`,
+        'alerta'
+      );
+    }
+  }, 10 * 60 * 1000); // 10 minutos
+}
+
+// ============ HANDLER PRINCIPAL (VERCEL) ============
+
+export default async function handler(req, res) {
+  // CORS
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  
+  try {
+    // Webhook verification (Meta)
+    if (req.method === 'GET' && req.query['hub.mode'] === 'subscribe') {
+      if (req.query['hub.verify_token'] === 'roboatendente') {
+        return res.status(200).send(req.query['hub.challenge']);
+      }
+      return res.status(403).send('Forbidden');
+    }
+    
+    // Receber mensagem
+    if (req.method === 'POST') {
+      const body = req.body;
+      
+      // Verificar se é webhook do Meta
+      if (body.object === 'whatsapp_business_account') {
+        const entry = body.entry?.[0];
+        const changes = entry?.changes?.[0]?.value;
+        
+        if (changes?.messages?.[0]) {
+          const msg = changes.messages[0];
+          const numero = msg.from;
+          const texto = msg.text?.body || '';
+          
+          // Ignorar mensagens do próprio robô
+          if (numero === CONFIG.NUMERO_ROBO) {
+            return res.status(200).send('OK');
+          }
+          
+          // Verificar se é profissional
+          const isProfissional = CONFIG.PROFISSIONAIS.some(p => 
+            numero.includes(p.telefone.replace('55', ''))
+          );
+          
+          // Processar
+          const resultado = await processarMensagem(numero, texto, isProfissional);
+          
+          // Enviar resposta se houver
+          if (resultado.resposta) {
+            await enviarWhatsApp(numero, resultado.resposta);
+          }
+          
+          return res.status(200).json({ 
+            success: true, 
+            etapa: resultado.etapa 
+          });
+        }
+      }
+      
+      // API interna para painel
+      if (req.query.acao) {
+        return await handlePainelAPI(req, res);
+      }
+    }
+    
+    // API do painel (GET)
+    if (req.method === 'GET' && req.query.acao) {
+      return await handlePainelAPI(req, res);
+    }
+    
+    res.status(200).send('OK');
+    
+  } catch (e) {
+    console.error('ERRO CRÍTICO:', e);
+    await notificarTelegram(`🚨 ERRO: ${e.message}`, 'urgente');
+    return res.status(200).send('OK'); // Sempre retornar 200 para WhatsApp
+  }
+}
+
+// ============ API DO PAINEL ============
+
+async function handlePainelAPI(req, res) {
+  const { acao } = req.query;
+  
+  switch (acao) {
+    case 'listar': {
+      // Listar todas as conversas ativas
+      const { data: conversas } = await supabase
+        .from('conversas')
+        .select('*')
+        .order('updated_at', { ascending: false })
+        .limit(50);
+      
+      const { data: mensagensRecentes } = await supabase
+        .from('mensagens')
+        .select('numero, mensagem, created_at')
+        .order('created_at', { ascending: false })
+        .limit(100);
+      
+      // Agrupar última mensagem por conversa
+      const ultimasMsgs = {};
+      mensagensRecentes?.forEach(m => {
+        if (!ultimasMsgs[m.numero]) {
+          ultimasMsgs[m.numero] = m;
+        }
+      });
+      
+      const resultado = conversas?.map(c => ({
+        telefone: c.numero,
+        nome: c.dados?.nome || 'Cliente',
+        etapa: c.etapa,
+        intervencao: c.intervencao || conversasHumanas.has(c.numero),
+        ultima: ultimasMsgs[c.numero]?.mensagem?.substring(0, 50) || '...',
+        ultimaAtividade: new Date(c.updated_at).getTime(),
+        dados: c.dados
+      })) || [];
+      
+      return res.status(200).json(resultado);
+    }
+    
+    case 'mensagens': {
+      const { telefone } = req.query;
+      const { data: mensagens } = await supabase
+        .from('mensagens')
+        .select('*')
+        .eq('numero', telefone)
+        .order('created_at', { ascending: true })
+        .limit(200);
+      
+      const formatadas = mensagens?.map(m => ({
+        tipo: m.tipo,
+        texto: m.mensagem,
+        hora: new Date(m.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+        nome: m.tipo === 'cliente' ? 'Cliente' : 
+              m.tipo === 'profissional' ? 'Técnico' : 
+              m.tipo === 'humano' ? 'Você' : 'Robô'
+      })) || [];
+      
+      return res.status(200).json(formatadas);
+    }
+    
+    case 'intervir': {
+      const { telefone } = req.body;
+      conversasHumanas.add(telefone);
+      
+      await supabase.from('conversas')
+        .update({ intervencao: true })
+        .eq('numero', telefone);
+      
+      // Notificar cliente
+      await enviarWhatsApp(telefone, 
+        '👋 Olá! Sou o atendente humano. Acabei de assumir nossa conversa. Como posso ajudar?'
+      );
+      
+      await notificarTelegram(`👤 Assumiu conversa: ${telefone}`, 'info');
+      
+      return res.status(200).json({ ok: true });
+    }
+    
+    case 'liberar': {
+      const { telefone } = req.body;
+      conversasHumanas.delete(telefone);
+      
+      await supabase.from('conversas')
+        .update({ intervencao: false })
+        .eq('numero', telefone);
+      
+      // Resetar sessão
+      const sessao = sessoes.get(telefone);
+      if (sessao) {
+        sessao.etapa = 'inicio';
+        sessao.dados = {};
+        sessoes.set(telefone, sessao);
+      }
+      
+      await enviarWhatsApp(telefone,
+        '✅ Vou passar você de volta para nosso assistente virtual. Ele continuará te ajudando!'
+      );
+      
+      return res.status(200).json({ ok: true });
+    }
+    
+    case 'enviar': {
+      const { telefone, mensagem } = req.body;
+      
+      await enviarWhatsApp(telefone, mensagem);
+      
+      // Salvar como mensagem humana
+      await salvarMensagem(telefone, mensagem, 'humano');
+      
+      return res.status(200).json({ ok: true });
+    }
+    
+    case 'estatisticas': {
+      const hoje = new Date().toISOString().split('T')[0];
+      
+      const [visitas, mensagens, pendentes] = await Promise.all([
+        supabase.from('agenda').select('*').gte('created_at', hoje),
+        supabase.from('mensagens').select('*').gte('created_at', hoje),
+        supabase.from('agenda').select('*').eq('status', 'agendada')
+      ]);
+      
+      return res.status(200).json({
+        visitasHoje: visitas.data?.length || 0,
+        mensagensHoje: mensagens.data?.length || 0,
+        pendentes: pendentes.data?.length || 0,
+        humanosAtivos: conversasHumanas.size
+      });
+    }
+    
+    default:
+      return res.status(400).json({ erro: 'Ação desconhecida' });
+  }
+}

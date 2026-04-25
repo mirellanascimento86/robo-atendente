@@ -395,6 +395,9 @@ async function handleMessage(from, incomingText, mediaId = null) {
   if (state.step === 'waiting_details') {
     state.details = text || (mediaId ? '[Mídia enviada]' : 'Sem detalhes adicionais');
 
+    // Sempre confirma recebimento antes de buscar slot
+    await sendWhatsApp(from, 'Obrigado pelas informações! Vou verificar a disponibilidade do profissional...');
+
     const slot = await getNextFreeSlot();
     if (!slot) {
       await sendWhatsApp(from, 'Desculpe, não há disponibilidade para hoje. Podemos agendar para outro dia?');
@@ -498,6 +501,8 @@ async function handleMessage(from, incomingText, mediaId = null) {
       if (slot) {
         await sendWhatsApp(from, `O profissional possui disponibilidade para o serviço dia ${slot.date.split('-').reverse().join('/')} às ${slot.start}. Lhe atenderia?`);
         state.step = 'waiting_service_schedule';
+      } else {
+        await sendWhatsApp(from, 'Desculpe, não há disponibilidade no momento. Tente novamente mais tarde ou fale com um atendente.');
       }
       return;
     }
@@ -512,8 +517,9 @@ async function handleMessage(from, incomingText, mediaId = null) {
       return;
     }
 
-    // Silêncio / fallback
-    await sendWhatsApp(from, 'Vamos prosseguir?');
+    // Fallback: responde qualquer mensagem não reconhecida
+    await sendWhatsApp(from, 'Entendido! Caso queira prosseguir com o serviço, é só me avisar. Se precisar de orçamento ou tiver dúvidas, estou por aqui!');
+    return;
   }
 
   // ==================== AGENDAMENTO DO SERVIÇO ====================
@@ -533,7 +539,10 @@ async function handleMessage(from, incomingText, mediaId = null) {
 
       dailyStats.servicesScheduled++;
       state.step = 'done';
+    } else {
+      await sendWhatsApp(from, `O horário das ${state.windowStart} não serve? Posso verificar outro horário. É só me confirmar!`);
     }
+    return;
   }
 
   // ==================== FIM DO FLUXO ====================
@@ -620,4 +629,3 @@ app.listen(PORT, () => {
   console.log('📅 Relatório diário configurado para 19h');
   console.log('🗓️  Usando única agenda Google');
 });
-```    offset

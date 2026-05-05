@@ -1,37 +1,21 @@
-// ============================================================
-// WEBHOOK WHATSAPP PRO - RC REFORMA E CONSTRUCAO
-// MongoDB + Backup Email + Persistencia Total
-// ============================================================
-
-import { MongoClient } from 'mongodb';
-import nodemailer from 'nodemailer';
+// ============================================
+// WEBHOOK WHATSAPP - RC REFORMA E CONSTRUCAO
+// Versao com PAINEL DE INTERVENCAO - CORRIGIDA
+// ============================================
 
 // CONFIGURACAO
 const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
 const WHATSAPP_PHONE_ID = process.env.WHATSAPP_PHONE_ID;
-const VERIFY_TOKEN = process.env.VERIFY_TOKEN || 'roboatendente';
-const MONGODB_URI = process.env.MONGODB_URI;
-const EMAIL_USER = process.env.EMAIL_USER;      // ex: seuemail@gmail.com
-const EMAIL_PASS = process.env.EMAIL_PASS;      // senha de app do Gmail
-const EMAIL_BACKUP = process.env.EMAIL_BACKUP;  // email que recebe backup
+const VERIFY_TOKEN = 'roboatendente';
 
-// Conexao MongoDB
-let client = null;
-let db = null;
+// ============================================
+// MEMORIA DO SISTEMA
+// ============================================
+const conversas = new Map();
 
-async function getDb() {
-  if (!client) {
-    client = new MongoClient(MONGODB_URI);
-    await client.connect();
-    db = client.db('whatsapp_pro');
-    console.log('[DB] Conectado ao MongoDB');
-  }
-  return db;
-}
-
-// ============================================================
+// ============================================
 // HANDLER PRINCIPAL
-// ============================================================
+// ============================================
 
 export default async function handler(req, res) {
   // CORS
@@ -39,14 +23,15 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
-  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
 
   try {
-    const db = await getDb();
-    const conversasCol = db.collection('conversas');
     const { action } = req.query;
+    console.log(`[WEBHOOK] ${req.method} action=${action} query=`, req.query);
 
-    // ===== 1. VERIFICACAO WEBHOOK META =====
+    // ===== 1. VERIFICACAO DO WEBHOOK (Meta) =====
     if (req.method === 'GET' && req.query['hub.mode'] === 'subscribe') {
       if (req.query['hub.verify_token'] === VERIFY_TOKEN) {
         return res.status(200).send(req.query['hub.challenge']);
@@ -58,38 +43,27 @@ export default async function handler(req, res) {
 
     // LISTAR CONVERSAS
     if (action === 'list') {
-      const lista = await conversasCol
-        .find({}, { projection: { mensagens: { $slice: -1 } } })
-        .sort({ ultimaAtividade: -1 })
-        .limit(200)
-        .toArray();
+      const lista = Array.from(conversas.values())
+        .sort((a, b) => new Date(b.ultimaAtividade || 0) - new Date(a.ultimaAtividade || 0));
 
-      // Formatar para o painel
-      const formatadas = lista.map(c => ({
-        telefone: c.telefone,
-        nome: c.nome,
-        emIntervencao: c.emIntervencao || false,
-        etapa: c.etapa || 'novo',
-        ultimaAtividade: c.ultimaAtividade,
-        ultima: c.ultima || 'Sem mensagens',
-        mensagens: c.mensagens || []
-      }));
-
-      return res.status(200).json({ conversas: formatadas });
+      console.log(`[LIST] Retornando ${lista.length} conversas`);
+      return res.status(200).json({ conversas: lista });
     }
 
-    // BUSCAR MENSAGENS COMPLETAS
+    // BUSCAR MENSAGENS
     if (action === 'messages') {
       const phone = req.query.phone;
-      const conv = await conversasCol.findOne({ telefone: phone });
+      const conv = conversas.get(phone);
 
       if (!conv) {
+        console.log(`[MESSAGES] Conversa nao encontrada: ${phone}`);
         return res.status(404).json({ erro: 'Conversa nao encontrada' });
       }
 
+      console.log(`[MESSAGES] ${phone} - ${conv.mensagens?.length || 0} msgs, intervencao=${conv.emIntervencao}`);
       return res.status(200).json({ 
         mensagens: conv.mensagens || [],
-        emIntervencao: conv.emIntervencao || false,
+        emIntervencao: conv.emIntervencao,
         telefone: conv.telefone,
         nome: conv.nome
       });
@@ -98,50 +72,60 @@ export default async function handler(req, res) {
     // ASSUMIR CONTROLE
     if (action === 'intervene' && req.method === 'POST') {
       const { phone } = req.body;
+      console.log(`[INTERVENE] Recebido phone=${phone}`);
 
-      await conversasCol.updateOne(
-        { telefone: phone },
-        { 
-          $set: { 
-            emIntervencao: true,
-            ultimaAtividade: new Date().toISOString()
-          },
-          $push: {
-            mensagens: {
-              tipo: 'system',
-              mensagem: '⚡ Humano assumiu o controle',
-              data: new Date().toISOString(),
-              nome: 'Sistema'
-            }
-          }
-        },
-        { upsert: true }
-      );
+      const conv = conversas.get(phone);
 
-      return res.status(200).json({ ok: true, emIntervencao: true });
+      if (!conv) {
+        console.log(`[INTERVENE] Conversa nao existe, criando...`);
+        conversas.set(phone, {
+          telefone: phone,
+          nome: 'Cliente',
+          mensagens: [],
+          emIntervencao: true,
+          etapa: 'intervencao',
+          ultimaAtividade: new Date().toISOString(),
+          ultima: 'Intervencao iniciada'
+        });
+      } else {
+        conv.emIntervencao = true;
+        conv.ultimaAtividade = new Date().toISOString();
+        conv.mensagens.push({
+          tipo: 'system',
+          mensagem: '⚡ Humano assumiu o controle',
+          data: new Date().toISOString(),
+          nome: 'Sistema'
+        });
+        console.log(`[INTERVENE] Conversa ${phone} agora emIntervencao=true`);
+      }
+
+      const convAtual = conversas.get(phone);
+      return res.status(200).json({ 
+        ok: true, 
+        emIntervencao: true,
+        telefone: phone,
+        confirmado: convAtual.emIntervencao
+      });
     }
 
     // LIBERAR ROBO
     if (action === 'release' && req.method === 'POST') {
       const { phone } = req.body;
+      console.log(`[RELEASE] phone=${phone}`);
 
-      await conversasCol.updateOne(
-        { telefone: phone },
-        { 
-          $set: { 
-            emIntervencao: false,
-            ultimaAtividade: new Date().toISOString()
-          },
-          $push: {
-            mensagens: {
-              tipo: 'system',
-              mensagem: '🤖 Robo retomou o atendimento',
-              data: new Date().toISOString(),
-              nome: 'Sistema'
-            }
-          }
-        }
-      );
+      const conv = conversas.get(phone);
+
+      if (conv) {
+        conv.emIntervencao = false;
+        conv.ultimaAtividade = new Date().toISOString();
+        conv.mensagens.push({
+          tipo: 'system',
+          mensagem: '🤖 Robo retomou o atendimento',
+          data: new Date().toISOString(),
+          nome: 'Sistema'
+        });
+        console.log(`[RELEASE] Conversa ${phone} emIntervencao=false`);
+      }
 
       return res.status(200).json({ ok: true, emIntervencao: false });
     }
@@ -149,10 +133,13 @@ export default async function handler(req, res) {
     // ENVIAR MENSAGEM MANUAL
     if (action === 'send' && req.method === 'POST') {
       const { phone, message } = req.body;
+      console.log(`[SEND] phone=${phone} message="${message?.substring(0,30)}..."`);
 
-      const conv = await conversasCol.findOne({ telefone: phone });
+      const conv = conversas.get(phone);
 
+      // VERIFICACAO CRITICA: so envia se estiver em intervencao
       if (!conv || !conv.emIntervencao) {
+        console.log(`[SEND] BLOQUEADO - emIntervencao=${conv?.emIntervencao}`);
         return res.status(403).json({ 
           ok: false, 
           erro: 'Nao esta em intervencao',
@@ -160,158 +147,118 @@ export default async function handler(req, res) {
         });
       }
 
+      // Envia pelo WhatsApp API
       const enviado = await enviarWhatsApp(phone, message);
 
       if (enviado) {
-        await conversasCol.updateOne(
-          { telefone: phone },
-          {
-            $push: {
-              mensagens: {
-                tipo: 'humano',
-                mensagem: message,
-                data: new Date().toISOString(),
-                nome: 'Atendente'
-              }
-            },
-            $set: {
-              ultima: message,
-              ultimaAtividade: new Date().toISOString()
-            }
-          }
-        );
+        conv.mensagens.push({
+          tipo: 'humano',
+          mensagem: message,
+          data: new Date().toISOString(),
+          nome: 'Atendente'
+        });
+        conv.ultima = message;
+        conv.ultimaAtividade = new Date().toISOString();
+        console.log(`[SEND] Mensagem enviada e salva`);
       }
 
       return res.status(200).json({ ok: enviado });
     }
 
-    // BACKUP MANUAL
-    if (action === 'backup' && req.method === 'POST') {
-      const { email } = req.body;
-      const resultado = await fazerBackup(email || EMAIL_BACKUP);
-      return res.status(200).json({ ok: resultado });
-    }
-
-    // EXPORTAR CONVERSA
-    if (action === 'export' && req.method === 'GET') {
-      const phone = req.query.phone;
-      const conv = await conversasCol.findOne({ telefone: phone });
-
-      if (!conv) return res.status(404).json({ erro: 'Nao encontrado' });
-
-      const csv = converterParaCSV(conv.mensagens || []);
-      res.setHeader('Content-Type', 'text/csv');
-      res.setHeader('Content-Disposition', `attachment; filename="conversa_${phone}.csv"`);
-      return res.status(200).send(csv);
-    }
-
     // ===== 3. RECEBER MENSAGEM DO WHATSAPP =====
     if (req.method === 'POST' && !action) {
       res.status(200).send('OK');
-      processarMensagem(req.body, conversasCol).catch(console.error);
+
+      processarMensagem(req.body).catch(err => {
+        console.error('Erro ao processar:', err);
+      });
+
       return;
     }
 
-    res.status(200).send('Webhook RC Reforma Pro - OK');
+    res.status(200).send('Webhook RC Reforma - OK');
 
   } catch (e) {
-    console.error('ERRO:', e);
+    console.error('ERRO GERAL:', e.message);
     res.status(200).send('OK');
   }
 }
 
-// ============================================================
+// ============================================
 // PROCESSAR MENSAGEM RECEBIDA
-// ============================================================
+// ============================================
 
-async function processarMensagem(body, conversasCol) {
+async function processarMensagem(body) {
   if (!body || body.object !== 'whatsapp_business_account') return;
 
   const entry = body.entry?.[0];
   const changes = entry?.changes?.[0]?.value;
   if (!changes) return;
+
   if (changes.statuses) return;
 
   const msg = changes.messages?.[0];
   if (!msg) return;
-  if (msg.type !== 'text') return;
 
   const telefone = msg.from;
   const nome = changes.contacts?.[0]?.profile?.name || 'Cliente';
+
+  if (msg.type !== 'text') return;
+
   const texto = msg.text.body;
-  const agora = new Date().toISOString();
 
-  console.log(`[RECEBIDO] ${telefone} (${nome}): ${texto.substring(0, 60)}`);
-
-  // Buscar ou criar conversa no MongoDB
-  let conv = await conversasCol.findOne({ telefone: telefone });
-
-  if (!conv) {
-    conv = {
+  // CRIAR/ATUALIZAR CONVERSA
+  if (!conversas.has(telefone)) {
+    conversas.set(telefone, {
       telefone: telefone,
       nome: nome,
       mensagens: [],
       emIntervencao: false,
       etapa: 'novo',
-      ultimaAtividade: agora,
-      ultima: '',
-      criadoEm: agora
-    };
-    await conversasCol.insertOne(conv);
+      ultimaAtividade: new Date().toISOString(),
+      ultima: ''
+    });
   }
 
-  // Adicionar mensagem do cliente
-  const mensagemCliente = {
+  const conv = conversas.get(telefone);
+
+  // ADICIONAR MENSAGEM DO CLIENTE
+  conv.mensagens.push({
     tipo: 'cliente',
     mensagem: texto,
-    data: agora,
+    data: new Date().toISOString(),
     nome: nome
-  };
+  });
 
-  await conversasCol.updateOne(
-    { telefone: telefone },
-    {
-      $push: { mensagens: mensagemCliente },
-      $set: {
-        nome: nome,
-        ultima: texto,
-        ultimaAtividade: agora
-      }
-    }
-  );
+  conv.ultima = texto;
+  conv.ultimaAtividade = new Date().toISOString();
 
-  // Se nao estiver em intervencao, responde automaticamente
+  console.log(`[RECEBIDO] ${telefone} (${nome}): ${texto.substring(0,50)}`);
+  console.log(`[ESTADO] emIntervencao=${conv.emIntervencao}`);
+
+  // SE NAO ESTIVER EM INTERVENCAO, RESPONDE AUTOMATICAMENTE
   if (!conv.emIntervencao) {
     const resposta = gerarResposta(texto.toLowerCase(), nome);
-    const enviado = await enviarWhatsApp(telefone, resposta);
+    await enviarWhatsApp(telefone, resposta);
 
-    if (enviado) {
-      await conversasCol.updateOne(
-        { telefone: telefone },
-        {
-          $push: {
-            mensagens: {
-              tipo: 'bot',
-              mensagem: resposta,
-              data: new Date().toISOString(),
-              nome: 'Robo'
-            }
-          },
-          $set: {
-            ultima: resposta,
-            ultimaAtividade: new Date().toISOString()
-          }
-        }
-      );
-    }
+    conv.mensagens.push({
+      tipo: 'bot',
+      mensagem: resposta,
+      data: new Date().toISOString(),
+      nome: 'Robo'
+    });
+
+    conv.ultima = resposta;
+    conv.ultimaAtividade = new Date().toISOString();
+    console.log(`[BOT] Resposta automatica enviada`);
   } else {
     console.log(`[BOT] BLOQUEADO - conversa em intervencao humana`);
   }
 }
 
-// ============================================================
+// ============================================
 // GERAR RESPOSTA
-// ============================================================
+// ============================================
 
 function gerarResposta(texto, nome) {
   if (texto.match(/(oi|ola|bom dia|boa tarde|boa noite|hey|eai)/)) {
@@ -379,9 +326,9 @@ Para agilizar seu atendimento, me diga:
 Ou pergunte sobre precos, horarios ou servicos disponiveis.`;
 }
 
-// ============================================================
+// ============================================
 // ENVIAR MENSAGEM PELO WHATSAPP
-// ============================================================
+// ============================================
 
 async function enviarWhatsApp(numero, texto) {
   if (!WHATSAPP_TOKEN || !WHATSAPP_PHONE_ID) {
@@ -414,70 +361,11 @@ async function enviarWhatsApp(numero, texto) {
       return false;
     }
 
+    console.log('Mensagem enviada para', numero);
     return true;
+
   } catch (e) {
     console.error('Erro ao enviar:', e.message);
     return false;
   }
-}
-
-// ============================================================
-// BACKUP POR EMAIL
-// ============================================================
-
-async function fazerBackup(emailDestino) {
-  if (!EMAIL_USER || !EMAIL_PASS || !emailDestino) {
-    console.log('[BACKUP] Email nao configurado');
-    return false;
-  }
-
-  try {
-    const db = await getDb();
-    const conversasCol = db.collection('conversas');
-    const todas = await conversasCol.find({}).toArray();
-
-    // Criar CSV
-    let csv = 'Telefone,Nome,Data,Ultima Mensagem,Em Intervencao\n';
-    todas.forEach(c => {
-      csv += `"${c.telefone}","${c.nome || ''}","${c.ultimaAtividade || ''}","${(c.ultima || '').replace(/"/g, '""')}","${c.emIntervencao ? 'SIM' : 'NAO'}"\n`;
-    });
-
-    // Enviar email
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: EMAIL_USER,
-        pass: EMAIL_PASS
-      }
-    });
-
-    await transporter.sendMail({
-      from: EMAIL_USER,
-      to: emailDestino,
-      subject: `Backup WhatsApp Pro - ${new Date().toLocaleDateString('pt-BR')}`,
-      text: `Backup automatico do WhatsApp Pro.\nTotal de conversas: ${todas.length}\nData: ${new Date().toLocaleString('pt-BR')}`,
-      attachments: [{
-        filename: `backup_whatsapp_${new Date().toISOString().split('T')[0]}.csv`,
-        content: csv
-      }]
-    });
-
-    console.log('[BACKUP] Enviado para', emailDestino);
-    return true;
-  } catch (e) {
-    console.error('[BACKUP] Erro:', e.message);
-    return false;
-  }
-}
-
-function converterParaCSV(mensagens) {
-  let csv = 'Data,Tipo,Remetente,Mensagem\n';
-  mensagens.forEach(m => {
-    const data = new Date(m.data).toLocaleString('pt-BR');
-    const tipo = m.tipo || 'desconhecido';
-    const nome = m.nome || '';
-    const msg = (m.mensagem || '').replace(/"/g, '""');
-    csv += `"${data}","${tipo}","${nome}","${msg}"\n`;
-  });
-  return csv;
 }

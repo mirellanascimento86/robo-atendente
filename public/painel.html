@@ -13,7 +13,7 @@
             -webkit-tap-highlight-color: transparent;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
         }
-        
+
         :root {
             --primary: #075e54;
             --primary-dark: #054d44;
@@ -30,7 +30,7 @@
             --danger: #f15c6d;
             --warning: #ffd700;
         }
-        
+
         body {
             background: var(--bg);
             color: var(--text);
@@ -38,7 +38,7 @@
             height: 100dvh;
             overflow: hidden;
         }
-        
+
         #loading {
             position: fixed;
             inset: 0;
@@ -62,7 +62,7 @@
         }
         @keyframes spin { to { transform: rotate(360deg); } }
         #loading p { color: white; font-size: 16px; }
-        
+
         #debugPanel {
             position: fixed;
             top: 0;
@@ -78,13 +78,13 @@
             overflow-y: auto;
         }
         #debugPanel.show { display: block; }
-        
+
         #app {
             display: flex;
             height: 100%;
             width: 100%;
         }
-        
+
         .sidebar {
             width: 100%;
             height: 100%;
@@ -93,12 +93,12 @@
             flex-direction: column;
             transition: transform 0.3s ease;
         }
-        
+
         .sidebar.hidden-mobile {
             transform: translateX(-100%);
             position: absolute;
         }
-        
+
         @media (min-width: 900px) {
             .sidebar {
                 width: 380px;
@@ -111,7 +111,7 @@
                 position: relative;
             }
         }
-        
+
         .header {
             background: var(--sidebar-bg);
             padding: 12px 16px;
@@ -132,7 +132,7 @@
             gap: 8px;
             align-items: center;
         }
-        
+
         .icon-btn {
             width: 40px;
             height: 40px;
@@ -148,7 +148,7 @@
         }
         .icon-btn:hover { background: rgba(255,255,255,0.1); color: var(--text); }
         .icon-btn svg { width: 24px; height: 24px; }
-        
+
         .connection-badge {
             font-size: 11px;
             padding: 4px 10px;
@@ -158,7 +158,7 @@
             font-weight: 600;
         }
         .connection-badge.offline { background: var(--danger); }
-        
+
         .search-container {
             padding: 8px 12px;
             background: var(--sidebar-bg);
@@ -181,14 +181,14 @@
             outline: none;
         }
         .search-box input::placeholder { color: var(--text-secondary); }
-        
+
         .chat-list {
             flex: 1;
             overflow-y: auto;
             overflow-x: hidden;
             padding: 8px 0;
         }
-        
+
         .chat-item {
             display: flex;
             align-items: center;
@@ -200,7 +200,7 @@
         }
         .chat-item:hover { background: rgba(255,255,255,0.05); }
         .chat-item.active { background: #2a3942; }
-        
+
         .chat-avatar {
             width: 52px;
             height: 52px;
@@ -215,7 +215,7 @@
             margin-right: 14px;
             flex-shrink: 0;
         }
-        
+
         .chat-info {
             flex: 1;
             min-width: 0;
@@ -239,7 +239,7 @@
             color: var(--accent);
             flex-shrink: 0;
         }
-        
+
         .chat-preview {
             display: flex;
             align-items: center;
@@ -250,7 +250,7 @@
             overflow: hidden;
             text-overflow: ellipsis;
         }
-        
+
         .status-indicator {
             display: inline-flex;
             align-items: center;
@@ -263,7 +263,7 @@
         }
         .status-indicator.bot { background: rgba(37, 211, 102, 0.15); color: var(--accent); }
         .status-indicator.human { background: rgba(241, 92, 109, 0.15); color: var(--danger); }
-        
+
         .chat-area {
             flex: 1;
             display: none;
@@ -273,12 +273,12 @@
             height: 100%;
         }
         .chat-area.active { display: flex; }
-        
+
         @media (min-width: 900px) {
             .chat-area { display: flex; }
             .chat-area:not(.has-chat) .chat-placeholder { display: flex; }
         }
-        
+
         .chat-header {
             background: var(--sidebar-bg);
             padding: 10px 16px;
@@ -288,7 +288,7 @@
             border-bottom: 1px solid var(--border);
             min-height: 60px;
         }
-        
+
         .chat-header-info {
             display: flex;
             align-items: center;
@@ -296,7 +296,7 @@
             flex: 1;
             min-width: 0;
         }
-        
+
         .back-btn {
             width: 40px;
             height: 40px;
@@ -312,7 +312,7 @@
             margin: -8px;
         }
         @media (min-width: 900px) { .back-btn { display: none; } }
-        
+
         .chat-title { flex: 1; min-width: 0; }
         .chat-title h3 {
             font-size: 17px;
@@ -326,12 +326,12 @@
             font-size: 13px;
             color: var(--text-secondary);
         }
-        
+
         .chat-actions {
             display: flex;
             gap: 8px;
         }
-        
+
         .action-btn {
             padding: 10px 20px;
             border: none;
@@ -348,7 +348,7 @@
         .action-btn.intervene { background: var(--danger); color: white; }
         .action-btn.release { background: var(--accent); color: #111; }
         .action-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-        
+
         .intervention-banner {
             background: linear-gradient(90deg, var(--danger), #ff6b6b);
             color: white;
@@ -362,7 +362,7 @@
             gap: 8px;
         }
         .intervention-banner.active { display: flex; }
-        
+
         .messages-container {
             flex: 1;
             overflow-y: auto;
@@ -373,7 +373,7 @@
             gap: 2px;
             background-image: url("data:image/svg+xml,%3Csvg width='400' height='400' viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 0h400v400H0z' fill='%230a1014'/%3E%3Cpath d='M0 0h400v400H0z' fill='none' stroke='%23111b21' stroke-width='2'/%3E%3C/svg%3E");
         }
-        
+
         .message {
             max-width: 85%;
             padding: 8px 12px;
@@ -388,7 +388,7 @@
             from { opacity: 0; transform: translateY(20px) scale(0.9); }
             to { opacity: 1; transform: translateY(0) scale(1); }
         }
-        
+
         .message.incoming {
             background: var(--incoming);
             align-self: flex-start;
@@ -412,9 +412,9 @@
             text-align: center;
             border: 1px solid rgba(255, 193, 7, 0.3);
         }
-        
+
         .message-content { margin-bottom: 4px; }
-        
+
         .message-meta {
             display: flex;
             align-items: center;
@@ -425,7 +425,7 @@
             margin-top: 2px;
         }
         .message.outgoing .message-meta { color: #a5f3c5; }
-        
+
         .date-separator {
             align-self: center;
             background: #1e2a30;
@@ -438,7 +438,7 @@
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
-        
+
         .input-container {
             background: var(--sidebar-bg);
             padding: 10px 16px;
@@ -447,7 +447,7 @@
             gap: 10px;
             border-top: 1px solid var(--border);
         }
-        
+
         .input-wrapper {
             flex: 1;
             background: #2a3942;
@@ -456,7 +456,7 @@
             max-height: 120px;
             overflow-y: auto;
         }
-        
+
         .input-wrapper input {
             width: 100%;
             border: none;
@@ -468,7 +468,7 @@
         }
         .input-wrapper input::placeholder { color: var(--text-secondary); }
         .input-wrapper input:disabled { opacity: 0.5; }
-        
+
         .send-btn {
             width: 48px;
             height: 48px;
@@ -487,7 +487,7 @@
         .send-btn:active:not(:disabled) { transform: scale(0.95); }
         .send-btn:disabled { background: #374248; cursor: not-allowed; }
         .send-btn svg { width: 24px; height: 24px; margin-left: 2px; }
-        
+
         .chat-placeholder {
             display: none;
             flex-direction: column;
@@ -511,32 +511,33 @@
             color: var(--text-secondary);
         }
         .chat-placeholder p { font-size: 14px; max-width: 400px; line-height: 1.6; }
-        
+
         .empty-list {
             text-align: center;
             padding: 60px 20px;
             color: var(--text-secondary);
         }
-        
+
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #374248; border-radius: 3px; }
-        
+
         @media (max-width: 899px) {
             .message { max-width: 92%; font-size: 15.5px; }
             .chat-avatar { width: 48px; height: 48px; font-size: 20px; }
             .chat-name { font-size: 15px; }
             .action-btn { padding: 8px 16px; font-size: 13px; }
         }
-        
+
         @supports (-webkit-touch-callout: none) {
             input, textarea { font-size: 16px; }
         }
     </style>
+<base target="_blank">
 </head>
 <body>
     <div id="debugPanel"></div>
-    
+
     <div id="loading">
         <div class="spinner"></div>
         <p>Conectando ao painel...</p>
@@ -556,7 +557,7 @@
                     <button class="icon-btn" onclick="app.toggleDebug()" title="Debug">🐛</button>
                 </div>
             </div>
-            
+
             <div class="search-container">
                 <div class="search-box">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="#8696a0">
@@ -565,7 +566,7 @@
                     <input type="text" id="searchInput" placeholder="Pesquisar..." oninput="app.search(this.value)">
                 </div>
             </div>
-            
+
             <div class="chat-list" id="chatList">
                 <div class="empty-list">
                     <p>Carregando...</p>
@@ -615,43 +616,37 @@
 
     <script>
         // ==========================================
-        // CONFIGURAÇÃO - VERIFIQUE ESTA URL
+        // CONFIGURACAO
         // ==========================================
-       const CONFIG = {
-    // ALTERE AQUI: aponte para /api/webhook em vez de /api/painel
-    WEBHOOK_URL: window.location.origin + '/api/webhook',
-    
-    POLL_INTERVAL: 3000,
-    CHAT_POLL_INTERVAL: 1500,
-    DEBUG: false
-};
+        const CONFIG = {
+            WEBHOOK_URL: window.location.origin + '/api/webhook',
+            POLL_INTERVAL: 3000,
+            CHAT_POLL_INTERVAL: 1500,
+            DEBUG: false
+        };
 
         // ==========================================
-        // APLICAÇÃO
+        // APLICACAO
         // ==========================================
         class WhatsAppPanel {
             constructor() {
                 this.chats = new Map();
                 this.currentPhone = null;
                 this.debugMode = false;
-                
                 this.init();
             }
 
             init() {
                 console.log('[Painel] Iniciando...');
                 console.log('[Painel] Webhook URL:', CONFIG.WEBHOOK_URL);
-                
-                // Esconder loading
+
                 setTimeout(() => {
                     document.getElementById('loading').classList.add('fade-out');
                 }, 500);
-                
-                // Iniciar polling imediatamente
+
                 this.fetchConversations();
                 setInterval(() => this.fetchConversations(), CONFIG.POLL_INTERVAL);
-                
-                // Polling de mensagens
+
                 setInterval(() => {
                     if (this.currentPhone) {
                         this.fetchMessages(this.currentPhone);
@@ -682,53 +677,61 @@
             async fetchConversations() {
                 try {
                     this.updateStatus('online');
-                    
-                    // Usar action=list (formato do seu webhook RC Reforma)
+
                     const url = `${CONFIG.WEBHOOK_URL}?action=list&_t=${Date.now()}`;
                     this.log('Buscando: ' + url);
-                    
+
                     const response = await fetch(url);
-                    
+
                     if (!response.ok) {
                         throw new Error(`HTTP ${response.status}`);
                     }
-                    
+
                     const data = await response.json();
                     this.log('Resposta: ' + JSON.stringify(data).substring(0, 200), 'success');
-                    
-                    // Seu webhook retorna { conversas: [...] }
+
                     const conversas = data.conversas || data;
-                    
+
                     if (!Array.isArray(conversas)) {
-                        throw new Error('Resposta não é array: ' + typeof conversas);
+                        throw new Error('Resposta nao e array: ' + typeof conversas);
                     }
-                    
+
                     this.log(`Recebidas ${conversas.length} conversas`);
-                    
-                    // Atualizar mapa
+
                     conversas.forEach(conv => {
                         const phone = conv.telefone;
                         const existing = this.chats.get(phone);
-                        
+
                         if (!existing) {
-                            // Nova conversa
                             this.chats.set(phone, {
                                 ...conv,
-                                messages: []
+                                messages: conv.mensagens || []
                             });
                             this.log('Nova: ' + phone);
                         } else {
-                            // Atualizar existente
+                            // CORRECAO: sempre atualizar emIntervencao do servidor
                             existing.nome = conv.nome || existing.nome;
                             existing.emIntervencao = conv.emIntervencao;
                             existing.etapa = conv.etapa;
                             existing.ultimaAtividade = conv.ultimaAtividade;
                             existing.ultima = conv.ultima || existing.ultima;
+                            // Nao sobrescrever messages local com vazio do servidor
+                            if (conv.mensagens && conv.mensagens.length > 0) {
+                                existing.messages = conv.mensagens;
+                            }
                         }
                     });
-                    
+
                     this.renderList();
-                    
+
+                    // Se estiver em um chat, atualizar UI
+                    if (this.currentPhone) {
+                        const chat = this.chats.get(this.currentPhone);
+                        if (chat) {
+                            this.updateUI(chat);
+                        }
+                    }
+
                 } catch (error) {
                     this.log('ERRO: ' + error.message, 'error');
                     this.updateStatus('offline');
@@ -742,43 +745,45 @@
             async fetchMessages(phone) {
                 try {
                     const url = `${CONFIG.WEBHOOK_URL}?action=messages&phone=${encodeURIComponent(phone)}&_t=${Date.now()}`;
-                    
+
                     const response = await fetch(url);
-                    
+
                     if (!response.ok) {
                         throw new Error(`HTTP ${response.status}`);
                     }
-                    
+
                     const data = await response.json();
-                    
-                    // Seu webhook retorna { mensagens: [...] }
                     const mensagens = data.mensagens || data;
-                    
+
                     if (!Array.isArray(mensagens)) {
-                        this.log('mensagens não é array: ' + typeof mensagens, 'error');
+                        this.log('mensagens nao e array: ' + typeof mensagens, 'error');
                         return;
                     }
-                    
+
                     this.log(`${mensagens.length} mensagens para ${phone}`);
-                    
+
                     const chat = this.chats.get(phone);
                     if (!chat) return;
-                    
-                    // Sempre atualizar mensagens
+
+                    // CORRECAO: atualizar emIntervencao do servidor tambem
+                    if (data.emIntervencao !== undefined) {
+                        chat.emIntervencao = data.emIntervencao;
+                        this.log(`Estado intervencao atualizado: ${chat.emIntervencao}`);
+                    }
+
                     chat.messages = mensagens;
-                    
-                    // Se é o chat atual, renderizar
+
                     if (this.currentPhone === phone) {
                         this.renderMessages(mensagens);
+                        this.updateUI(chat); // Re-atualizar UI com estado correto
                     }
-                    
-                    // Atualizar preview
+
                     if (mensagens.length > 0) {
                         const last = mensagens[mensagens.length - 1];
                         chat.ultima = last.mensagem || last.texto || last.content || 'Nova mensagem';
                         this.renderList();
                     }
-                    
+
                 } catch (error) {
                     this.log('Erro mensagens: ' + error.message, 'error');
                 }
@@ -790,7 +795,7 @@
             renderList() {
                 const container = document.getElementById('chatList');
                 const searchTerm = (document.getElementById('searchInput')?.value || '').toLowerCase();
-                
+
                 const chats = Array.from(this.chats.values())
                     .filter(c => !searchTerm || 
                         (c.nome?.toLowerCase().includes(searchTerm)) || 
@@ -809,7 +814,7 @@
                 container.innerHTML = chats.map(c => {
                     const isActive = c.telefone === this.currentPhone;
                     const time = this.formatTime(c.ultimaAtividade);
-                    
+
                     return `
                         <div class="chat-item ${isActive ? 'active' : ''}" 
                              onclick="app.selectChat('${c.telefone}')"
@@ -841,35 +846,29 @@
                 this.log('Selecionando: ' + phone);
                 this.currentPhone = phone;
                 const chat = this.chats.get(phone);
-                
+
                 if (!chat) {
-                    this.log('Chat não encontrado!', 'error');
+                    this.log('Chat nao encontrado!', 'error');
                     return;
                 }
 
-                // UI
                 document.getElementById('sidebar').classList.add('hidden-mobile');
                 document.getElementById('chatArea').classList.add('active', 'has-chat');
                 document.getElementById('chatPlaceholder').style.display = 'none';
                 document.getElementById('activeChat').style.display = 'flex';
-                
-                // Header
+
                 document.getElementById('chatName').textContent = chat.nome || phone;
                 document.getElementById('chatAvatar').textContent = this.getInitials(chat.nome);
-                
+
                 this.updateUI(chat);
-                
-                // Renderizar mensagens imediatamente
+
                 if (chat.messages && chat.messages.length > 0) {
                     this.renderMessages(chat.messages);
                 } else {
                     document.getElementById('messagesContainer').innerHTML = '';
                 }
-                
-                // Buscar mensagens atualizadas
+
                 this.fetchMessages(phone);
-                
-                // Re-renderizar lista para marcar ativo
                 this.renderList();
             }
 
@@ -882,21 +881,26 @@
                 this.renderList();
             }
 
+            // ==========================================
+            // ATUALIZAR UI - CORRECAO PRINCIPAL
+            // ==========================================
             updateUI(chat) {
                 const banner = document.getElementById('interventionBanner');
                 const input = document.getElementById('messageInput');
                 const sendBtn = document.getElementById('sendBtn');
                 const actions = document.getElementById('chatActions');
                 const status = document.getElementById('chatStatus');
-                
-                if (chat.emIntervencao) {
+
+                this.log(`updateUI: emIntervencao=${chat.emIntervencao} para ${chat.telefone}`);
+
+                if (chat.emIntervencao === true) {
                     banner.classList.add('active');
                     input.disabled = false;
                     sendBtn.disabled = false;
                     input.placeholder = 'Digite uma mensagem...';
-                    input.focus();
                     actions.innerHTML = `<button class="action-btn release" onclick="app.release('${chat.telefone}')">🤖 Liberar Robô</button>`;
                     status.textContent = 'Você está no controle';
+                    status.style.color = '#25d366';
                 } else {
                     banner.classList.remove('active');
                     input.disabled = true;
@@ -904,6 +908,7 @@
                     input.placeholder = 'Assuma o controle para responder';
                     actions.innerHTML = `<button class="action-btn intervene" onclick="app.intervene('${chat.telefone}')">🚨 Assumir Controle</button>`;
                     status.textContent = 'Robô ativo';
+                    status.style.color = '#8696a0';
                 }
             }
 
@@ -912,7 +917,7 @@
             // ==========================================
             renderMessages(messages) {
                 const container = document.getElementById('messagesContainer');
-                
+
                 if (!messages || messages.length === 0) {
                     container.innerHTML = '<div style="text-align:center;color:#8696a0;padding:40px;">Nenhuma mensagem</div>';
                     return;
@@ -920,27 +925,26 @@
 
                 let lastDate = null;
                 let html = '';
-                
+
                 messages.forEach((msg, index) => {
                     const msgDate = new Date(msg.data || msg.timestamp || Date.now()).toDateString();
-                    
+
                     if (msgDate !== lastDate) {
                         html += `<div class="date-separator">${this.formatDate(msg.data || msg.timestamp)}</div>`;
                         lastDate = msgDate;
                     }
-                    
-                    // Determinar tipo
+
                     const tipo = msg.tipo || msg.from || 'cliente';
                     let type = 'incoming';
-                    
+
                     if (tipo === 'bot' || tipo === 'robo') type = 'outgoing';
-                    else if (tipo === 'humano' || tipo === 'me') type = 'outgoing';
+                    else if (tipo === 'humano' || tipo === 'me' || tipo === 'atendente') type = 'outgoing';
                     else if (tipo === 'system' || tipo === 'sistema') type = 'system';
-                    
+
                     const content = this.escapeHtml(msg.mensagem || msg.texto || msg.content || msg.message || '');
                     const time = this.formatTime(msg.data || msg.timestamp);
                     const sender = msg.nome || (type === 'outgoing' ? 'Você' : 'Cliente');
-                    
+
                     html += `
                         <div class="message ${type}">
                             <div class="message-content">${content}</div>
@@ -948,42 +952,48 @@
                         </div>
                     `;
                 });
-                
+
                 container.innerHTML = html;
                 this.scrollToBottom();
             }
 
             // ==========================================
-            // AÇÕES
+            // ASSUMIR CONTROLE - CORRECAO
             // ==========================================
             async intervene(phone) {
+                this.log('Intervencao solicitada para: ' + phone);
+
                 const btn = document.querySelector('.action-btn');
                 if (btn) {
                     btn.disabled = true;
-                    btn.textContent = '⏳...';
+                    btn.textContent = '⏳ Aguarde...';
                 }
-                
+
                 try {
                     const response = await fetch(`${CONFIG.WEBHOOK_URL}?action=intervene`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ phone: phone })
                     });
-                    
+
                     const result = await response.json();
-                    this.log('Intervenção: ' + JSON.stringify(result));
-                    
-                    // Atualizar local
+                    this.log('Resposta intervene: ' + JSON.stringify(result), 'success');
+
+                    // CORRECAO: atualizar estado local IMEDIATAMENTE
                     const chat = this.chats.get(phone);
                     if (chat) {
                         chat.emIntervencao = true;
                         this.updateUI(chat);
                         this.renderList();
+
+                        // Forcar recarregar mensagens para mostrar msg de sistema
+                        await this.fetchMessages(phone);
                     }
-                    
+
                 } catch (error) {
                     this.log('Erro intervene: ' + error.message, 'error');
-                    alert('Erro ao assumir controle');
+                    alert('Erro ao assumir controle: ' + error.message);
+
                     if (btn) {
                         btn.disabled = false;
                         btn.textContent = '🚨 Assumir Controle';
@@ -991,33 +1001,41 @@
                 }
             }
 
+            // ==========================================
+            // LIBERAR ROBO - CORRECAO
+            // ==========================================
             async release(phone) {
+                this.log('Liberacao solicitada para: ' + phone);
+
                 const btn = document.querySelector('.action-btn');
                 if (btn) {
                     btn.disabled = true;
-                    btn.textContent = '⏳...';
+                    btn.textContent = '⏳ Aguarde...';
                 }
-                
+
                 try {
                     const response = await fetch(`${CONFIG.WEBHOOK_URL}?action=release`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ phone: phone })
                     });
-                    
+
                     const result = await response.json();
-                    this.log('Release: ' + JSON.stringify(result));
-                    
-                    // Atualizar local
+                    this.log('Resposta release: ' + JSON.stringify(result), 'success');
+
+                    // CORRECAO: atualizar estado local IMEDIATAMENTE
                     const chat = this.chats.get(phone);
                     if (chat) {
                         chat.emIntervencao = false;
                         this.updateUI(chat);
                         this.renderList();
+
+                        await this.fetchMessages(phone);
                     }
-                    
+
                 } catch (error) {
                     this.log('Erro release: ' + error.message, 'error');
+
                     if (btn) {
                         btn.disabled = false;
                         btn.textContent = '🤖 Liberar Robô';
@@ -1025,21 +1043,31 @@
                 }
             }
 
+            // ==========================================
+            // ENVIAR MENSAGEM - CORRECAO
+            // ==========================================
             async sendMessage() {
                 if (!this.currentPhone) return;
-                
+
                 const input = document.getElementById('messageInput');
                 const text = input.value.trim();
                 if (!text) return;
-                
+
                 const chat = this.chats.get(this.currentPhone);
-                if (!chat || !chat.emIntervencao) {
-                    alert('Assuma o controle primeiro!');
+
+                // CORRECAO: verificacao mais robusta
+                if (!chat) {
+                    alert('Chat nao encontrado!');
                     return;
                 }
-                
+
+                if (chat.emIntervencao !== true) {
+                    alert('Assuma o controle primeiro! Estado atual: ' + chat.emIntervencao);
+                    return;
+                }
+
                 input.value = '';
-                
+
                 try {
                     const response = await fetch(`${CONFIG.WEBHOOK_URL}?action=send`, {
                         method: 'POST',
@@ -1049,16 +1077,20 @@
                             message: text
                         })
                     });
-                    
+
                     const result = await response.json();
-                    this.log('Enviado: ' + JSON.stringify(result));
-                    
-                    // Recarregar mensagens após 300ms
+                    this.log('Enviado: ' + JSON.stringify(result), 'success');
+
+                    if (!result.ok) {
+                        throw new Error(result.erro || 'Erro ao enviar');
+                    }
+
+                    // Recarregar mensagens
                     setTimeout(() => this.fetchMessages(this.currentPhone), 300);
-                    
+
                 } catch (error) {
                     this.log('Erro enviar: ' + error.message, 'error');
-                    alert('Erro ao enviar mensagem');
+                    alert('Erro ao enviar mensagem: ' + error.message);
                     input.value = text;
                 }
             }
@@ -1095,7 +1127,7 @@
                 const today = new Date();
                 const yesterday = new Date(today);
                 yesterday.setDate(yesterday.getDate() - 1);
-                
+
                 if (d.toDateString() === today.toDateString()) return 'Hoje';
                 if (d.toDateString() === yesterday.toDateString()) return 'Ontem';
                 return d.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' });
@@ -1109,7 +1141,6 @@
             }
         }
 
-        // Inicializar
         const app = new WhatsAppPanel();
     </script>
 </body>

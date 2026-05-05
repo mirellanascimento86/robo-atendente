@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#075e54">
-    <title>WhatsApp Pro - Painel de Intervenção</title>
+    <title>WhatsApp Pro</title>
     <style>
         * { 
             margin: 0; 
@@ -68,16 +68,14 @@
             top: 0;
             left: 0;
             right: 0;
-            background: #1a1a2e;
-            color: #00ff88;
+            background: #ff4444;
+            color: white;
             padding: 10px;
-            font-size: 11px;
+            font-size: 12px;
             z-index: 10000;
             display: none;
-            max-height: 200px;
+            max-height: 150px;
             overflow-y: auto;
-            font-family: 'Courier New', monospace;
-            border-bottom: 2px solid #333;
         }
         #debugPanel.show { display: block; }
 
@@ -123,7 +121,7 @@
             border-bottom: 1px solid var(--border);
         }
         .header h1 { 
-            font-size: 18px; 
+            font-size: 20px; 
             font-weight: 600;
             display: flex;
             align-items: center;
@@ -131,13 +129,13 @@
         }
         .header-actions {
             display: flex;
-            gap: 6px;
+            gap: 8px;
             align-items: center;
         }
 
         .icon-btn {
-            width: 36px;
-            height: 36px;
+            width: 40px;
+            height: 40px;
             border-radius: 50%;
             border: none;
             background: transparent;
@@ -147,14 +145,14 @@
             align-items: center;
             justify-content: center;
             transition: all 0.2s;
-            font-size: 18px;
         }
         .icon-btn:hover { background: rgba(255,255,255,0.1); color: var(--text); }
+        .icon-btn svg { width: 24px; height: 24px; }
 
         .connection-badge {
-            font-size: 10px;
-            padding: 3px 8px;
-            border-radius: 10px;
+            font-size: 11px;
+            padding: 4px 10px;
+            border-radius: 12px;
             background: var(--accent);
             color: white;
             font-weight: 600;
@@ -202,7 +200,6 @@
         }
         .chat-item:hover { background: rgba(255,255,255,0.05); }
         .chat-item.active { background: #2a3942; }
-        .chat-item.has-unread { border-left: 3px solid var(--accent); }
 
         .chat-avatar {
             width: 52px;
@@ -238,17 +235,16 @@
             color: var(--text);
         }
         .chat-time {
-            font-size: 11px;
-            color: var(--text-secondary);
+            font-size: 12px;
+            color: var(--accent);
             flex-shrink: 0;
         }
-        .chat-time.recent { color: var(--accent); font-weight: 600; }
 
         .chat-preview {
             display: flex;
             align-items: center;
             gap: 4px;
-            font-size: 13px;
+            font-size: 14px;
             color: var(--text-secondary);
             white-space: nowrap;
             overflow: hidden;
@@ -259,26 +255,14 @@
             display: inline-flex;
             align-items: center;
             gap: 4px;
-            font-size: 10px;
-            padding: 2px 6px;
-            border-radius: 8px;
-            margin-left: 6px;
+            font-size: 12px;
+            padding: 2px 8px;
+            border-radius: 10px;
+            margin-left: 8px;
             font-weight: 600;
-            flex-shrink: 0;
         }
         .status-indicator.bot { background: rgba(37, 211, 102, 0.15); color: var(--accent); }
         .status-indicator.human { background: rgba(241, 92, 109, 0.15); color: var(--danger); }
-
-        .unread-badge {
-            background: var(--accent);
-            color: #111;
-            font-size: 11px;
-            font-weight: 700;
-            padding: 2px 6px;
-            border-radius: 10px;
-            margin-left: 6px;
-            flex-shrink: 0;
-        }
 
         .chat-area {
             flex: 1;
@@ -346,14 +330,13 @@
         .chat-actions {
             display: flex;
             gap: 8px;
-            align-items: center;
         }
 
         .action-btn {
-            padding: 8px 16px;
+            padding: 10px 20px;
             border: none;
             border-radius: 20px;
-            font-size: 13px;
+            font-size: 14px;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.2s;
@@ -364,15 +347,14 @@
         }
         .action-btn.intervene { background: var(--danger); color: white; }
         .action-btn.release { background: var(--accent); color: #111; }
-        .action-btn.export { background: #2a3942; color: var(--text); border: 1px solid var(--border); }
         .action-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
         .intervention-banner {
             background: linear-gradient(90deg, var(--danger), #ff6b6b);
             color: white;
-            padding: 10px 16px;
+            padding: 12px 16px;
             text-align: center;
-            font-size: 13px;
+            font-size: 14px;
             font-weight: 600;
             display: none;
             align-items: center;
@@ -389,6 +371,7 @@
             display: flex;
             flex-direction: column;
             gap: 2px;
+            background-image: url("data:image/svg+xml,%3Csvg width='400' height='400' viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 0h400v400H0z' fill='%230a1014'/%3E%3Cpath d='M0 0h400v400H0z' fill='none' stroke='%23111b21' stroke-width='2'/%3E%3C/svg%3E");
         }
 
         .message {
@@ -430,7 +413,7 @@
             border: 1px solid rgba(255, 193, 7, 0.3);
         }
 
-        .message-content { margin-bottom: 4px; white-space: pre-wrap; }
+        .message-content { margin-bottom: 4px; }
 
         .message-meta {
             display: flex;
@@ -535,54 +518,6 @@
             color: var(--text-secondary);
         }
 
-        .backup-modal {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,0.8);
-            z-index: 20000;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-        }
-        .backup-modal.active { display: flex; }
-        .backup-box {
-            background: var(--sidebar-bg);
-            border-radius: 16px;
-            padding: 24px;
-            max-width: 400px;
-            width: 100%;
-            border: 1px solid var(--border);
-        }
-        .backup-box h3 { margin-bottom: 16px; font-size: 18px; }
-        .backup-box input {
-            width: 100%;
-            padding: 12px;
-            border-radius: 8px;
-            border: 1px solid var(--border);
-            background: #202c33;
-            color: var(--text);
-            font-size: 15px;
-            margin-bottom: 12px;
-        }
-        .backup-box button {
-            width: 100%;
-            padding: 12px;
-            border-radius: 8px;
-            border: none;
-            background: var(--accent);
-            color: #111;
-            font-weight: 600;
-            cursor: pointer;
-            font-size: 15px;
-        }
-        .backup-box .close-btn {
-            background: transparent;
-            color: var(--text-secondary);
-            margin-top: 8px;
-            border: 1px solid var(--border);
-        }
-
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #374248; border-radius: 3px; }
@@ -591,7 +526,7 @@
             .message { max-width: 92%; font-size: 15.5px; }
             .chat-avatar { width: 48px; height: 48px; font-size: 20px; }
             .chat-name { font-size: 15px; }
-            .action-btn { padding: 6px 12px; font-size: 12px; }
+            .action-btn { padding: 8px 16px; font-size: 13px; }
         }
 
         @supports (-webkit-touch-callout: none) {
@@ -612,14 +547,13 @@
         <aside class="sidebar" id="sidebar">
             <div class="header">
                 <h1>
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M20.52 3.45A11.83 11.83 0 0 0 12 0 12 12 0 0 0 0 12a12 12 0 0 0 1.74 6.15L0 24l6.33-1.5A12 12 0 0 0 12 24a12 12 0 0 0 12-12 12 12 0 0 0-3.48-8.55zM12 22a9.89 9.89 0 0 1-5-1.35l-.36-.22-3.76.89.89-3.66-.23-.37A10 10 0 0 1 12 2a10 10 0 0 1 10 10 10 10 0 0 1-10 10zm5.4-7.4c-.3-.15-1.77-.87-2.05-1-.27-.1-.47-.15-.67.15s-.77 1-.95 1.2-.35.23-.65.08a8.2 8.2 0 0 1-2.4-1.5 9 9 0 0 1-1.67-2.08c-.17-.3 0-.47.13-.62s.3-.35.45-.53a2 2 0 0 0 .3-.5.55.55 0 0 0 0-.52c-.08-.15-.67-1.6-.92-2.2s-.48-.5-.67-.51h-.57a1.1 1.1 0 0 0-.8.37c-.28.3-1 1-1 2.43s1.03 2.82 1.17 3s1.35 2.06 3.27 2.89 1.9.85 2.25.89a2 2 0 0 0 1.53-.71 1.6 1.6 0 0 0 .36-1.03c0-.15-.12-.27-.4-.42z"/>
                     </svg>
                     WhatsApp Pro
                 </h1>
                 <div class="header-actions">
                     <span class="connection-badge" id="connectionBadge">Iniciando...</span>
-                    <button class="icon-btn" onclick="app.showBackupModal()" title="Backup">💾</button>
                     <button class="icon-btn" onclick="app.toggleDebug()" title="Debug">🐛</button>
                 </div>
             </div>
@@ -629,13 +563,13 @@
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="#8696a0">
                         <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
                     </svg>
-                    <input type="text" id="searchInput" placeholder="Pesquisar conversas..." oninput="app.search(this.value)">
+                    <input type="text" id="searchInput" placeholder="Pesquisar..." oninput="app.search(this.value)">
                 </div>
             </div>
 
             <div class="chat-list" id="chatList">
                 <div class="empty-list">
-                    <p>Carregando conversas...</p>
+                    <p>Carregando...</p>
                 </div>
             </div>
         </aside>
@@ -643,8 +577,8 @@
         <main class="chat-area" id="chatArea">
             <div class="chat-placeholder" id="chatPlaceholder">
                 <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
-                <h3>WhatsApp Pro</h3>
-                <p>Selecione uma conversa para visualizar o historico completo</p>
+                <h3>WhatsApp Web</h3>
+                <p>Selecione uma conversa para começar</p>
             </div>
 
             <div id="activeChat" style="display: none; flex-direction: column; height: 100%;">
@@ -680,103 +614,16 @@
         </main>
     </div>
 
-    <!-- Modal Backup -->
-    <div class="backup-modal" id="backupModal">
-        <div class="backup-box">
-            <h3>💾 Backup de Conversas</h3>
-            <p style="color: var(--text-secondary); font-size: 13px; margin-bottom: 12px;">
-                Exporte todas as conversas para CSV ou envie por email.
-            </p>
-            <input type="email" id="backupEmail" placeholder="Email para receber backup">
-            <button onclick="app.fazerBackup()">📧 Enviar Backup por Email</button>
-            <button class="close-btn" onclick="app.closeBackupModal()">Fechar</button>
-        </div>
-    </div>
-
     <script>
         // ==========================================
         // CONFIGURACAO
         // ==========================================
         const CONFIG = {
             WEBHOOK_URL: window.location.origin + '/api/webhook',
-            POLL_INTERVAL: 4000,
-            CHAT_POLL_INTERVAL: 2000,
+            POLL_INTERVAL: 3000,
+            CHAT_POLL_INTERVAL: 1500,
             DEBUG: false
         };
-
-        // ==========================================
-        // CACHE LOCAL (IndexedDB)
-        // ==========================================
-        class LocalCache {
-            constructor() {
-                this.db = null;
-                this.init();
-            }
-
-            async init() {
-                return new Promise((resolve, reject) => {
-                    const request = indexedDB.open('WhatsAppPro', 1);
-                    request.onerror = () => reject(request.error);
-                    request.onsuccess = () => {
-                        this.db = request.result;
-                        resolve();
-                    };
-                    request.onupgradeneeded = (event) => {
-                        const db = event.target.result;
-                        if (!db.objectStoreNames.contains('conversas')) {
-                            db.createObjectStore('conversas', { keyPath: 'telefone' });
-                        }
-                        if (!db.objectStoreNames.contains('config')) {
-                            db.createObjectStore('config', { keyPath: 'chave' });
-                        }
-                    };
-                });
-            }
-
-            async salvarConversa(telefone, dados) {
-                if (!this.db) await this.init();
-                return new Promise((resolve, reject) => {
-                    const tx = this.db.transaction('conversas', 'readwrite');
-                    const store = tx.objectStore('conversas');
-                    const request = store.put({ telefone, ...dados, cacheEm: Date.now() });
-                    request.onsuccess = () => resolve();
-                    request.onerror = () => reject(request.error);
-                });
-            }
-
-            async carregarConversas() {
-                if (!this.db) await this.init();
-                return new Promise((resolve, reject) => {
-                    const tx = this.db.transaction('conversas', 'readonly');
-                    const store = tx.objectStore('conversas');
-                    const request = store.getAll();
-                    request.onsuccess = () => resolve(request.result || []);
-                    request.onerror = () => reject(request.error);
-                });
-            }
-
-            async salvarConfig(chave, valor) {
-                if (!this.db) await this.init();
-                return new Promise((resolve, reject) => {
-                    const tx = this.db.transaction('config', 'readwrite');
-                    const store = tx.objectStore('config');
-                    const request = store.put({ chave, valor });
-                    request.onsuccess = () => resolve();
-                    request.onerror = () => reject(request.error);
-                });
-            }
-
-            async carregarConfig(chave) {
-                if (!this.db) await this.init();
-                return new Promise((resolve, reject) => {
-                    const tx = this.db.transaction('config', 'readonly');
-                    const store = tx.objectStore('config');
-                    const request = store.get(chave);
-                    request.onsuccess = () => resolve(request.result?.valor);
-                    request.onerror = () => reject(request.error);
-                });
-            }
-        }
 
         // ==========================================
         // APLICACAO
@@ -786,45 +633,33 @@
                 this.chats = new Map();
                 this.currentPhone = null;
                 this.debugMode = false;
-                this.cache = new LocalCache();
-                this.lastMessageCount = new Map(); // Evita piscar
                 this.init();
             }
 
-            async init() {
-                console.log('[Painel] Iniciando versao PRO...');
-
-                // Carregar cache local primeiro
-                await this.carregarCacheLocal();
+            init() {
+                console.log('[Painel] Iniciando...');
+                console.log('[Painel] Webhook URL:', CONFIG.WEBHOOK_URL);
 
                 setTimeout(() => {
                     document.getElementById('loading').classList.add('fade-out');
                 }, 500);
 
-                // Buscar do servidor
-                await this.fetchConversations();
-
-                // Polling
+                this.fetchConversations();
                 setInterval(() => this.fetchConversations(), CONFIG.POLL_INTERVAL);
+
                 setInterval(() => {
                     if (this.currentPhone) {
                         this.fetchMessages(this.currentPhone);
                     }
                 }, CONFIG.CHAT_POLL_INTERVAL);
-
-                // Restaurar chat aberto
-                const ultimoChat = await this.cache.carregarConfig('ultimoChat');
-                if (ultimoChat && this.chats.has(ultimoChat)) {
-                    this.selectChat(ultimoChat);
-                }
             }
 
             log(msg, type = 'info') {
-                const time = new Date().toLocaleTimeString();
-                console.log(`[${time}] ${msg}`);
+                console.log(`[Painel] ${msg}`);
                 if (this.debugMode) {
                     const panel = document.getElementById('debugPanel');
-                    const color = type === 'error' ? '#ff6b6b' : (type === 'success' ? '#4caf50' : '#00ff88');
+                    const time = new Date().toLocaleTimeString();
+                    const color = type === 'error' ? '#ff6b6b' : (type === 'success' ? '#4caf50' : 'white');
                     panel.innerHTML += `<div style="color: ${color};">[${time}] ${msg}</div>`;
                     panel.scrollTop = panel.scrollHeight;
                 }
@@ -837,150 +672,116 @@
             }
 
             // ==========================================
-            // CACHE LOCAL
-            // ==========================================
-            async carregarCacheLocal() {
-                try {
-                    const cached = await this.cache.carregarConversas();
-                    cached.forEach(c => {
-                        this.chats.set(c.telefone, {
-                            telefone: c.telefone,
-                            nome: c.nome,
-                            emIntervencao: c.emIntervencao || false,
-                            etapa: c.etapa,
-                            ultimaAtividade: c.ultimaAtividade,
-                            ultima: c.ultima,
-                            messages: c.mensagens || c.messages || []
-                        });
-                    });
-                    this.log(`Cache local: ${cached.length} conversas carregadas`);
-                    this.renderList();
-                } catch (e) {
-                    this.log('Erro cache local: ' + e.message, 'error');
-                }
-            }
-
-            async salvarNoCache() {
-                try {
-                    for (const [phone, chat] of this.chats) {
-                        await this.cache.salvarConversa(phone, chat);
-                    }
-                } catch (e) {
-                    this.log('Erro ao salvar cache: ' + e.message, 'error');
-                }
-            }
-
-            // ==========================================
-            // BUSCAR CONVERSAS DO SERVIDOR
+            // BUSCAR CONVERSAS
             // ==========================================
             async fetchConversations() {
                 try {
                     this.updateStatus('online');
 
                     const url = `${CONFIG.WEBHOOK_URL}?action=list&_t=${Date.now()}`;
+                    this.log('Buscando: ' + url);
+
                     const response = await fetch(url);
 
-                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
 
                     const data = await response.json();
-                    const conversas = data.conversas || [];
+                    this.log('Resposta: ' + JSON.stringify(data).substring(0, 200), 'success');
 
-                    if (!Array.isArray(conversas)) return;
+                    const conversas = data.conversas || data;
 
-                    let houveMudanca = false;
+                    if (!Array.isArray(conversas)) {
+                        throw new Error('Resposta nao e array: ' + typeof conversas);
+                    }
+
+                    this.log(`Recebidas ${conversas.length} conversas`);
 
                     conversas.forEach(conv => {
                         const phone = conv.telefone;
                         const existing = this.chats.get(phone);
 
                         if (!existing) {
-                            // Nova conversa
                             this.chats.set(phone, {
                                 ...conv,
                                 messages: conv.mensagens || []
                             });
-                            houveMudanca = true;
-                            this.log('Nova conversa: ' + phone);
+                            this.log('Nova: ' + phone);
                         } else {
-                            // Atualizar apenas se mudou algo relevante
-                            const msgCountServer = conv.mensagens?.length || 0;
-                            const msgCountLocal = existing.messages?.length || 0;
-                            const intervencaoMudou = existing.emIntervencao !== conv.emIntervencao;
-                            const temMensagensNovas = msgCountServer > msgCountLocal;
-
-                            if (intervencaoMudou || temMensagensNovas || !existing.ultimaAtividade) {
-                                existing.nome = conv.nome || existing.nome;
-                                existing.emIntervencao = conv.emIntervencao;
-                                existing.etapa = conv.etapa;
-                                existing.ultimaAtividade = conv.ultimaAtividade;
-                                existing.ultima = conv.ultima || existing.ultima;
-                                houveMudanca = true;
+                            // CORRECAO: sempre atualizar emIntervencao do servidor
+                            existing.nome = conv.nome || existing.nome;
+                            existing.emIntervencao = conv.emIntervencao;
+                            existing.etapa = conv.etapa;
+                            existing.ultimaAtividade = conv.ultimaAtividade;
+                            existing.ultima = conv.ultima || existing.ultima;
+                            // Nao sobrescrever messages local com vazio do servidor
+                            if (conv.mensagens && conv.mensagens.length > 0) {
+                                existing.messages = conv.mensagens;
                             }
                         }
                     });
 
-                    if (houveMudanca) {
-                        this.renderList();
-                        this.salvarNoCache();
+                    this.renderList();
 
-                        // Atualizar UI se estiver no chat
-                        if (this.currentPhone) {
-                            const chat = this.chats.get(this.currentPhone);
-                            if (chat) this.updateUI(chat);
+                    // Se estiver em um chat, atualizar UI
+                    if (this.currentPhone) {
+                        const chat = this.chats.get(this.currentPhone);
+                        if (chat) {
+                            this.updateUI(chat);
                         }
                     }
 
                 } catch (error) {
-                    this.log('Erro ao buscar: ' + error.message, 'error');
+                    this.log('ERRO: ' + error.message, 'error');
                     this.updateStatus('offline');
+                    console.error(error);
                 }
             }
 
             // ==========================================
-            // BUSCAR MENSAGENS (SEM PISCAR)
+            // BUSCAR MENSAGENS
             // ==========================================
             async fetchMessages(phone) {
                 try {
                     const url = `${CONFIG.WEBHOOK_URL}?action=messages&phone=${encodeURIComponent(phone)}&_t=${Date.now()}`;
+
                     const response = await fetch(url);
 
-                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
 
                     const data = await response.json();
-                    const mensagens = data.mensagens || [];
+                    const mensagens = data.mensagens || data;
 
-                    if (!Array.isArray(mensagens)) return;
+                    if (!Array.isArray(mensagens)) {
+                        this.log('mensagens nao e array: ' + typeof mensagens, 'error');
+                        return;
+                    }
+
+                    this.log(`${mensagens.length} mensagens para ${phone}`);
 
                     const chat = this.chats.get(phone);
                     if (!chat) return;
 
-                    // Atualizar estado de intervencao
+                    // CORRECAO: atualizar emIntervencao do servidor tambem
                     if (data.emIntervencao !== undefined) {
                         chat.emIntervencao = data.emIntervencao;
+                        this.log(`Estado intervencao atualizado: ${chat.emIntervencao}`);
                     }
 
-                    // SO renderizar se houver MENSAGENS NOVAS
-                    const lastCount = this.lastMessageCount.get(phone) || 0;
-                    const newCount = mensagens.length;
+                    chat.messages = mensagens;
 
-                    if (newCount !== lastCount || !chat.messages || chat.messages.length !== newCount) {
-                        chat.messages = mensagens;
-                        this.lastMessageCount.set(phone, newCount);
+                    if (this.currentPhone === phone) {
+                        this.renderMessages(mensagens);
+                        this.updateUI(chat); // Re-atualizar UI com estado correto
+                    }
 
-                        if (this.currentPhone === phone) {
-                            this.renderMessages(mensagens);
-                            this.updateUI(chat);
-                        }
-
-                        // Atualizar preview
-                        if (mensagens.length > 0) {
-                            const last = mensagens[mensagens.length - 1];
-                            chat.ultima = last.mensagem || last.texto || last.content || 'Nova mensagem';
-                            chat.ultimaAtividade = last.data || new Date().toISOString();
-                            this.renderList();
-                        }
-
-                        this.salvarNoCache();
+                    if (mensagens.length > 0) {
+                        const last = mensagens[mensagens.length - 1];
+                        chat.ultima = last.mensagem || last.texto || last.content || 'Nova mensagem';
+                        this.renderList();
                     }
 
                 } catch (error) {
@@ -1006,67 +807,46 @@
                     });
 
                 if (chats.length === 0) {
-                    container.innerHTML = '<div class="empty-list"><p>Nenhuma conversa ainda. Aguarde mensagens...</p></div>';
+                    container.innerHTML = '<div class="empty-list"><p>Aguardando conversas...</p></div>';
                     return;
                 }
 
-                // Reutilizar DOM para evitar piscar
-                const existingItems = new Map();
-                container.querySelectorAll('.chat-item').forEach(el => {
-                    existingItems.set(el.dataset.phone, el);
-                });
-
-                const fragment = document.createDocumentFragment();
-
-                chats.forEach(c => {
+                container.innerHTML = chats.map(c => {
                     const isActive = c.telefone === this.currentPhone;
                     const time = this.formatTime(c.ultimaAtividade);
-                    const isRecent = c.ultimaAtividade && (Date.now() - new Date(c.ultimaAtividade).getTime()) < 300000;
 
-                    let el = existingItems.get(c.telefone);
-
-                    if (!el) {
-                        el = document.createElement('div');
-                        el.className = 'chat-item';
-                        el.dataset.phone = c.telefone;
-                        el.onclick = () => this.selectChat(c.telefone);
-                    }
-
-                    el.className = `chat-item ${isActive ? 'active' : ''}`;
-
-                    el.innerHTML = `
-                        <div class="chat-avatar">${this.getInitials(c.nome)}</div>
-                        <div class="chat-info">
-                            <div class="chat-header-row">
-                                <span class="chat-name">${this.escapeHtml(c.nome || c.telefone)}</span>
-                                <span class="chat-time ${isRecent ? 'recent' : ''}">${time}</span>
-                            </div>
-                            <div class="chat-preview">
-                                <span style="flex:1;overflow:hidden;text-overflow:ellipsis;">
-                                    ${this.escapeHtml(c.ultima || 'Sem mensagens')}
-                                </span>
-                                <span class="status-indicator ${c.emIntervencao ? 'human' : 'bot'}">
-                                    ${c.emIntervencao ? '🔴 VOCÊ' : '🤖 BOT'}
-                                </span>
+                    return `
+                        <div class="chat-item ${isActive ? 'active' : ''}" 
+                             onclick="app.selectChat('${c.telefone}')"
+                             data-phone="${c.telefone}">
+                            <div class="chat-avatar">${this.getInitials(c.nome)}</div>
+                            <div class="chat-info">
+                                <div class="chat-header-row">
+                                    <span class="chat-name">${c.nome || c.telefone}</span>
+                                    <span class="chat-time">${time}</span>
+                                </div>
+                                <div class="chat-preview">
+                                    <span style="flex:1;overflow:hidden;text-overflow:ellipsis;">
+                                        ${this.escapeHtml(c.ultima || 'Sem mensagens')}
+                                    </span>
+                                    <span class="status-indicator ${c.emIntervencao ? 'human' : 'bot'}">
+                                        ${c.emIntervencao ? '🔴 VOCÊ' : '🤖 BOT'}
+                                    </span>
+                                </div>
                             </div>
                         </div>
                     `;
-
-                    fragment.appendChild(el);
-                });
-
-                container.innerHTML = '';
-                container.appendChild(fragment);
+                }).join('');
             }
 
             // ==========================================
             // SELECIONAR CHAT
             // ==========================================
-            async selectChat(phone) {
+            selectChat(phone) {
                 this.log('Selecionando: ' + phone);
                 this.currentPhone = phone;
-
                 const chat = this.chats.get(phone);
+
                 if (!chat) {
                     this.log('Chat nao encontrado!', 'error');
                     return;
@@ -1088,11 +868,8 @@
                     document.getElementById('messagesContainer').innerHTML = '';
                 }
 
-                await this.fetchMessages(phone);
+                this.fetchMessages(phone);
                 this.renderList();
-
-                // Salvar no cache
-                await this.cache.salvarConfig('ultimoChat', phone);
             }
 
             closeChat() {
@@ -1102,11 +879,10 @@
                 document.getElementById('chatPlaceholder').style.display = 'flex';
                 document.getElementById('activeChat').style.display = 'none';
                 this.renderList();
-                this.cache.salvarConfig('ultimoChat', null);
             }
 
             // ==========================================
-            // ATUALIZAR UI
+            // ATUALIZAR UI - CORRECAO PRINCIPAL
             // ==========================================
             updateUI(chat) {
                 const banner = document.getElementById('interventionBanner');
@@ -1115,35 +891,29 @@
                 const actions = document.getElementById('chatActions');
                 const status = document.getElementById('chatStatus');
 
-                this.log(`UI update: ${chat.telefone} intervencao=${chat.emIntervencao}`);
+                this.log(`updateUI: emIntervencao=${chat.emIntervencao} para ${chat.telefone}`);
 
                 if (chat.emIntervencao === true) {
                     banner.classList.add('active');
                     input.disabled = false;
                     sendBtn.disabled = false;
                     input.placeholder = 'Digite uma mensagem...';
-                    actions.innerHTML = `
-                        <button class="action-btn export" onclick="app.exportarConversa('${chat.telefone}')">📥 Exportar</button>
-                        <button class="action-btn release" onclick="app.release('${chat.telefone}')">🤖 Liberar Robô</button>
-                    `;
-                    status.textContent = '✓ Você está no controle';
+                    actions.innerHTML = `<button class="action-btn release" onclick="app.release('${chat.telefone}')">🤖 Liberar Robô</button>`;
+                    status.textContent = 'Você está no controle';
                     status.style.color = '#25d366';
                 } else {
                     banner.classList.remove('active');
                     input.disabled = true;
                     sendBtn.disabled = true;
                     input.placeholder = 'Assuma o controle para responder';
-                    actions.innerHTML = `
-                        <button class="action-btn export" onclick="app.exportarConversa('${chat.telefone}')">📥 Exportar</button>
-                        <button class="action-btn intervene" onclick="app.intervene('${chat.telefone}')">🚨 Assumir Controle</button>
-                    `;
-                    status.textContent = '🤖 Robô ativo';
+                    actions.innerHTML = `<button class="action-btn intervene" onclick="app.intervene('${chat.telefone}')">🚨 Assumir Controle</button>`;
+                    status.textContent = 'Robô ativo';
                     status.style.color = '#8696a0';
                 }
             }
 
             // ==========================================
-            // RENDERIZAR MENSAGENS (SEM PISCAR)
+            // RENDERIZAR MENSAGENS
             // ==========================================
             renderMessages(messages) {
                 const container = document.getElementById('messagesContainer');
@@ -1153,26 +923,10 @@
                     return;
                 }
 
-                // Verificar se ja tem as mesmas mensagens
-                const currentMsgs = container.querySelectorAll('.message');
-                if (currentMsgs.length === messages.length) {
-                    // Mesma quantidade, verificar se precisa atualizar
-                    let precisaAtualizar = false;
-                    messages.forEach((msg, i) => {
-                        const el = currentMsgs[i];
-                        if (!el) { precisaAtualizar = true; return; }
-                        const content = msg.mensagem || msg.texto || msg.content || msg.message || '';
-                        if (el.querySelector('.message-content')?.textContent !== content) {
-                            precisaAtualizar = true;
-                        }
-                    });
-                    if (!precisaAtualizar) return; // Nada mudou, nao re-renderiza
-                }
-
                 let lastDate = null;
                 let html = '';
 
-                messages.forEach((msg) => {
+                messages.forEach((msg, index) => {
                     const msgDate = new Date(msg.data || msg.timestamp || Date.now()).toDateString();
 
                     if (msgDate !== lastDate) {
@@ -1204,13 +958,16 @@
             }
 
             // ==========================================
-            // ASSUMIR CONTROLE
+            // ASSUMIR CONTROLE - CORRECAO
             // ==========================================
             async intervene(phone) {
-                this.log('Intervencao: ' + phone);
+                this.log('Intervencao solicitada para: ' + phone);
 
-                const btn = document.querySelector('.action-btn.intervene');
-                if (btn) { btn.disabled = true; btn.textContent = '⏳...'; }
+                const btn = document.querySelector('.action-btn');
+                if (btn) {
+                    btn.disabled = true;
+                    btn.textContent = '⏳ Aguarde...';
+                }
 
                 try {
                     const response = await fetch(`${CONFIG.WEBHOOK_URL}?action=intervene`, {
@@ -1220,33 +977,41 @@
                     });
 
                     const result = await response.json();
-                    this.log('Intervencao OK: ' + JSON.stringify(result), 'success');
+                    this.log('Resposta intervene: ' + JSON.stringify(result), 'success');
 
+                    // CORRECAO: atualizar estado local IMEDIATAMENTE
                     const chat = this.chats.get(phone);
                     if (chat) {
                         chat.emIntervencao = true;
-                        chat.ultimaAtividade = new Date().toISOString();
                         this.updateUI(chat);
                         this.renderList();
+
+                        // Forcar recarregar mensagens para mostrar msg de sistema
                         await this.fetchMessages(phone);
-                        await this.salvarNoCache();
                     }
 
                 } catch (error) {
                     this.log('Erro intervene: ' + error.message, 'error');
-                    alert('Erro ao assumir controle');
-                    if (btn) { btn.disabled = false; btn.textContent = '🚨 Assumir Controle'; }
+                    alert('Erro ao assumir controle: ' + error.message);
+
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.textContent = '🚨 Assumir Controle';
+                    }
                 }
             }
 
             // ==========================================
-            // LIBERAR ROBO
+            // LIBERAR ROBO - CORRECAO
             // ==========================================
             async release(phone) {
-                this.log('Release: ' + phone);
+                this.log('Liberacao solicitada para: ' + phone);
 
-                const btn = document.querySelector('.action-btn.release');
-                if (btn) { btn.disabled = true; btn.textContent = '⏳...'; }
+                const btn = document.querySelector('.action-btn');
+                if (btn) {
+                    btn.disabled = true;
+                    btn.textContent = '⏳ Aguarde...';
+                }
 
                 try {
                     const response = await fetch(`${CONFIG.WEBHOOK_URL}?action=release`, {
@@ -1256,26 +1021,30 @@
                     });
 
                     const result = await response.json();
-                    this.log('Release OK: ' + JSON.stringify(result), 'success');
+                    this.log('Resposta release: ' + JSON.stringify(result), 'success');
 
+                    // CORRECAO: atualizar estado local IMEDIATAMENTE
                     const chat = this.chats.get(phone);
                     if (chat) {
                         chat.emIntervencao = false;
-                        chat.ultimaAtividade = new Date().toISOString();
                         this.updateUI(chat);
                         this.renderList();
+
                         await this.fetchMessages(phone);
-                        await this.salvarNoCache();
                     }
 
                 } catch (error) {
                     this.log('Erro release: ' + error.message, 'error');
-                    if (btn) { btn.disabled = false; btn.textContent = '🤖 Liberar Robô'; }
+
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.textContent = '🤖 Liberar Robô';
+                    }
                 }
             }
 
             // ==========================================
-            // ENVIAR MENSAGEM
+            // ENVIAR MENSAGEM - CORRECAO
             // ==========================================
             async sendMessage() {
                 if (!this.currentPhone) return;
@@ -1285,8 +1054,15 @@
                 if (!text) return;
 
                 const chat = this.chats.get(this.currentPhone);
-                if (!chat || chat.emIntervencao !== true) {
-                    alert('Assuma o controle primeiro!');
+
+                // CORRECAO: verificacao mais robusta
+                if (!chat) {
+                    alert('Chat nao encontrado!');
+                    return;
+                }
+
+                if (chat.emIntervencao !== true) {
+                    alert('Assuma o controle primeiro! Estado atual: ' + chat.emIntervencao);
                     return;
                 }
 
@@ -1303,80 +1079,19 @@
                     });
 
                     const result = await response.json();
+                    this.log('Enviado: ' + JSON.stringify(result), 'success');
 
                     if (!result.ok) {
                         throw new Error(result.erro || 'Erro ao enviar');
                     }
 
-                    this.log('Mensagem enviada', 'success');
+                    // Recarregar mensagens
                     setTimeout(() => this.fetchMessages(this.currentPhone), 300);
 
                 } catch (error) {
                     this.log('Erro enviar: ' + error.message, 'error');
-                    alert('Erro ao enviar: ' + error.message);
+                    alert('Erro ao enviar mensagem: ' + error.message);
                     input.value = text;
-                }
-            }
-
-            // ==========================================
-            // EXPORTAR CONVERSA
-            // ==========================================
-            async exportarConversa(phone) {
-                const chat = this.chats.get(phone);
-                if (!chat || !chat.messages) return;
-
-                let csv = 'Data,Tipo,Remetente,Mensagem\n';
-                chat.messages.forEach(m => {
-                    const data = new Date(m.data).toLocaleString('pt-BR');
-                    const tipo = m.tipo || 'desconhecido';
-                    const nome = m.nome || '';
-                    const msg = (m.mensagem || '').replace(/"/g, '""');
-                    csv += `"${data}","${tipo}","${nome}","${msg}"\n`;
-                });
-
-                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-                const link = document.createElement('a');
-                link.href = URL.createObjectURL(blob);
-                link.download = `conversa_${phone}_${new Date().toISOString().split('T')[0]}.csv`;
-                link.click();
-
-                this.log('Conversa exportada: ' + phone, 'success');
-            }
-
-            // ==========================================
-            // BACKUP POR EMAIL
-            // ==========================================
-            showBackupModal() {
-                document.getElementById('backupModal').classList.add('active');
-            }
-
-            closeBackupModal() {
-                document.getElementById('backupModal').classList.remove('active');
-            }
-
-            async fazerBackup() {
-                const email = document.getElementById('backupEmail').value.trim();
-                if (!email) {
-                    alert('Digite um email valido');
-                    return;
-                }
-
-                try {
-                    const response = await fetch(`${CONFIG.WEBHOOK_URL}?action=backup`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ email: email })
-                    });
-
-                    const result = await response.json();
-                    if (result.ok) {
-                        alert('Backup enviado para ' + email);
-                        this.closeBackupModal();
-                    } else {
-                        alert('Erro no backup. Verifique as configuracoes do servidor.');
-                    }
-                } catch (e) {
-                    alert('Erro: ' + e.message);
                 }
             }
 
@@ -1403,29 +1118,19 @@
             formatTime(date) {
                 if (!date) return '';
                 const d = new Date(date);
-                const hoje = new Date();
-                const ontem = new Date(hoje);
-                ontem.setDate(ontem.getDate() - 1);
-
-                if (d.toDateString() === hoje.toDateString()) {
-                    return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-                }
-                if (d.toDateString() === ontem.toDateString()) {
-                    return 'Ontem';
-                }
-                return d.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' });
+                return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
             }
 
             formatDate(date) {
                 if (!date) return '';
                 const d = new Date(date);
-                const hoje = new Date();
-                const ontem = new Date(hoje);
-                ontem.setDate(ontem.getDate() - 1);
+                const today = new Date();
+                const yesterday = new Date(today);
+                yesterday.setDate(yesterday.getDate() - 1);
 
-                if (d.toDateString() === hoje.toDateString()) return 'Hoje';
-                if (d.toDateString() === ontem.toDateString()) return 'Ontem';
-                return d.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
+                if (d.toDateString() === today.toDateString()) return 'Hoje';
+                if (d.toDateString() === yesterday.toDateString()) return 'Ontem';
+                return d.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' });
             }
 
             escapeHtml(text) {

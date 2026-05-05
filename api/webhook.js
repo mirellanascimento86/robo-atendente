@@ -1,6 +1,6 @@
 // ============================================
 // WEBHOOK WHATSAPP - RC REFORMA E CONSTRUCAO
-// Versao com PAINEL DE INTERVENCAO
+// Versao com PAINEL DE INTERVENCAO - CORRIGIDA
 // ============================================
 
 // CONFIGURACAO
@@ -9,10 +9,8 @@ const WHATSAPP_PHONE_ID = process.env.WHATSAPP_PHONE_ID;
 const VERIFY_TOKEN = 'roboatendente';
 
 // ============================================
-// MEMORIA DO SISTEMA (substituir por banco depois)
+// MEMORIA DO SISTEMA
 // ============================================
-
-// Armazena todas as conversas: { telefone -> { dados } }
 const conversas = new Map();
 
 // ============================================
@@ -20,7 +18,7 @@ const conversas = new Map();
 // ============================================
 
 export default async function handler(req, res) {
-  // CORS - ESSENCIAL para o painel funcionar
+  // CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -31,6 +29,7 @@ export default async function handler(req, res) {
 
   try {
     const { action } = req.query;
+    console.log(`[WEBHOOK] ${req.method} action=${action} query=`, req.query);
 
     // ===== 1. VERIFICACAO DO WEBHOOK (Meta) =====
     if (req.method === 'GET' && req.query['hub.mode'] === 'subscribe') {
@@ -41,104 +40,146 @@ export default async function handler(req, res) {
     }
 
     // ===== 2. ROTAS DO PAINEL =====
-    
-    // LISTAR CONVERSAS (GET ?action=list)
+
+    // LISTAR CONVERSAS
     if (action === 'list') {
       const lista = Array.from(conversas.values())
-        .sort((a, b) => new Date(b.ultimaAtividade) - new Date(a.ultimaAtividade));
-      
+        .sort((a, b) => new Date(b.ultimaAtividade || 0) - new Date(a.ultimaAtividade || 0));
+
+      console.log(`[LIST] Retornando ${lista.length} conversas`);
       return res.status(200).json({ conversas: lista });
     }
 
-    // BUSCAR MENSAGENS (GET ?action=messages&phone=...)
+    // BUSCAR MENSAGENS
     if (action === 'messages') {
       const phone = req.query.phone;
       const conv = conversas.get(phone);
-      
+
       if (!conv) {
+        console.log(`[MESSAGES] Conversa nao encontrada: ${phone}`);
         return res.status(404).json({ erro: 'Conversa nao encontrada' });
       }
-      
-      return res.status(200).json({ mensagens: conv.mensagens || [] });
+
+      console.log(`[MESSAGES] ${phone} - ${conv.mensagens?.length || 0} msgs, intervencao=${conv.emIntervencao}`);
+      return res.status(200).json({ 
+        mensagens: conv.mensagens || [],
+        emIntervencao: conv.emIntervencao,
+        telefone: conv.telefone,
+        nome: conv.nome
+      });
     }
 
-    // ASSUMIR CONTROLE (POST ?action=intervene)
+    // ASSUMIR CONTROLE
     if (action === 'intervene' && req.method === 'POST') {
       const { phone } = req.body;
+      console.log(`[INTERVENE] Recebido phone=${phone}`);
+
       const conv = conversas.get(phone);
-      
-      if (conv) {
+
+      if (!conv) {
+        console.log(`[INTERVENE] Conversa nao existe, criando...`);
+        conversas.set(phone, {
+          telefone: phone,
+          nome: 'Cliente',
+          mensagens: [],
+          emIntervencao: true,
+          etapa: 'intervencao',
+          ultimaAtividade: new Date().toISOString(),
+          ultima: 'Intervencao iniciada'
+        });
+      } else {
         conv.emIntervencao = true;
+        conv.ultimaAtividade = new Date().toISOString();
         conv.mensagens.push({
           tipo: 'system',
           mensagem: '⚡ Humano assumiu o controle',
-          data: new Date().toISOString()
+          data: new Date().toISOString(),
+          nome: 'Sistema'
         });
+        console.log(`[INTERVENE] Conversa ${phone} agora emIntervencao=true`);
       }
-      
-      return res.status(200).json({ ok: true, emIntervencao: true });
+
+      const convAtual = conversas.get(phone);
+      return res.status(200).json({ 
+        ok: true, 
+        emIntervencao: true,
+        telefone: phone,
+        confirmado: convAtual.emIntervencao
+      });
     }
 
-    // LIBERAR ROBO (POST ?action=release)
+    // LIBERAR ROBO
     if (action === 'release' && req.method === 'POST') {
       const { phone } = req.body;
+      console.log(`[RELEASE] phone=${phone}`);
+
       const conv = conversas.get(phone);
-      
+
       if (conv) {
         conv.emIntervencao = false;
+        conv.ultimaAtividade = new Date().toISOString();
         conv.mensagens.push({
           tipo: 'system',
           mensagem: '🤖 Robo retomou o atendimento',
-          data: new Date().toISOString()
+          data: new Date().toISOString(),
+          nome: 'Sistema'
         });
+        console.log(`[RELEASE] Conversa ${phone} emIntervencao=false`);
       }
-      
+
       return res.status(200).json({ ok: true, emIntervencao: false });
     }
 
-    // ENVIAR MENSAGEM MANUAL (POST ?action=send)
+    // ENVIAR MENSAGEM MANUAL
     if (action === 'send' && req.method === 'POST') {
       const { phone, message } = req.body;
-      
+      console.log(`[SEND] phone=${phone} message="${message?.substring(0,30)}..."`);
+
+      const conv = conversas.get(phone);
+
+      // VERIFICACAO CRITICA: so envia se estiver em intervencao
+      if (!conv || !conv.emIntervencao) {
+        console.log(`[SEND] BLOQUEADO - emIntervencao=${conv?.emIntervencao}`);
+        return res.status(403).json({ 
+          ok: false, 
+          erro: 'Nao esta em intervencao',
+          emIntervencao: conv?.emIntervencao || false
+        });
+      }
+
       // Envia pelo WhatsApp API
       const enviado = await enviarWhatsApp(phone, message);
-      
+
       if (enviado) {
-        // Salva na conversa
-        const conv = conversas.get(phone);
-        if (conv) {
-          conv.mensagens.push({
-            tipo: 'humano',
-            mensagem: message,
-            data: new Date().toISOString(),
-            nome: 'Atendente'
-          });
-          conv.ultima = message;
-          conv.ultimaAtividade = new Date().toISOString();
-        }
+        conv.mensagens.push({
+          tipo: 'humano',
+          mensagem: message,
+          data: new Date().toISOString(),
+          nome: 'Atendente'
+        });
+        conv.ultima = message;
+        conv.ultimaAtividade = new Date().toISOString();
+        console.log(`[SEND] Mensagem enviada e salva`);
       }
-      
+
       return res.status(200).json({ ok: enviado });
     }
 
-    // ===== 3. RECEBER MENSAGEM DO WHATSAPP (POST normal) =====
+    // ===== 3. RECEBER MENSAGEM DO WHATSAPP =====
     if (req.method === 'POST' && !action) {
-      // Responde imediatamente ao Meta
       res.status(200).send('OK');
-      
-      // Processa em background
+
       processarMensagem(req.body).catch(err => {
         console.error('Erro ao processar:', err);
       });
-      
+
       return;
     }
 
-    // Rota padrao
     res.status(200).send('Webhook RC Reforma - OK');
 
   } catch (e) {
-    console.error('ERRO:', e.message);
+    console.error('ERRO GERAL:', e.message);
     res.status(200).send('OK');
   }
 }
@@ -149,23 +190,23 @@ export default async function handler(req, res) {
 
 async function processarMensagem(body) {
   if (!body || body.object !== 'whatsapp_business_account') return;
-  
+
   const entry = body.entry?.[0];
   const changes = entry?.changes?.[0]?.value;
   if (!changes) return;
-  
-  if (changes.statuses) return; // Ignora status
-  
+
+  if (changes.statuses) return;
+
   const msg = changes.messages?.[0];
   if (!msg) return;
-  
+
   const telefone = msg.from;
   const nome = changes.contacts?.[0]?.profile?.name || 'Cliente';
-  
+
   if (msg.type !== 'text') return;
-  
+
   const texto = msg.text.body;
-  
+
   // CRIAR/ATUALIZAR CONVERSA
   if (!conversas.has(telefone)) {
     conversas.set(telefone, {
@@ -178,9 +219,9 @@ async function processarMensagem(body) {
       ultima: ''
     });
   }
-  
+
   const conv = conversas.get(telefone);
-  
+
   // ADICIONAR MENSAGEM DO CLIENTE
   conv.mensagens.push({
     tipo: 'cliente',
@@ -188,32 +229,35 @@ async function processarMensagem(body) {
     data: new Date().toISOString(),
     nome: nome
   });
-  
+
   conv.ultima = texto;
   conv.ultimaAtividade = new Date().toISOString();
-  
-  console.log(`[${telefone}] ${nome}: ${texto}`);
-  
+
+  console.log(`[RECEBIDO] ${telefone} (${nome}): ${texto.substring(0,50)}`);
+  console.log(`[ESTADO] emIntervencao=${conv.emIntervencao}`);
+
   // SE NAO ESTIVER EM INTERVENCAO, RESPONDE AUTOMATICAMENTE
   if (!conv.emIntervencao) {
     const resposta = gerarResposta(texto.toLowerCase(), nome);
     await enviarWhatsApp(telefone, resposta);
-    
-    // Salva resposta do bot na conversa
+
     conv.mensagens.push({
       tipo: 'bot',
       mensagem: resposta,
       data: new Date().toISOString(),
       nome: 'Robo'
     });
-    
+
     conv.ultima = resposta;
     conv.ultimaAtividade = new Date().toISOString();
+    console.log(`[BOT] Resposta automatica enviada`);
+  } else {
+    console.log(`[BOT] BLOQUEADO - conversa em intervencao humana`);
   }
 }
 
 // ============================================
-// GERAR RESPOSTA (mesma logica)
+// GERAR RESPOSTA
 // ============================================
 
 function gerarResposta(texto, nome) {
@@ -226,7 +270,7 @@ Posso ajudar com:
 
 Qual servico voce precisa e em qual bairro do Rio?`;
   }
-  
+
   if (texto.match(/(preco|valor|custo|quanto|caro)/)) {
     return `Nossa visita tecnica custa R$180.
 
@@ -237,7 +281,7 @@ O valor da visita e abatido se voce aprovar o orcamento.
 
 Qual servico e bairro?`;
   }
-  
+
   if (texto.match(/(agendar|marcar|visita|tecnico|horario)/)) {
     return `Posso agendar uma visita tecnica para voce!
 
@@ -247,7 +291,7 @@ Me informe:
 3. Prefere hoje, amanha ou outro dia?
 4. Qual horario: manha, tarde ou noite?`;
   }
-  
+
   if (texto.match(/(servico|faz|trabalho|ajuda)/)) {
     return `Trabalhamos com:
 
@@ -259,20 +303,20 @@ ELETRODOMESTICOS:
 
 Qual voce precisa?`;
   }
-  
+
   if (texto.match(/(humano|pessoa|atendente|funcionario)/)) {
     return `Entendido! Vou transferir voce para um atendente humano.
 
 Aguarde um momento, por favor.`;
   }
-  
+
   if (texto.match(/(tchau|ate|obrigado|valeu)/)) {
     return `Obrigado pelo contato, ${nome}!
 
 RC Reforma e Construcao - Botafogo
 Atendimento 24h`;
   }
-  
+
   return `Entendi, ${nome}!
 
 Para agilizar seu atendimento, me diga:
@@ -291,7 +335,7 @@ async function enviarWhatsApp(numero, texto) {
     console.error('Token ou Phone ID nao configurado');
     return false;
   }
-  
+
   try {
     const response = await fetch(
       `https://graph.facebook.com/v20.0/${WHATSAPP_PHONE_ID}/messages`,
@@ -310,16 +354,16 @@ async function enviarWhatsApp(numero, texto) {
         })
       }
     );
-    
+
     if (!response.ok) {
       const erro = await response.json();
       console.error('Erro API:', erro);
       return false;
     }
-    
+
     console.log('Mensagem enviada para', numero);
     return true;
-    
+
   } catch (e) {
     console.error('Erro ao enviar:', e.message);
     return false;

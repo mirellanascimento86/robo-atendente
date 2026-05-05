@@ -1,58 +1,42 @@
 // ============================================
-// WEBHOOK WHATSAPP - RC REFORMA E CONSTRUCAO
-// Versao MINIMA e FUNCIONAL
-// Apenas recebe mensagem e responde no WhatsApp
+// WEBHOOK WHATSAPP + PAINEL - RC REFORMA
+// Integrado com painel de intervenção
 // ============================================
 
-// CONFIGURACAO - Variaveis de ambiente da Vercel
+// IMPORTAR banco de dados do painel (mesma instância!)
+import { conversas, mensagens } from './painel.js';
+
 const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
 const WHATSAPP_PHONE_ID = process.env.WHATSAPP_PHONE_ID;
-const VERIFY_TOKEN = 'roboatendente';  // Mesmo do Meta Developers
-
-// ============================================
-// HANDLER PRINCIPAL - Endpoint /api/webhook
-// ============================================
+const VERIFY_TOKEN = 'roboatendente';
 
 export default async function handler(req, res) {
-  // CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
+  if (req.method === 'OPTIONS') return res.status(200).end();
 
   try {
-    // ===== VERIFICACAO DO WEBHOOK (Meta) =====
-    // Quando voce configura o webhook no Meta Developers,
-    // ele envia um GET para verificar se a URL existe
+    // ===== VERIFICAÇÃO META =====
     if (req.method === 'GET' && req.query['hub.mode'] === 'subscribe') {
-      console.log('Verificacao webhook Meta:', req.query);
-
       if (req.query['hub.verify_token'] === VERIFY_TOKEN) {
-        console.log('Token verificado com sucesso!');
         return res.status(200).send(req.query['hub.challenge']);
       }
-
-      console.log('Token de verificacao invalido');
       return res.status(403).send('Forbidden');
     }
 
-    // ===== RECEBER MENSAGEM DO WHATSAPP =====
+    // ===== RECEBER MENSAGEM =====
     if (req.method === 'POST') {
-      // Responde imediatamente ao Meta (obrigatorio - 20 segundos max)
-      res.status(200).send('OK');
+      res.status(200).send('OK'); // Responde imediatamente ao Meta
 
-      // Processa a mensagem em background (sem bloquear a resposta)
+      // Processa em background
       processarMensagem(req.body).catch(err => {
-        console.error('Erro ao processar mensagem:', err);
+        console.error('Erro ao processar:', err);
       });
-
       return;
     }
 
-    // Qualquer outra requisicao
     res.status(200).send('Webhook RC Reforma - OK');
 
   } catch (e) {
@@ -62,130 +46,124 @@ export default async function handler(req, res) {
 }
 
 // ============================================
-// PROCESSAR MENSAGEM RECEBIDA
+// PROCESSAR MENSAGEM
 // ============================================
 
 async function processarMensagem(body) {
-  console.log('Body recebido:', JSON.stringify(body, null, 2));
+  if (!body || body.object !== 'whatsapp_business_account') return;
 
-  // Verifica se e uma mensagem valida do WhatsApp
-  if (!body || body.object !== 'whatsapp_business_account') {
-    console.log('Nao e mensagem do WhatsApp Business');
-    return;
-  }
-
-  // Extrai dados da mensagem
   const entry = body.entry?.[0];
-  if (!entry) {
-    console.log('Sem entry no body');
-    return;
-  }
+  const changes = entry?.changes?.[0]?.value;
+  if (!changes) return;
+  if (changes.statuses) return; // Ignora status
 
-  const changes = entry.changes?.[0]?.value;
-  if (!changes) {
-    console.log('Sem changes no entry');
-    return;
-  }
-
-  // Ignora atualizacoes de status (mensagem entregue, lida, etc)
-  if (changes.statuses) {
-    console.log('Ignorando status update');
-    return;
-  }
-
-  // Pega a mensagem
   const msg = changes.messages?.[0];
-  if (!msg) {
-    console.log('Sem mensagem no changes');
-    return;
-  }
+  if (!msg) return;
+  if (msg.type !== 'text') return; // Só texto por enquanto
 
-  const telefone = msg.from;  // Numero do cliente
+  const telefone = msg.from;
   const nome = changes.contacts?.[0]?.profile?.name || 'Cliente';
+  const texto = msg.text.body;
 
-  console.log(`Mensagem de ${nome} (${telefone}):`, msg.type);
+  console.log(`📩 ${nome} (${telefone}): ${texto}`);
 
-  // So processa mensagens de texto por enquanto
-  if (msg.type !== 'text') {
-    console.log('Tipo de mensagem nao suportado:', msg.type);
-    return;
+  // INICIALIZAR conversa se não existir
+  if (!conversas[telefone]) {
+    conversas[telefone] = { nome, intervencao: false };
+  }
+  if (!mensagens[telefone]) {
+    mensagens[telefone] = [];
   }
 
-  const texto = msg.text.body;
-  console.log('Texto:', texto);
+  // SALVAR mensagem do cliente no histórico
+  mensagens[telefone].push({
+    tipo: 'cliente',
+    nome: nome,
+    texto: texto,
+    data: new Date().toISOString()
+  });
 
-  // Gera resposta baseada no texto
+  // VERIFICAR SE ESTÁ EM INTERVENÇÃO HUMANA
+  if (conversas[telefone].intervencao) {
+    console.log('🔴 Intervenção ativa - robô não responde');
+    return; // Não responde nada, humano vai responder pelo painel
+  }
+
+  // GERAR RESPOSTA DO ROBÔ
   const resposta = gerarResposta(texto.toLowerCase(), nome);
+  
+  // SALVAR resposta do robô no histórico
+  mensagens[telefone].push({
+    tipo: 'robo',
+    nome: 'Assistente RC',
+    texto: resposta,
+    data: new Date().toISOString()
+  });
 
-  // Envia resposta de volta no WhatsApp
+  // ENVIAR resposta
   await enviarWhatsApp(telefone, resposta);
 }
 
 // ============================================
-// GERAR RESPOSTA (logica simples)
+// LÓGICA DE RESPOSTAS (igual ao seu)
 // ============================================
 
 function gerarResposta(texto, nome) {
-  // Saudacao
   if (texto.match(/(oi|ola|bom dia|boa tarde|boa noite|hey|eai)/)) {
-    return `Ola, ${nome}! Sou o assistente da RC Reforma e Construcao.
+    return `Olá, ${nome}! Sou o assistente da RC Reforma e Construção.
 
 Posso ajudar com:
-• Reformas: Marcenaria, Hidraulica, Eletrica, Pintura, Gesso, Pedreiro
-• Eletrodomesticos: Ar Condicionado, Lava e Seca, Geladeira
+• Reformas: Marcenaria, Hidráulica, Elétrica, Pintura, Gesso, Pedreiro
+• Eletrodomésticos: Ar Condicionado, Lava e Seca, Geladeira
 
-Qual servico voce precisa e em qual bairro do Rio?`;
+Qual serviço você precisa e em qual bairro do Rio?`;
   }
 
-  // Preco
   if (texto.match(/(preco|valor|custo|quanto|caro)/)) {
-    return `Nossa visita tecnica custa R$180.
+    return `Nossa visita técnica custa R$180.
 
 • Zona Sul: 50% OFF = R$90
-• Botafogo: GRATIS
+• Botafogo: GRÁTIS
 
-O valor da visita e abatido se voce aprovar o orcamento.
+O valor da visita é abatido se você aprovar o orçamento.
 
-Qual servico e bairro?`;
+Qual serviço e bairro?`;
   }
 
-  // Agendamento
   if (texto.match(/(agendar|marcar|visita|tecnico|horario)/)) {
-    return `Posso agendar uma visita tecnica para voce!
+    return `Posso agendar uma visita técnica para você!
 
 Me informe:
-1. Qual servico precisa?
+1. Qual serviço precisa?
 2. Qual bairro?
-3. Prefere hoje, amanha ou outro dia?
-4. Qual horario: manha, tarde ou noite?`;
+3. Prefere hoje, amanhã ou outro dia?
+4. Qual horário: manhã, tarde ou noite?`;
   }
 
-  // Servicos
   if (texto.match(/(servico|faz|trabalho|ajuda)/)) {
     return `Trabalhamos com:
 
 REFORMAS:
-• Marcenaria (armarios, cozinhas, closets)
-• Hidraulica (vazamentos, torneiras, encanamento)
-• Eletrica (fiacao, tomadas, chuveiros)
+• Marcenaria (armários, cozinhas, closets)
+• Hidráulica (vazamentos, torneiras, encanamento)
+• Elétrica (fiação, tomadas, chuveiros)
 • Pintura (interna e externa)
 • Gesso (drywall, sancas, forros)
 • Pedreiro (reformas, alvenaria)
 
-ELETRODOMESTICOS:
-• Ar Condicionado (instalacao, limpeza, conserto)
-• Lava e Seca (conserto, manutencao)
-• Geladeira (conserto, gas, motor)
+ELETRODOMÉSTICOS:
+• Ar Condicionado (instalação, limpeza, conserto)
+• Lava e Seca (conserto, manutenção)
+• Geladeira (conserto, gás, motor)
 
-Qual voce precisa?`;
+Qual você precisa?`;
   }
 
-  // Bairros
   if (texto.match(/(bairro|onde|local|endereco)/)) {
     return `Atendemos toda a Zona Sul, Centro e Tijuca do Rio de Janeiro.
 
 Bairros principais:
-• Botafogo (visita GRATIS)
+• Botafogo (visita GRÁTIS)
 • Copacabana, Ipanema, Leblon
 • Flamengo, Laranjeiras, Catete
 • Lapa, Centro, Santa Teresa
@@ -194,48 +172,37 @@ Bairros principais:
 Qual o seu bairro?`;
   }
 
-  // Humanos
   if (texto.match(/(humano|pessoa|atendente|funcionario)/)) {
-    return `Entendido! Vou transferir voce para um atendente humano.
+    return `Entendido! Vou transferir você para um atendente humano.
 
-Aguarde um momento, por favor.`;
+Aguarde um momento, por favor. 👤`;
   }
 
-  // Despedida
   if (texto.match(/(tchau|ate|obrigado|valeu)/)) {
     return `Obrigado pelo contato, ${nome}!
 
-Se precisar de mais alguma coisa, e so chamar.
+Se precisar de mais alguma coisa, é só chamar.
 
-RC Reforma e Construcao - Botafogo
+RC Reforma e Construção - Botafogo
 Atendimento 24h`;
   }
 
-  // Resposta padrao
   return `Entendi, ${nome}!
 
 Para agilizar seu atendimento, me diga:
-1. Qual servico precisa? (ex: hidraulica, pintura, ar condicionado)
+1. Qual serviço precisa? (ex: hidráulica, pintura, ar condicionado)
 2. Qual bairro do Rio?
 
-Ou se preferir, me pergunte sobre precos, horarios ou servicos disponiveis.`;
+Ou se preferir, me pergunte sobre preços, horários ou serviços disponíveis.`;
 }
 
 // ============================================
-// ENVIAR MENSAGEM PELO WHATSAPP
+// ENVIAR MENSAGEM (compartilhado)
 // ============================================
 
 async function enviarWhatsApp(numero, texto) {
-  console.log(`Enviando para ${numero}: ${texto.substring(0, 50)}...`);
-
-  // Verifica se tem as variaveis configuradas
-  if (!WHATSAPP_TOKEN) {
-    console.error('ERRO: WHATSAPP_TOKEN nao configurado!');
-    return false;
-  }
-
-  if (!WHATSAPP_PHONE_ID) {
-    console.error('ERRO: WHATSAPP_PHONE_ID nao configurado!');
+  if (!WHATSAPP_TOKEN || !WHATSAPP_PHONE_ID) {
+    console.error('❌ Variáveis de ambiente não configuradas!');
     return false;
   }
 
@@ -260,15 +227,15 @@ async function enviarWhatsApp(numero, texto) {
 
     if (!response.ok) {
       const erro = await response.json();
-      console.error('Erro WhatsApp API:', response.status, erro);
+      console.error('❌ Erro WhatsApp API:', response.status, erro);
       return false;
     }
 
-    console.log('Mensagem enviada com sucesso!');
+    console.log('✅ Mensagem enviada para', numero);
     return true;
 
   } catch (e) {
-    console.error('Erro ao enviar mensagem:', e.message);
+    console.error('❌ Erro ao enviar:', e.message);
     return false;
   }
 }

@@ -1,13 +1,34 @@
 // ============================================
-// WEBHOOK WHATSAPP - RC REFORMA E CONSTRUCAO
-// Integrado com painel de intervenção
+// WEBHOOK WHATSAPP + API DO PAINEL HTML
+// Tudo em um arquivo só
 // ============================================
 
-import { getConversa, salvarMensagem, atualizarIntervencao, listarConversas } from './db.js';
+import { MongoClient } from 'mongodb';
 
+// Config
 const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
 const WHATSAPP_PHONE_ID = process.env.WHATSAPP_PHONE_ID;
 const VERIFY_TOKEN = 'roboatendente';
+const MONGODB_URI = process.env.MONGODB_URI;
+
+// Conexão MongoDB
+let client = null;
+let db = null;
+
+async function connectDB() {
+  if (db) return db;
+  if (!MONGODB_URI) throw new Error('MONGODB_URI não configurado');
+  
+  client = new MongoClient(MONGODB_URI);
+  await client.connect();
+  db = client.db('rc_reforma');
+  console.log('✅ MongoDB conectado');
+  return db;
+}
+
+// ============================================
+// HANDLER PRINCIPAL
+// ============================================
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -17,7 +38,9 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   try {
-    // ===== VERIFICAÇÃO META =====
+    const { action } = req.query;
+
+    // ===== VERIFICAÇÃO META (GET com hub.mode) =====
     if (req.method === 'GET' && req.query['hub.mode'] === 'subscribe') {
       if (req.query['hub.verify_token'] === VERIFY_TOKEN) {
         return res.status(200).send(req.query['hub.challenge']);
@@ -25,7 +48,106 @@ export default async function handler(req, res) {
       return res.status(403).send('Forbidden');
     }
 
-    // ===== RECEBER MENSAGEM =====
+    // ===== API DO PAINEL HTML =====
+
+    // GET ?action=list → listar conversas
+    if (req.method === 'GET' && action === 'list') {
+      const database = await connectDB();
+      const conversas = await database.collection('conversas')
+        .find({})
+        .sort({ ultimaAtividade: -1 })
+        .toArray();
+
+      const lista = conversas.map(c => ({
+        telefone: c.telefone,
+        nome: c.nome || 'Desconhecido',
+        emIntervencao: c.emIntervencao || false,
+        ultima: c.ultima || 'Sem mensagens',
+        ultimaAtividade: c.ultimaAtividade || new Date().toISOString()
+      }));
+
+      return res.json(lista);
+    }
+
+    // GET ?action=messages&phone=XXX → buscar mensagens
+    if (req.method === 'GET' && action === 'messages') {
+      const { phone } = req.query;
+      if (!phone) return res.json([]);
+
+      const database = await connectDB();
+      const doc = await database.collection('mensagens').findOne({ telefone: phone });
+      return res.json(doc ? doc.mensagens : []);
+    }
+
+    // POST ?action=intervene → assumir controle
+    if (req.method === 'POST' && action === 'intervene') {
+      const { phone } = req.body;
+      if (!phone) return res.json({ erro: 'Telefone obrigatório' });
+
+      const database = await connectDB();
+      await database.collection('conversas').updateOne(
+        { telefone: phone },
+        { $set: { emIntervencao: true, updatedAt: new Date() } },
+        { upsert: true }
+      );
+
+      await enviarWhatsApp(phone, '👤 *Atendente humano entrou no chat*\n\nComo posso ajudar?');
+
+      await salvarMensagemDB(phone, null, {
+        tipo: 'sistema',
+        nome: 'Sistema',
+        mensagem: 'Atendente humano entrou no chat',
+        texto: 'Atendente humano entrou no chat',
+        data: new Date().toISOString()
+      });
+
+      return res.json({ ok: true, mensagem: 'Intervenção ativada' });
+    }
+
+    // POST ?action=release → liberar robô
+    if (req.method === 'POST' && action === 'release') {
+      const { phone } = req.body;
+      if (!phone) return res.json({ erro: 'Telefone obrigatório' });
+
+      const database = await connectDB();
+      await database.collection('conversas').updateOne(
+        { telefone: phone },
+        { $set: { emIntervencao: false, updatedAt: new Date() } },
+        { upsert: true }
+      );
+
+      await enviarWhatsApp(phone, '🤖 *Robô retomou o atendimento*\n\nPosso ajudar em algo mais?');
+
+      await salvarMensagemDB(phone, null, {
+        tipo: 'sistema',
+        nome: 'Sistema',
+        mensagem: 'Robô retomou o atendimento',
+        texto: 'Robô retomou o atendimento',
+        data: new Date().toISOString()
+      });
+
+      return res.json({ ok: true, mensagem: 'Robô liberado' });
+    }
+
+    // POST ?action=send → enviar mensagem humana
+    if (req.method === 'POST' && action === 'send') {
+      const { phone, message } = req.body;
+      if (!phone || !message) return res.json({ erro: 'Telefone e mensagem obrigatórios' });
+
+      await enviarWhatsApp(phone, message);
+
+      await salvarMensagemDB(phone, null, {
+        tipo: 'humano',
+        nome: 'Atendente',
+        mensagem: message,
+        texto: message,
+        data: new Date().toISOString()
+      });
+
+      return res.json({ ok: true });
+    }
+
+    // ===== RECEBER MENSAGEM DO WHATSAPP =====
     if (req.method === 'POST') {
       res.status(200).send('OK');
       processarMensagem(req.body).catch(err => {
@@ -43,7 +165,7 @@ export default async function handler(req, res) {
 }
 
 // ============================================
-// PROCESSAR MENSAGEM
+// PROCESSAR MENSAGEM RECEBIDA
 // ============================================
 
 async function processarMensagem(body) {
@@ -64,8 +186,8 @@ async function processarMensagem(body) {
 
   console.log(`📩 ${nome} (${telefone}): ${texto}`);
 
-  // SALVAR mensagem do cliente no MongoDB
-  await salvarMensagem(telefone, nome, {
+  // Salvar mensagem do cliente no MongoDB
+  await salvarMensagemDB(telefone, nome, {
     tipo: 'cliente',
     nome: nome,
     mensagem: texto,
@@ -73,18 +195,20 @@ async function processarMensagem(body) {
     data: new Date().toISOString()
   });
 
-  // VERIFICAR SE ESTÁ EM INTERVENÇÃO
-  const conversa = await getConversa(telefone);
+  // Verificar intervenção
+  const database = await connectDB();
+  const conversa = await database.collection('conversas').findOne({ telefone });
+  
   if (conversa && conversa.emIntervencao) {
     console.log('🔴 Intervenção ativa - robô não responde');
     return;
   }
 
-  // GERAR RESPOSTA DO ROBÔ
+  // Gerar resposta do robô
   const resposta = gerarResposta(texto.toLowerCase(), nome);
 
-  // SALVAR resposta do robô
-  await salvarMensagem(telefone, nome, {
+  // Salvar resposta do robô
+  await salvarMensagemDB(telefone, nome, {
     tipo: 'robo',
     nome: 'Assistente RC',
     mensagem: resposta,
@@ -92,12 +216,51 @@ async function processarMensagem(body) {
     data: new Date().toISOString()
   });
 
-  // ENVIAR resposta
+  // Enviar resposta
   await enviarWhatsApp(telefone, resposta);
 }
 
 // ============================================
-// LÓGICA DE RESPOSTAS
+// SALVAR MENSAGEM NO MONGODB
+// ============================================
+
+async function salvarMensagemDB(telefone, nome, mensagem) {
+  const database = await connectDB();
+  const conversasColl = database.collection('conversas');
+  const mensagensColl = database.collection('mensagens');
+
+  // Atualizar conversa
+  await conversasColl.updateOne(
+    { telefone },
+    {
+      $set: {
+        telefone,
+        nome: nome || 'Cliente',
+        ultima: mensagem.mensagem || mensagem.texto,
+        ultimaAtividade: new Date().toISOString(),
+        updatedAt: new Date()
+      },
+      $setOnInsert: {
+        createdAt: new Date(),
+        emIntervencao: false
+      }
+    },
+    { upsert: true }
+  );
+
+  // Adicionar mensagem ao histórico
+  await mensagensColl.updateOne(
+    { telefone },
+    {
+      $push: { mensagens: mensagem },
+      $setOnInsert: { createdAt: new Date() }
+    },
+    { upsert: true }
+  );
+}
+
+// ============================================
+// LÓGICA DE RESPOSTAS DO ROBÔ
 // ============================================
 
 function gerarResposta(texto, nome) {
@@ -189,7 +352,7 @@ Ou se preferir, me pergunte sobre preços, horários ou serviços disponíveis.`
 }
 
 // ============================================
-// ENVIAR MENSAGEM
+// ENVIAR MENSAGEM PELO WHATSAPP
 // ============================================
 
 async function enviarWhatsApp(numero, texto) {

@@ -1,10 +1,9 @@
 // ============================================
-// WEBHOOK WHATSAPP + PAINEL - RC REFORMA
+// WEBHOOK WHATSAPP - RC REFORMA E CONSTRUCAO
 // Integrado com painel de intervenção
 // ============================================
 
-// IMPORTAR banco de dados do painel (mesma instância!)
-import { conversas, mensagens } from './painel.js';
+import { getConversa, salvarMensagem, atualizarIntervencao, listarConversas } from './db.js';
 
 const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
 const WHATSAPP_PHONE_ID = process.env.WHATSAPP_PHONE_ID;
@@ -28,9 +27,7 @@ export default async function handler(req, res) {
 
     // ===== RECEBER MENSAGEM =====
     if (req.method === 'POST') {
-      res.status(200).send('OK'); // Responde imediatamente ao Meta
-
-      // Processa em background
+      res.status(200).send('OK');
       processarMensagem(req.body).catch(err => {
         console.error('Erro ao processar:', err);
       });
@@ -55,11 +52,11 @@ async function processarMensagem(body) {
   const entry = body.entry?.[0];
   const changes = entry?.changes?.[0]?.value;
   if (!changes) return;
-  if (changes.statuses) return; // Ignora status
+  if (changes.statuses) return;
 
   const msg = changes.messages?.[0];
   if (!msg) return;
-  if (msg.type !== 'text') return; // Só texto por enquanto
+  if (msg.type !== 'text') return;
 
   const telefone = msg.from;
   const nome = changes.contacts?.[0]?.profile?.name || 'Cliente';
@@ -67,35 +64,30 @@ async function processarMensagem(body) {
 
   console.log(`📩 ${nome} (${telefone}): ${texto}`);
 
-  // INICIALIZAR conversa se não existir
-  if (!conversas[telefone]) {
-    conversas[telefone] = { nome, intervencao: false };
-  }
-  if (!mensagens[telefone]) {
-    mensagens[telefone] = [];
-  }
-
-  // SALVAR mensagem do cliente no histórico
-  mensagens[telefone].push({
+  // SALVAR mensagem do cliente no MongoDB
+  await salvarMensagem(telefone, nome, {
     tipo: 'cliente',
     nome: nome,
+    mensagem: texto,
     texto: texto,
     data: new Date().toISOString()
   });
 
-  // VERIFICAR SE ESTÁ EM INTERVENÇÃO HUMANA
-  if (conversas[telefone].intervencao) {
+  // VERIFICAR SE ESTÁ EM INTERVENÇÃO
+  const conversa = await getConversa(telefone);
+  if (conversa && conversa.emIntervencao) {
     console.log('🔴 Intervenção ativa - robô não responde');
-    return; // Não responde nada, humano vai responder pelo painel
+    return;
   }
 
   // GERAR RESPOSTA DO ROBÔ
   const resposta = gerarResposta(texto.toLowerCase(), nome);
-  
-  // SALVAR resposta do robô no histórico
-  mensagens[telefone].push({
+
+  // SALVAR resposta do robô
+  await salvarMensagem(telefone, nome, {
     tipo: 'robo',
     nome: 'Assistente RC',
+    mensagem: resposta,
     texto: resposta,
     data: new Date().toISOString()
   });
@@ -105,7 +97,7 @@ async function processarMensagem(body) {
 }
 
 // ============================================
-// LÓGICA DE RESPOSTAS (igual ao seu)
+// LÓGICA DE RESPOSTAS
 // ============================================
 
 function gerarResposta(texto, nome) {
@@ -197,12 +189,12 @@ Ou se preferir, me pergunte sobre preços, horários ou serviços disponíveis.`
 }
 
 // ============================================
-// ENVIAR MENSAGEM (compartilhado)
+// ENVIAR MENSAGEM
 // ============================================
 
 async function enviarWhatsApp(numero, texto) {
   if (!WHATSAPP_TOKEN || !WHATSAPP_PHONE_ID) {
-    console.error('❌ Variáveis de ambiente não configuradas!');
+    console.error('❌ Variáveis não configuradas!');
     return false;
   }
 
@@ -231,7 +223,7 @@ async function enviarWhatsApp(numero, texto) {
       return false;
     }
 
-    console.log('✅ Mensagem enviada para', numero);
+    console.log('✅ Enviado para', numero);
     return true;
 
   } catch (e) {

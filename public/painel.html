@@ -617,17 +617,14 @@
         // ==========================================
         // CONFIGURAÇÃO - VERIFIQUE ESTA URL
         // ==========================================
-        const CONFIG = {
-            // IMPORTANTE: Altere para sua URL real se necessário
-            WEBHOOK_URL: window.location.origin + '/api/webhook',
-            
-            // Intervalos de polling
-            POLL_INTERVAL: 3000,      // 3 segundos para lista
-            CHAT_POLL_INTERVAL: 1500, // 1.5 segundos para mensagens
-            
-            // Debug
-            DEBUG: false
-        };
+       const CONFIG = {
+    // ALTERE AQUI: aponte para /api/webhook em vez de /api/painel
+    WEBHOOK_URL: window.location.origin + '/api/webhook',
+    
+    POLL_INTERVAL: 3000,
+    CHAT_POLL_INTERVAL: 1500,
+    DEBUG: false
+};
 
         // ==========================================
         // APLICAÇÃO

@@ -1,1431 +1,532 @@
-
-# Criar o painel de treinamento com persistência no Supabase
-
-treinamento_html = '''<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="theme-color" content="#1a1a2e">
-    <title>Painel de Treinamento - Robô RC Reforma</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            -webkit-tap-highlight-color: transparent;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-        }
-        
-        :root {
-            --bg: #0f0f1a;
-            --card: #1a1a2e;
-            --card-hover: #252542;
-            --primary: #4f46e5;
-            --primary-hover: #4338ca;
-            --secondary: #06b6d4;
-            --success: #10b981;
-            --danger: #ef4444;
-            --warning: #f59e0b;
-            --text: #f1f5f9;
-            --text-secondary: #94a3b8;
-            --border: #334155;
-        }
-        
-        body {
-            background: var(--bg);
-            color: var(--text);
-            min-height: 100vh;
-            line-height: 1.6;
-        }
-        
-        /* Header */
-        .header {
-            background: var(--card);
-            padding: 16px 20px;
-            border-bottom: 1px solid var(--border);
-            position: sticky;
-            top: 0;
-            z-index: 100;
-        }
-        
-        .header-content {
-            max-width: 1400px;
-            margin: 0 auto;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 12px;
-        }
-        
-        .header h1 {
-            font-size: 22px;
-            font-weight: 700;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        
-        .header h1 span {
-            color: var(--secondary);
-        }
-        
-        .connection-status {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 13px;
-            color: var(--text-secondary);
-        }
-        
-        .status-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: var(--success);
-            animation: pulse 2s infinite;
-        }
-        
-        .status-dot.offline {
-            background: var(--danger);
-            animation: none;
-        }
-        
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
-        
-        /* Container */
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        
-        /* Tabs */
-        .tabs {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 24px;
-            overflow-x: auto;
-            padding-bottom: 4px;
-        }
-        
-        .tab {
-            padding: 10px 20px;
-            border: none;
-            background: var(--card);
-            color: var(--text-secondary);
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 600;
-            white-space: nowrap;
-            transition: all 0.2s;
-        }
-        
-        .tab:hover {
-            background: var(--card-hover);
-            color: var(--text);
-        }
-        
-        .tab.active {
-            background: var(--primary);
-            color: white;
-        }
-        
-        /* Cards Grid */
-        .grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-            gap: 20px;
-        }
-        
-        @media (max-width: 768px) {
-            .grid {
-                grid-template-columns: 1fr;
-            }
-        }
-        
-        /* Card */
-        .card {
-            background: var(--card);
-            border-radius: 12px;
-            padding: 20px;
-            border: 1px solid var(--border);
-            transition: all 0.2s;
-        }
-        
-        .card:hover {
-            border-color: var(--primary);
-            transform: translateY(-2px);
-        }
-        
-        .card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 16px;
-        }
-        
-        .card-title {
-            font-size: 16px;
-            font-weight: 600;
-            color: var(--text);
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        
-        .card-icon {
-            width: 32px;
-            height: 32px;
-            border-radius: 8px;
-            background: var(--primary);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 16px;
-        }
-        
-        /* Form Elements */
-        .form-group {
-            margin-bottom: 16px;
-        }
-        
-        .form-label {
-            display: block;
-            font-size: 13px;
-            font-weight: 600;
-            color: var(--text-secondary);
-            margin-bottom: 6px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-        
-        .form-input,
-        .form-textarea,
-        .form-select {
-            width: 100%;
-            padding: 10px 14px;
-            background: var(--bg);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            color: var(--text);
-            font-size: 14px;
-            transition: all 0.2s;
-        }
-        
-        .form-input:focus,
-        .form-textarea:focus,
-        .form-select:focus {
-            outline: none;
-            border-color: var(--primary);
-        }
-        
-        .form-textarea {
-            min-height: 80px;
-            resize: vertical;
-            font-family: inherit;
-        }
-        
-        .form-select {
-            cursor: pointer;
-        }
-        
-        /* Buttons */
-        .btn {
-            padding: 10px 20px;
-            border: none;
-            border-radius: 8px;
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-        }
-        
-        .btn-primary {
-            background: var(--primary);
-            color: white;
-        }
-        
-        .btn-primary:hover {
-            background: var(--primary-hover);
-        }
-        
-        .btn-success {
-            background: var(--success);
-            color: white;
-        }
-        
-        .btn-danger {
-            background: var(--danger);
-            color: white;
-        }
-        
-        .btn-secondary {
-            background: var(--card-hover);
-            color: var(--text);
-        }
-        
-        .btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-        
-        /* Lists */
-        .list {
-            max-height: 300px;
-            overflow-y: auto;
-        }
-        
-        .list-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 12px;
-            background: var(--bg);
-            border-radius: 8px;
-            margin-bottom: 8px;
-            border: 1px solid var(--border);
-        }
-        
-        .list-item-content {
-            flex: 1;
-            min-width: 0;
-        }
-        
-        .list-item-title {
-            font-weight: 600;
-            font-size: 14px;
-            margin-bottom: 2px;
-        }
-        
-        .list-item-subtitle {
-            font-size: 12px;
-            color: var(--text-secondary);
-        }
-        
-        .list-item-actions {
-            display: flex;
-            gap: 8px;
-        }
-        
-        .btn-icon {
-            width: 32px;
-            height: 32px;
-            border: none;
-            border-radius: 6px;
-            background: transparent;
-            color: var(--text-secondary);
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.2s;
-        }
-        
-        .btn-icon:hover {
-            background: var(--danger);
-            color: white;
-        }
-        
-        /* Flow Builder */
-        .flow-item {
-            background: var(--bg);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 16px;
-            margin-bottom: 12px;
-            position: relative;
-        }
-        
-        .flow-item::before {
-            content: '';
-            position: absolute;
-            left: 24px;
-            top: -12px;
-            width: 2px;
-            height: 12px;
-            background: var(--border);
-        }
-        
-        .flow-item:first-child::before {
-            display: none;
-        }
-        
-        .flow-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 12px;
-        }
-        
-        .flow-number {
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
-            background: var(--primary);
-            color: white;
-            font-size: 12px;
-            font-weight: 700;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        
-        /* Toggle Switch */
-        .toggle {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            cursor: pointer;
-        }
-        
-        .toggle-switch {
-            width: 48px;
-            height: 24px;
-            background: var(--border);
-            border-radius: 12px;
-            position: relative;
-            transition: all 0.2s;
-        }
-        
-        .toggle-switch.active {
-            background: var(--success);
-        }
-        
-        .toggle-switch::after {
-            content: '';
-            position: absolute;
-            width: 20px;
-            height: 20px;
-            background: white;
-            border-radius: 50%;
-            top: 2px;
-            left: 2px;
-            transition: all 0.2s;
-        }
-        
-        .toggle-switch.active::after {
-            left: 26px;
-        }
-        
-        /* Toast Notification */
-        .toast {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            background: var(--card);
-            color: var(--text);
-            padding: 12px 20px;
-            border-radius: 8px;
-            border-left: 4px solid var(--success);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-            transform: translateX(400px);
-            transition: transform 0.3s;
-            z-index: 1000;
-            font-size: 14px;
-        }
-        
-        .toast.show {
-            transform: translateX(0);
-        }
-        
-        .toast.error {
-            border-left-color: var(--danger);
-        }
-        
-        /* Loading Overlay */
-        .loading-overlay {
-            position: fixed;
-            inset: 0;
-            background: rgba(15, 15, 26, 0.9);
-            display: none;
-            align-items: center;
-            justify-content: center;
-            z-index: 999;
-            backdrop-filter: blur(4px);
-        }
-        
-        .loading-overlay.active {
-            display: flex;
-        }
-        
-        .spinner {
-            width: 50px;
-            height: 50px;
-            border: 3px solid var(--border);
-            border-top-color: var(--primary);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-        
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-        
-        /* Responsive */
-        @media (max-width: 768px) {
-            .header h1 {
-                font-size: 18px;
-            }
-            
-            .container {
-                padding: 12px;
-            }
-            
-            .card {
-                padding: 16px;
-            }
-            
-            .tabs {
-                gap: 6px;
-            }
-            
-            .tab {
-                padding: 8px 14px;
-                font-size: 13px;
-            }
-        }
-        
-        /* Empty State */
-        .empty-state {
-            text-align: center;
-            padding: 40px;
-            color: var(--text-secondary);
-        }
-        
-        .empty-state svg {
-            width: 60px;
-            height: 60px;
-            margin-bottom: 16px;
-            opacity: 0.3;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🎓 Painel de Treinamento - RC Robô</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #0f0f23;
+      color: #e0e0e0;
+      padding: 20px;
+    }
+    .container { max-width: 900px; margin: 0 auto; }
+    h1 { color: #00d4aa; margin-bottom: 10px; }
+    .subtitle { color: #888; margin-bottom: 30px; }
+
+    .card {
+      background: #1a1a2e;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+      border: 1px solid #2a2a4e;
+    }
+
+    .form-group { margin-bottom: 15px; }
+    label { display: block; margin-bottom: 5px; color: #aaa; font-size: 14px; }
+    input, textarea, select {
+      width: 100%;
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid #333;
+      background: #0f0f23;
+      color: #fff;
+      font-size: 14px;
+      font-family: inherit;
+    }
+    textarea { min-height: 120px; resize: vertical; }
+    input:focus, textarea:focus { outline: none; border-color: #00d4aa; }
+
+    .btn {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+    .btn-primary { background: #00d4aa; color: #000; }
+    .btn-primary:hover { background: #00b894; }
+    .btn-danger { background: #e74c3c; color: #fff; }
+    .btn-danger:hover { background: #c0392b; }
+    .btn-secondary { background: #2a2a4e; color: #fff; }
+    .btn-secondary:hover { background: #3a3a6e; }
+
+    .instrucao-item {
+      background: #16162a;
+      border-radius: 10px;
+      padding: 15px;
+      margin-bottom: 12px;
+      border-left: 4px solid #00d4aa;
+      position: relative;
+    }
+    .instrucao-item.inativo { border-left-color: #666; opacity: 0.6; }
+    .instrucao-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .instrucao-titulo { font-weight: 600; color: #fff; }
+    .instrucao-ordem {
+      background: #00d4aa;
+      color: #000;
+      padding: 2px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: bold;
+    }
+    .palavras-chave {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin: 8px 0;
+    }
+    .tag {
+      background: #2a2a4e;
+      color: #00d4aa;
+      padding: 3px 10px;
+      border-radius: 15px;
+      font-size: 12px;
+    }
+    .resposta-preview {
+      background: #0f0f23;
+      padding: 10px;
+      border-radius: 6px;
+      margin-top: 8px;
+      font-size: 13px;
+      color: #ccc;
+      white-space: pre-wrap;
+      max-height: 100px;
+      overflow-y: auto;
+    }
+    .acoes {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .acoes button { padding: 6px 14px; font-size: 12px; }
+
+    .fallback-section {
+      margin-top: 30px;
+    }
+
+    .status {
+      padding: 10px 15px;
+      border-radius: 8px;
+      margin-bottom: 15px;
+      display: none;
+    }
+    .status.sucesso { background: #064e3b; color: #6ee7b7; display: block; }
+    .status.erro { background: #450a0a; color: #fca5a5; display: block; }
+
+    .tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .tab {
+      padding: 10px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      background: #1a1a2e;
+      border: 1px solid #2a2a4e;
+    }
+    .tab.ativa { background: #00d4aa; color: #000; border-color: #00d4aa; }
+
+    .edit-modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.8);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+    .edit-modal.ativa { display: flex; }
+    .modal-content {
+      background: #1a1a2e;
+      border-radius: 16px;
+      padding: 30px;
+      width: 90%;
+      max-width: 600px;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+
+    .dica {
+      background: #1e3a5f;
+      border-left: 3px solid #3498db;
+      padding: 12px;
+      border-radius: 0 8px 8px 0;
+      margin-bottom: 20px;
+      font-size: 13px;
+      color: #aed6f1;
+    }
+    .dica code {
+      background: #0f0f23;
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: #00d4aa;
+    }
+  </style>
 </head>
 <body>
-    <div class="loading-overlay" id="loadingOverlay">
-        <div class="spinner"></div>
+  <div class="container">
+    <h1>🎓 Painel de Treinamento</h1>
+    <p class="subtitle">RC Reforma e Construção - Robô WhatsApp</p>
+
+    <div class="tabs">
+      <div class="tab ativa" onclick="mostrarAba('instrucoes')">📋 Instruções</div>
+      <div class="tab" onclick="mostrarAba('fallback')">🔄 Resposta Padrão</div>
+      <div class="tab" onclick="mostrarAba('teste')">🧪 Testar Robô</div>
     </div>
 
-    <header class="header">
-        <div class="header-content">
-            <h1>
-                <span>🤖</span>
-                Painel de Treinamento
-            </h1>
-            <div class="connection-status">
-                <span class="status-dot" id="statusDot"></span>
-                <span id="statusText">Conectando...</span>
-            </div>
+    <div id="status" class="status"></div>
+
+    <!-- ABA: INSTRUÇÕES -->
+    <div id="aba-instrucoes">
+      <div class="card">
+        <h3 style="margin-bottom: 15px;">➕ Nova Instrução</h3>
+        <div class="dica">
+          💡 Use <code>{nome}</code> no texto para inserir o nome do cliente automaticamente.<br>
+          💡 Palavras-chave: separadas por vírgula. Ex: <code>oi, olá, bom dia</code><br>
+          💡 Ordem: menor número = verificado primeiro. Use 1 para saudações, 99 para genérico.
         </div>
-    </header>
-
-    <div class="container">
-        <!-- Tabs -->
-        <div class="tabs">
-            <button class="tab active" onclick="app.switchTab('respostas')">Respostas do Robô</button>
-            <button class="tab" onclick="app.switchTab('fluxo')">Fluxo de Conversa</button>
-            <button class="tab" onclick="app.switchTab('config')">Configurações</button>
-            <button class="tab" onclick="app.switchTab('teste')">Testar Robô</button>
+        <div class="form-group">
+          <label>Descrição (só para você se organizar)</label>
+          <input type="text" id="nova-descricao" placeholder="Ex: Saudação inicial">
         </div>
-
-        <!-- Tab: Respostas -->
-        <div id="tab-respostas" class="tab-content">
-            <div class="grid">
-                <!-- Saudações -->
-                <div class="card">
-                    <div class="card-header">
-                        <div class="card-title">
-                            <div class="card-icon">👋</div>
-                            Saudações
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Mensagem de Boas-vindas</label>
-                        <textarea class="form-textarea" id="msgBoasVindas" placeholder="Olá! Sou da RC Reforma...">Olá! Sou da RC Reforma e Construção. Para te ajudar rápido, me conta: qual serviço precisa e qual bairro do Rio?</textarea>
-                    </div>
-                    <button class="btn btn-primary" onclick="app.saveConfig('boas_vindas', document.getElementById('msgBoasVindas').value)">
-                        Salvar Saudação
-                    </button>
-                </div>
-
-                <!-- Preços -->
-                <div class="card">
-                    <div class="card-header">
-                        <div class="card-title">
-                            <div class="card-icon">💰</div>
-                            Resposta sobre Preços
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Quando perguntam sobre valor</label>
-                        <textarea class="form-textarea" id="msgPreco" placeholder="Entendo, deixa eu explicar...">Entendo. A visita técnica custa R$180, mas temos descontos especiais. Na Zona Sul fica R$90, e em Botafogo é gratuita. O técnico vai até você, avalia tudo e faz um orçamento detalhado. Se aprovar o serviço, esse valor vira desconto no total.</textarea>
-                    </div>
-                    <button class="btn btn-primary" onclick="app.saveConfig('preco', document.getElementById('msgPreco').value)">
-                        Salvar Resposta
-                    </button>
-                </div>
-
-                <!-- Objecções -->
-                <div class="card">
-                    <div class="card-header">
-                        <div class="card-title">
-                            <div class="card-icon">🛡️</div>
-                            Objecções
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Quando dizem "está caro"</label>
-                        <textarea class="form-textarea" id="msgCaro" placeholder="Posso oferecer desconto...">Posso oferecer 50% de desconto para Zona Sul, ficando R$90. Ou, se conseguir trazer o serviço para Botafogo, fica 100% gratuito como cortesia.</textarea>
-                    </div>
-                    <button class="btn btn-primary" onclick="app.saveConfig('objecao_caro', document.getElementById('msgCaro').value)">
-                        Salvar Objecção
-                    </button>
-                </div>
-
-                <!-- Agendamento -->
-                <div class="card">
-                    <div class="card-header">
-                        <div class="card-title">
-                            <div class="card-icon">📅</div>
-                            Confirmação de Visita
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Mensagem de confirmação</label>
-                        <textarea class="form-textarea" id="msgConfirmacao" placeholder="Visita confirmada...">Visita confirmada. O técnico vai entrar em contato em até 48 horas. Se precisar remarcar, avise com 2 horas de antecedência.</textarea>
-                    </div>
-                    <button class="btn btn-primary" onclick="app.saveConfig('confirmacao', document.getElementById('msgConfirmacao').value)">
-                        Salvar Confirmação
-                    </button>
-                </div>
-
-                <!-- Respostas Personalizadas -->
-                <div class="card" style="grid-column: 1 / -1;">
-                    <div class="card-header">
-                        <div class="card-title">
-                            <div class="card-icon">✨</div>
-                            Respostas Personalizadas
-                        </div>
-                        <button class="btn btn-success" onclick="app.addCustomResponse()">
-                            + Nova Resposta
-                        </button>
-                    </div>
-                    <div id="customResponsesList" class="list">
-                        <div class="empty-state">
-                            <p>Carregando respostas personalizadas...</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
+        <div class="form-group">
+          <label>Palavras-chave (separadas por vírgula)</label>
+          <input type="text" id="nova-palavras" placeholder="Ex: oi, olá, bom dia, hey">
         </div>
-
-        <!-- Tab: Fluxo -->
-        <div id="tab-fluxo" class="tab-content" style="display: none;">
-            <div class="grid">
-                <div class="card" style="grid-column: 1 / -1;">
-                    <div class="card-header">
-                        <div class="card-title">
-                            <div class="card-icon">🔄</div>
-                            Fluxo de Conversa
-                        </div>
-                        <button class="btn btn-success" onclick="app.addFlowStep()">
-                            + Adicionar Etapa
-                        </button>
-                    </div>
-                    <div id="flowList">
-                        <div class="empty-state">
-                            <p>Carregando fluxo...</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
+        <div class="form-group">
+          <label>Ordem de prioridade</label>
+          <input type="number" id="nova-ordem" value="10" min="0" max="999">
         </div>
-
-        <!-- Tab: Config -->
-        <div id="tab-config" class="tab-content" style="display: none;">
-            <div class="grid">
-                <div class="card">
-                    <div class="card-header">
-                        <div class="card-title">
-                            <div class="card-icon">⚙️</div>
-                            Configurações Gerais
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Nome da Empresa</label>
-                        <input type="text" class="form-input" id="configEmpresa" value="RC Reforma e Construção">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Preço da Visita (R$)</label>
-                        <input type="number" class="form-input" id="configPreco" value="180">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Preço Zona Sul (R$)</label>
-                        <input type="number" class="form-input" id="configPrecoZS" value="90">
-                    </div>
-                    <div class="form-group">
-                        <label class="toggle">
-                            <span>Gratuito em Botafogo</span>
-                            <div class="toggle-switch active" id="toggleBotafogo" onclick="app.toggleSwitch(this)"></div>
-                        </label>
-                    </div>
-                    <button class="btn btn-primary" onclick="app.saveGeneralConfig()">
-                        Salvar Configurações
-                    </button>
-                </div>
-
-                <div class="card">
-                    <div class="card-header">
-                        <div class="card-title">
-                            <div class="card-icon">📍</div>
-                            Bairros Atendidos
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Adicionar bairro (um por linha)</label>
-                        <textarea class="form-textarea" id="bairrosList" rows="8">ipanema
-leblon
-copacabana
-botafogo
-flamengo
-lagoa
-gavea
-jardim botanico
-humaita
-urca
-catete
-gloria
-laranjeiras
-cosme velho
-leme
-sao conrado
-vidigal
-rocinha
-centro
-lapa
-santa teresa</textarea>
-                    </div>
-                    <button class="btn btn-primary" onclick="app.saveBairros()">
-                        Salvar Bairros
-                    </button>
-                </div>
-
-                <div class="card">
-                    <div class="card-header">
-                        <div class="card-title">
-                            <div class="card-icon">🔧</div>
-                            Serviços Oferecidos
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Lista de serviços (um por linha)</label>
-                        <textarea class="form-textarea" id="servicosList" rows="8">pedreiro
-pintura
-marcenaria
-hidraulica
-elétrica
-reforma
-azulejo
-gesso
-vazamento
-encanamento
-serralheria
-drywall
-porcelanato
-revestimento
-impermeabilização</textarea>
-                    </div>
-                    <button class="btn btn-primary" onclick="app.saveServicos()">
-                        Salvar Serviços
-                    </button>
-                </div>
-
-                <div class="card">
-                    <div class="card-header">
-                        <div class="card-title">
-                            <div class="card-icon">⚠️</div>
-                            Palavras de Risco
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Ativa intervenção humana</label>
-                        <textarea class="form-textarea" id="palavrasRisco" rows="6">processo
-judicial
-advogado
-procon
-reclamação
-polícia
-denunciar
-golpe
-fraude
-enganado
-calote
-quero falar com humano
-você é robô
-cancelar tudo
-não quero mais</textarea>
-                    </div>
-                    <button class="btn btn-primary" onclick="app.savePalavrasRisco()">
-                        Salvar Palavras
-                    </button>
-                </div>
-            </div>
+        <div class="form-group">
+          <label>Resposta do robô</label>
+          <textarea id="nova-resposta" placeholder="Digite aqui o que o robô deve responder..."></textarea>
         </div>
+        <button class="btn btn-primary" onclick="criarInstrucao()">💾 Salvar Instrução</button>
+      </div>
 
-        <!-- Tab: Teste -->
-        <div id="tab-teste" class="tab-content" style="display: none;">
-            <div class="grid">
-                <div class="card" style="grid-column: 1 / -1; max-width: 600px; margin: 0 auto;">
-                    <div class="card-header">
-                        <div class="card-title">
-                            <div class="card-icon">💬</div>
-                            Simular Conversa
-                        </div>
-                    </div>
-                    <div id="chatSimulation" style="background: var(--bg); border-radius: 8px; padding: 16px; height: 400px; overflow-y: auto; margin-bottom: 16px; border: 1px solid var(--border);">
-                        <div class="empty-state" style="padding: 20px;">
-                            <p>Clique em "Iniciar Conversa" para testar o robô</p>
-                        </div>
-                    </div>
-                    <div style="display: flex; gap: 8px;">
-                        <input type="text" class="form-input" id="simInput" placeholder="Digite uma mensagem..." onkeypress="if(event.key==='Enter') app.sendSimMessage()">
-                        <button class="btn btn-primary" onclick="app.sendSimMessage()">Enviar</button>
-                    </div>
-                    <div style="margin-top: 12px; display: flex; gap: 8px;">
-                        <button class="btn btn-secondary" onclick="app.startSimulation()">Iniciar Conversa</button>
-                        <button class="btn btn-danger" onclick="app.clearSimulation()">Limpar</button>
-                    </div>
-                </div>
-            </div>
+      <div class="card">
+        <h3 style="margin-bottom: 15px;">📚 Instruções Cadastradas</h3>
+        <div id="lista-instrucoes">
+          <p style="color: #666; text-align: center; padding: 20px;">Carregando...</p>
         </div>
+      </div>
     </div>
 
-    <div class="toast" id="toast"></div>
+    <!-- ABA: FALLBACK -->
+    <div id="aba-fallback" style="display: none;">
+      <div class="card">
+        <h3 style="margin-bottom: 15px;">🔄 Resposta Padrão (Fallback)</h3>
+        <div class="dica">
+          💡 Esta é a resposta que o robô dá quando NENHUMA palavra-chave bate.<br>
+          💡 Use <code>{nome}</code> para personalizar com o nome do cliente.
+        </div>
+        <div class="form-group">
+          <label>Texto de fallback</label>
+          <textarea id="fallback-texto" placeholder="Carregando..."></textarea>
+        </div>
+        <button class="btn btn-primary" onclick="salvarFallback()">💾 Salvar Fallback</button>
+      </div>
+    </div>
 
-    <script>
-        // ==========================================
-        // CONFIGURAÇÃO SUPABASE
-        // ==========================================
-        const SUPABASE_URL = localStorage.getItem('supabase_url') || 'https://seu-projeto.supabase.co';
-        const SUPABASE_KEY = localStorage.getItem('supabase_key') || 'sua-anon-key';
-        
-        let supabase = null;
-        
-        // ==========================================
-        // CLASSE PRINCIPAL
-        // ==========================================
-        class PainelTreinamento {
-            constructor() {
-                this.currentTab = 'respostas';
-                this.configs = {};
-                this.customResponses = [];
-                this.flowSteps = [];
-                this.simulationHistory = [];
-                this.simulationContext = { etapa: 'INICIO', dados: {} };
-                
-                this.init();
-            }
-            
-            async init() {
-                // Verificar/configurar Supabase
-                if (!localStorage.getItem('supabase_url')) {
-                    const url = prompt('Digite a URL do Supabase:');
-                    const key = prompt('Digite a anon key do Supabase:');
-                    if (url && key) {
-                        localStorage.setItem('supabase_url', url);
-                        localStorage.setItem('supabase_key', key);
-                        location.reload();
-                    }
-                }
-                
-                // Inicializar cliente
-                try {
-                    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-                    this.updateStatus(true);
-                    await this.loadAllData();
-                } catch (e) {
-                    console.error('Erro Supabase:', e);
-                    this.updateStatus(false);
-                    this.showToast('Erro ao conectar com Supabase', true);
-                }
-                
-                // Configurar realtime
-                this.setupRealtime();
-            }
-            
-            updateStatus(connected) {
-                const dot = document.getElementById('statusDot');
-                const text = document.getElementById('statusText');
-                
-                if (connected) {
-                    dot.classList.remove('offline');
-                    text.textContent = 'Conectado';
-                } else {
-                    dot.classList.add('offline');
-                    text.textContent = 'Desconectado';
-                }
-            }
-            
-            setupRealtime() {
-                if (!supabase) return;
-                
-                // Subscribe to changes
-                supabase
-                    .channel('configs')
-                    .on('postgres_changes', { event: '*', schema: 'public', table: 'configs' }, 
-                        payload => {
-                            console.log('Config alterada:', payload);
-                            this.loadAllData();
-                            this.showToast('Configuração atualizada em tempo real');
-                        }
-                    )
-                    .subscribe();
-            }
-            
-            async loadAllData() {
-                this.showLoading(true);
-                
-                try {
-                    // Carregar configs
-                    const { data: configs } = await supabase
-                        .from('configs')
-                        .select('*');
-                    
-                    if (configs) {
-                        this.configs = {};
-                        configs.forEach(c => {
-                            this.configs[c.chave] = c.valor;
-                        });
-                        this.applyConfigs();
-                    }
-                    
-                    // Carregar respostas personalizadas
-                    const { data: responses } = await supabase
-                        .from('respostas_personalizadas')
-                        .select('*')
-                        .order('created_at', { ascending: false });
-                    
-                    this.customResponses = responses || [];
-                    this.renderCustomResponses();
-                    
-                    // Carregar fluxo
-                    const { data: flow } = await supabase
-                        .from('fluxo_conversa')
-                        .select('*')
-                        .order('ordem', { ascending: true });
-                    
-                    this.flowSteps = flow || [];
-                    this.renderFlow();
-                    
-                } catch (e) {
-                    console.error('Erro ao carregar dados:', e);
-                    this.showToast('Erro ao carregar dados', true);
-                } finally {
-                    this.showLoading(false);
-                }
-            }
-            
-            applyConfigs() {
-                // Aplicar valores nos campos
-                if (this.configs.boas_vindas) document.getElementById('msgBoasVindas').value = this.configs.boas_vindas;
-                if (this.configs.preco) document.getElementById('msgPreco').value = this.configs.preco;
-                if (this.configs.objecao_caro) document.getElementById('msgCaro').value = this.configs.objecao_caro;
-                if (this.configs.confirmacao) document.getElementById('msgConfirmacao').value = this.configs.confirmacao;
-                if (this.configs.empresa) document.getElementById('configEmpresa').value = this.configs.empresa;
-                if (this.configs.preco_visita) document.getElementById('configPreco').value = this.configs.preco_visita;
-                if (this.configs.preco_zs) document.getElementById('configPrecoZS').value = this.configs.preco_zs;
-                if (this.configs.bairros) document.getElementById('bairrosList').value = this.configs.bairros;
-                if (this.configs.servicos) document.getElementById('servicosList').value = this.configs.servicos;
-                if (this.configs.palavras_risco) document.getElementById('palavrasRisco').value = this.configs.palavras_risco;
-            }
-            
-            // ==========================================
-            // TABS
-            // ==========================================
-            switchTab(tab) {
-                this.currentTab = tab;
-                
-                // Update UI
-                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-                event.target.classList.add('active');
-                
-                document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
-                document.getElementById(`tab-${tab}`).style.display = 'block';
-            }
-            
-            // ==========================================
-            // SAVE METHODS
-            // ==========================================
-            async saveConfig(chave, valor) {
-                this.showLoading(true);
-                
-                try {
-                    const { error } = await supabase
-                        .from('configs')
-                        .upsert({ 
-                            chave, 
-                            valor, 
-                            updated_at: new Date().toISOString() 
-                        }, { onConflict: 'chave' });
-                    
-                    if (error) throw error;
-                    
-                    this.configs[chave] = valor;
-                    this.showToast('Configuração salva com sucesso!');
-                    
-                } catch (e) {
-                    console.error('Erro ao salvar:', e);
-                    this.showToast('Erro ao salvar', true);
-                } finally {
-                    this.showLoading(false);
-                }
-            }
-            
-            async saveGeneralConfig() {
-                const configs = {
-                    empresa: document.getElementById('configEmpresa').value,
-                    preco_visita: document.getElementById('configPreco').value,
-                    preco_zs: document.getElementById('configPrecoZS').value,
-                    gratuito_botafogo: document.getElementById('toggleBotafogo').classList.contains('active')
-                };
-                
-                for (const [chave, valor] of Object.entries(configs)) {
-                    await this.saveConfig(chave, String(valor));
-                }
-                
-                this.showToast('Configurações gerais salvas!');
-            }
-            
-            async saveBairros() {
-                await this.saveConfig('bairros', document.getElementById('bairrosList').value);
-            }
-            
-            async saveServicos() {
-                await this.saveConfig('servicos', document.getElementById('servicosList').value);
-            }
-            
-            async savePalavrasRisco() {
-                await this.saveConfig('palavras_risco', document.getElementById('palavrasRisco').value);
-            }
-            
-            // ==========================================
-            // CUSTOM RESPONSES
-            // ==========================================
-            renderCustomResponses() {
-                const container = document.getElementById('customResponsesList');
-                
-                if (this.customResponses.length === 0) {
-                    container.innerHTML = `
-                        <div class="empty-state">
-                            <p>Nenhuma resposta personalizada ainda</p>
-                        </div>
-                    `;
-                    return;
-                }
-                
-                container.innerHTML = this.customResponses.map(r => `
-                    <div class="list-item" data-id="${r.id}">
-                        <div class="list-item-content">
-                            <div class="list-item-title">${this.escapeHtml(r.gatilho)}</div>
-                            <div class="list-item-subtitle">${this.escapeHtml(r.resposta.substring(0, 60))}...</div>
-                        </div>
-                        <div class="list-item-actions">
-                            <button class="btn-icon" onclick="app.editResponse('${r.id}')">✏️</button>
-                            <button class="btn-icon" onclick="app.deleteResponse('${r.id}')">🗑️</button>
-                        </div>
-                    </div>
-                `).join('');
-            }
-            
-            async addCustomResponse() {
-                const gatilho = prompt('Palavra-chave ou frase que ativa esta resposta:');
-                if (!gatilho) return;
-                
-                const resposta = prompt('Resposta do robô:');
-                if (!resposta) return;
-                
-                this.showLoading(true);
-                
-                try {
-                    const { error } = await supabase
-                        .from('respostas_personalizadas')
-                        .insert({ gatilho, resposta });
-                    
-                    if (error) throw error;
-                    
-                    await this.loadAllData();
-                    this.showToast('Resposta adicionada!');
-                    
-                } catch (e) {
-                    this.showToast('Erro ao adicionar', true);
-                } finally {
-                    this.showLoading(false);
-                }
-            }
-            
-            async editResponse(id) {
-                const resp = this.customResponses.find(r => r.id === id);
-                if (!resp) return;
-                
-                const gatilho = prompt('Novo gatilho:', resp.gatilho);
-                if (gatilho === null) return;
-                
-                const resposta = prompt('Nova resposta:', resp.resposta);
-                if (resposta === null) return;
-                
-                this.showLoading(true);
-                
-                try {
-                    const { error } = await supabase
-                        .from('respostas_personalizadas')
-                        .update({ gatilho, resposta })
-                        .eq('id', id);
-                    
-                    if (error) throw error;
-                    
-                    await this.loadAllData();
-                    this.showToast('Resposta atualizada!');
-                    
-                } catch (e) {
-                    this.showToast('Erro ao atualizar', true);
-                } finally {
-                    this.showLoading(false);
-                }
-            }
-            
-            async deleteResponse(id) {
-                if (!confirm('Tem certeza que deseja excluir?')) return;
-                
-                this.showLoading(true);
-                
-                try {
-                    const { error } = await supabase
-                        .from('respostas_personalizadas')
-                        .delete()
-                        .eq('id', id);
-                    
-                    if (error) throw error;
-                    
-                    await this.loadAllData();
-                    this.showToast('Resposta excluída!');
-                    
-                } catch (e) {
-                    this.showToast('Erro ao excluir', true);
-                } finally {
-                    this.showLoading(false);
-                }
-            }
-            
-            // ==========================================
-            // FLOW BUILDER
-            // ==========================================
-            renderFlow() {
-                const container = document.getElementById('flowList');
-                
-                if (this.flowSteps.length === 0) {
-                    container.innerHTML = `
-                        <div class="empty-state">
-                            <p>Nenhuma etapa no fluxo ainda</p>
-                        </div>
-                    `;
-                    return;
-                }
-                
-                container.innerHTML = this.flowSteps.map((step, index) => `
-                    <div class="flow-item">
-                        <div class="flow-header">
-                            <div style="display: flex; align-items: center; gap: 12px;">
-                                <div class="flow-number">${index + 1}</div>
-                                <strong>${this.escapeHtml(step.nome)}</strong>
-                            </div>
-                            <div class="list-item-actions">
-                                <button class="btn-icon" onclick="app.moveStep('${step.id}', -1)">⬆️</button>
-                                <button class="btn-icon" onclick="app.moveStep('${step.id}', 1)">⬇️</button>
-                                <button class="btn-icon" onclick="app.editStep('${step.id}')">✏️</button>
-                                <button class="btn-icon" onclick="app.deleteStep('${step.id}')">🗑️</button>
-                            </div>
-                        </div>
-                        <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 8px;">
-                            Gatilho: "${this.escapeHtml(step.gatilho || 'Nenhum')}"
-                        </div>
-                        <div style="background: var(--bg); padding: 10px; border-radius: 6px; font-size: 13px;">
-                            ${this.escapeHtml(step.resposta)}
-                        </div>
-                    </div>
-                `).join('');
-            }
-            
-            async addFlowStep() {
-                const nome = prompt('Nome da etapa (ex: SAUDAÇÃO):');
-                if (!nome) return;
-                
-                const gatilho = prompt('Palavras que ativam esta etapa (separadas por vírgula):') || '';
-                const resposta = prompt('Resposta do robô nesta etapa:');
-                if (!resposta) return;
-                
-                this.showLoading(true);
-                
-                try {
-                    const ordem = this.flowSteps.length;
-                    const { error } = await supabase
-                        .from('fluxo_conversa')
-                        .insert({ nome, gatilho, resposta, ordem });
-                    
-                    if (error) throw error;
-                    
-                    await this.loadAllData();
-                    this.showToast('Etapa adicionada!');
-                    
-                } catch (e) {
-                    this.showToast('Erro ao adicionar', true);
-                } finally {
-                    this.showLoading(false);
-                }
-            }
-            
-            async moveStep(id, direction) {
-                const index = this.flowSteps.findIndex(s => s.id === id);
-                if (index === -1) return;
-                
-                const newIndex = index + direction;
-                if (newIndex < 0 || newIndex >= this.flowSteps.length) return;
-                
-                // Swap
-                const temp = this.flowSteps[index];
-                this.flowSteps[index] = this.flowSteps[newIndex];
-                this.flowSteps[newIndex] = temp;
-                
-                // Update ordens
-                this.showLoading(true);
-                
-                try {
-                    for (let i = 0; i < this.flowSteps.length; i++) {
-                        await supabase
-                            .from('fluxo_conversa')
-                            .update({ ordem: i })
-                            .eq('id', this.flowSteps[i].id);
-                    }
-                    
-                    await this.loadAllData();
-                    
-                } catch (e) {
-                    this.showToast('Erro ao reordenar', true);
-                } finally {
-                    this.showLoading(false);
-                }
-            }
-            
-            async editStep(id) {
-                const step = this.flowSteps.find(s => s.id === id);
-                if (!step) return;
-                
-                const nome = prompt('Nome da etapa:', step.nome);
-                if (nome === null) return;
-                
-                const gatilho = prompt('Gatilhos:', step.gatilho);
-                if (gatilho === null) return;
-                
-                const resposta = prompt('Resposta:', step.resposta);
-                if (resposta === null) return;
-                
-                this.showLoading(true);
-                
-                try {
-                    const { error } = await supabase
-                        .from('fluxo_conversa')
-                        .update({ nome, gatilho, resposta })
-                        .eq('id', id);
-                    
-                    if (error) throw error;
-                    
-                    await this.loadAllData();
-                    this.showToast('Etapa atualizada!');
-                    
-                } catch (e) {
-                    this.showToast('Erro ao atualizar', true);
-                } finally {
-                    this.showLoading(false);
-                }
-            }
-            
-            async deleteStep(id) {
-                if (!confirm('Tem certeza?')) return;
-                
-                this.showLoading(true);
-                
-                try {
-                    const { error } = await supabase
-                        .from('fluxo_conversa')
-                        .delete()
-                        .eq('id', id);
-                    
-                    if (error) throw error;
-                    
-                    await this.loadAllData();
-                    this.showToast('Etapa excluída!');
-                    
-                } catch (e) {
-                    this.showToast('Erro ao excluir', true);
-                } finally {
-                    this.showLoading(false);
-                }
-            }
-            
-            // ==========================================
-            // SIMULATION
-            // ==========================================
-            startSimulation() {
-                this.simulationHistory = [];
-                this.simulationContext = { etapa: 'INICIO', dados: {} };
-                this.renderSimulation();
-                
-                // Primeira mensagem do bot
-                setTimeout(() => {
-                    this.addSimMessage('bot', this.configs.boas_vindas || 'Olá! Sou da RC Reforma. Como posso ajudar?');
-                }, 500);
-            }
-            
-            sendSimMessage() {
-                const input = document.getElementById('simInput');
-                const text = input.value.trim();
-                if (!text) return;
-                
-                input.value = '';
-                this.addSimMessage('user', text);
-                
-                // Processar resposta
-                setTimeout(() => {
-                    const resposta = this.processarSimulacao(text);
-                    this.addSimMessage('bot', resposta);
-                }, 800);
-            }
-            
-            processarSimulacao(texto) {
-                const t = texto.toLowerCase();
-                const ctx = this.simulationContext;
-                
-                // Verificar respostas personalizadas
-                for (const resp of this.customResponses) {
-                    if (t.includes(resp.gatilho.toLowerCase())) {
-                        return resp.resposta;
-                    }
-                }
-                
-                // Fluxo básico
-                if (ctx.etapa === 'INICIO') {
-                    if (t.match(/(oi|olá|ola)/)) {
-                        return this.configs.boas_vindas || 'Olá! Qual serviço precisa?';
-                    }
-                    
-                    ctx.etapa = 'AGUARDANDO_DADOS';
-                    return 'Qual serviço você precisa e em qual bairro?';
-                }
-                
-                if (ctx.etapa === 'AGUARDANDO_DADOS') {
-                    ctx.etapa = 'CONFIRMA';
-                    return `Entendi. Posso agendar uma visita técnica. ${this.configs.preco || 'A visita custa R$180, mas temos descontos.'} Quando prefere?`;
-                }
-                
-                if (t.match(/(preco|valor|quanto|custa)/)) {
-                    return this.configs.preco || 'A visita técnica é R$180. Na Zona Sul R$90 e Botafogo gratuito.';
-                }
-                
-                if (t.match(/(caro|muito caro)/)) {
-                    return this.configs.objecao_caro || 'Posso oferecer desconto de 50% para Zona Sul.';
-                }
-                
-                return 'Entendi. Posso agendar para hoje ou amanhã. Qual dia prefere?';
-            }
-            
-            addSimMessage(from, text) {
-                this.simulationHistory.push({ from, text, time: new Date() });
-                this.renderSimulation();
-            }
-            
-            renderSimulation() {
-                const container = document.getElementById('chatSimulation');
-                
-                if (this.simulationHistory.length === 0) {
-                    container.innerHTML = `
-                        <div class="empty-state">
-                            <p>Clique em "Iniciar Conversa" para testar</p>
-                        </div>
-                    `;
-                    return;
-                }
-                
-                container.innerHTML = this.simulationHistory.map(m => `
-                    <div style="margin-bottom: 12px; text-align: ${m.from === 'user' ? 'right' : 'left'};">
-                        <div style="
-                            display: inline-block;
-                            padding: 10px 14px;
-                            border-radius: 12px;
-                            max-width: 80%;
-                            background: ${m.from === 'user' ? 'var(--primary)' : 'var(--card)'};
-                            color: ${m.from === 'user' ? 'white' : 'var(--text)'};
-                            font-size: 14px;
-                            text-align: left;
-                        ">
-                            ${this.escapeHtml(m.text)}
-                        </div>
-                        <div style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;">
-                            ${m.from === 'user' ? 'Você' : 'Robô'} • ${m.time.toLocaleTimeString()}
-                        </div>
-                    </div>
-                `).join('');
-                
-                container.scrollTop = container.scrollHeight;
-            }
-            
-            clearSimulation() {
-                this.simulationHistory = [];
-                this.simulationContext = { etapa: 'INICIO', dados: {} };
-                this.renderSimulation();
-            }
-            
-            // ==========================================
-            // UTILS
-            // ==========================================
-            toggleSwitch(element) {
-                element.classList.toggle('active');
-            }
-            
-            showLoading(show) {
-                document.getElementById('loadingOverlay').classList.toggle('active', show);
-            }
-            
-            showToast(message, isError = false) {
-                const toast = document.getElementById('toast');
-                toast.textContent = message;
-                toast.className = 'toast' + (isError ? ' error' : '') + ' show';
-                
-                setTimeout(() => {
-                    toast.classList.remove('show');
-                }, 3000);
-            }
-            
-            escapeHtml(text) {
-                if (!text) return '';
-                const div = document.createElement('div');
-                div.textContent = text;
-                return div.innerHTML;
-            }
+    <!-- ABA: TESTE -->
+    <div id="aba-teste" style="display: none;">
+      <div class="card">
+        <h3 style="margin-bottom: 15px;">🧪 Simular Conversa</h3>
+        <div class="dica">
+          💡 Digite uma mensagem como se fosse um cliente e veja qual resposta o robô daria agora.
+        </div>
+        <div class="form-group">
+          <label>Mensagem do cliente</label>
+          <input type="text" id="teste-mensagem" placeholder="Ex: quanto custa uma visita?" onkeypress="if(event.key==='Enter') testarRobo()">
+        </div>
+        <div class="form-group">
+          <label>Nome do cliente (para testar {nome})</label>
+          <input type="text" id="teste-nome" value="João" placeholder="Nome do cliente">
+        </div>
+        <button class="btn btn-primary" onclick="testarRobo()">▶️ Testar</button>
+
+        <div id="teste-resultado" style="margin-top: 20px; display: none;">
+          <label>Resposta do robô:</label>
+          <div class="resposta-preview" id="teste-resposta" style="max-height: none; border: 1px solid #00d4aa;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL DE EDIÇÃO -->
+  <div class="edit-modal" id="edit-modal">
+    <div class="modal-content">
+      <h3 style="margin-bottom: 20px;">✏️ Editar Instrução</h3>
+      <input type="hidden" id="edit-id">
+      <div class="form-group">
+        <label>Descrição</label>
+        <input type="text" id="edit-descricao">
+      </div>
+      <div class="form-group">
+        <label>Palavras-chave</label>
+        <input type="text" id="edit-palavras">
+      </div>
+      <div class="form-group">
+        <label>Ordem</label>
+        <input type="number" id="edit-ordem" min="0">
+      </div>
+      <div class="form-group">
+        <label>Resposta</label>
+        <textarea id="edit-resposta"></textarea>
+      </div>
+      <div class="form-group">
+        <label>
+          <input type="checkbox" id="edit-ativo"> Ativo
+        </label>
+      </div>
+      <div style="display: flex; gap: 10px;">
+        <button class="btn btn-primary" onclick="salvarEdicao()">💾 Salvar</button>
+        <button class="btn btn-secondary" onclick="fecharModal()">❌ Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ⚠️ ALTERE AQUI PARA SUA URL DO WEBHOOK NA VERCEL
+    const API_BASE = 'https://SEU-PROJETO.vercel.app/api/webhook';
+
+    let instrucoesCache = [];
+
+    function mostrarStatus(msg, tipo) {
+      const el = document.getElementById('status');
+      el.textContent = msg;
+      el.className = 'status ' + tipo;
+      setTimeout(() => el.className = 'status', 4000);
+    }
+
+    function mostrarAba(aba) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('ativa'));
+      event.target.classList.add('ativa');
+
+      document.getElementById('aba-instrucoes').style.display = aba === 'instrucoes' ? 'block' : 'none';
+      document.getElementById('aba-fallback').style.display = aba === 'fallback' ? 'block' : 'none';
+      document.getElementById('aba-teste').style.display = aba === 'teste' ? 'block' : 'none';
+
+      if (aba === 'instrucoes') carregarInstrucoes();
+      if (aba === 'fallback') carregarFallback();
+    }
+
+    async function carregarInstrucoes() {
+      try {
+        const res = await fetch(`${API_BASE}?action=training-list`);
+        const data = await res.json();
+        instrucoesCache = data.instrucoes || [];
+
+        const container = document.getElementById('lista-instrucoes');
+        if (instrucoesCache.length === 0) {
+          container.innerHTML = '<p style="color: #666; text-align: center;">Nenhuma instrução cadastrada.</p>';
+          return;
         }
-        
-        // Inicializar
-        const app = new PainelTreinamento();
-    </script>
-</body>
-</html>'''
 
-print("Painel de treinamento criado (treinamento.html)")
-print(f"Total de linhas: {len(treinamento_html.split(chr(10)))}")
+        container.innerHTML = instrucoesCache.map(inst => `
+          <div class="instrucao-item ${inst.ativo ? '' : 'inativo'}">
+            <div class="instrucao-header">
+              <span class="instrucao-titulo">${inst.descricao || 'Sem descrição'}</span>
+              <span class="instrucao-ordem">#${inst.ordem}</span>
+            </div>
+            <div class="palavras-chave">
+              ${(inst.palavras_chave || []).map(p => `<span class="tag">${p}</span>`).join('')}
+            </div>
+            <div class="resposta-preview">${escapeHtml(inst.resposta)}</div>
+            <div class="acoes">
+              <button class="btn btn-secondary" onclick="abrirEditar(${inst.id})">✏️ Editar</button>
+              <button class="btn btn-danger" onclick="deletarInstrucao(${inst.id})">🗑️ Excluir</button>
+            </div>
+          </div>
+        `).join('');
+      } catch (e) {
+        mostrarStatus('Erro ao carregar: ' + e.message, 'erro');
+      }
+    }
+
+    async function carregarFallback() {
+      try {
+        const res = await fetch(`${API_BASE}?action=training-fallback`);
+        const data = await res.json();
+        document.getElementById('fallback-texto').value = data.fallback || '';
+      } catch (e) {
+        mostrarStatus('Erro ao carregar fallback: ' + e.message, 'erro');
+      }
+    }
+
+    async function criarInstrucao() {
+      const descricao = document.getElementById('nova-descricao').value;
+      const palavras = document.getElementById('nova-palavras').value;
+      const ordem = parseInt(document.getElementById('nova-ordem').value);
+      const resposta = document.getElementById('nova-resposta').value;
+
+      if (!palavras || !resposta) {
+        mostrarStatus('Preencha palavras-chave e resposta!', 'erro');
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API_BASE}?action=training-create`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ palavras_chave: palavras, resposta, descricao, ordem })
+        });
+
+        if (res.ok) {
+          mostrarStatus('✅ Instrução criada com sucesso!', 'sucesso');
+          document.getElementById('nova-descricao').value = '';
+          document.getElementById('nova-palavras').value = '';
+          document.getElementById('nova-resposta').value = '';
+          carregarInstrucoes();
+        } else {
+          const err = await res.json();
+          mostrarStatus('Erro: ' + (err.erro || 'Desconhecido'), 'erro');
+        }
+      } catch (e) {
+        mostrarStatus('Erro: ' + e.message, 'erro');
+      }
+    }
+
+    function abrirEditar(id) {
+      const inst = instrucoesCache.find(i => i.id === id);
+      if (!inst) return;
+
+      document.getElementById('edit-id').value = id;
+      document.getElementById('edit-descricao').value = inst.descricao || '';
+      document.getElementById('edit-palavras').value = (inst.palavras_chave || []).join(', ');
+      document.getElementById('edit-ordem').value = inst.ordem;
+      document.getElementById('edit-resposta').value = inst.resposta;
+      document.getElementById('edit-ativo').checked = inst.ativo;
+
+      document.getElementById('edit-modal').classList.add('ativa');
+    }
+
+    function fecharModal() {
+      document.getElementById('edit-modal').classList.remove('ativa');
+    }
+
+    async function salvarEdicao() {
+      const id = parseInt(document.getElementById('edit-id').value);
+      const body = {
+        id,
+        descricao: document.getElementById('edit-descricao').value,
+        palavras_chave: document.getElementById('edit-palavras').value,
+        ordem: parseInt(document.getElementById('edit-ordem').value),
+        resposta: document.getElementById('edit-resposta').value,
+        ativo: document.getElementById('edit-ativo').checked
+      };
+
+      try {
+        const res = await fetch(`${API_BASE}?action=training-update`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+
+        if (res.ok) {
+          mostrarStatus('✅ Instrução atualizada!', 'sucesso');
+          fecharModal();
+          carregarInstrucoes();
+        } else {
+          const err = await res.json();
+          mostrarStatus('Erro: ' + (err.erro || 'Desconhecido'), 'erro');
+        }
+      } catch (e) {
+        mostrarStatus('Erro: ' + e.message, 'erro');
+      }
+    }
+
+    async function deletarInstrucao(id) {
+      if (!confirm('Tem certeza que deseja excluir esta instrução?')) return;
+
+      try {
+        const res = await fetch(`${API_BASE}?action=training-delete&id=${id}`, {
+          method: 'DELETE'
+        });
+
+        if (res.ok) {
+          mostrarStatus('🗑️ Instrução excluída!', 'sucesso');
+          carregarInstrucoes();
+        }
+      } catch (e) {
+        mostrarStatus('Erro: ' + e.message, 'erro');
+      }
+    }
+
+    async function salvarFallback() {
+      const resposta = document.getElementById('fallback-texto').value;
+
+      try {
+        const res = await fetch(`${API_BASE}?action=training-fallback`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ resposta })
+        });
+
+        if (res.ok) {
+          mostrarStatus('✅ Fallback salvo!', 'sucesso');
+        }
+      } catch (e) {
+        mostrarStatus('Erro: ' + e.message, 'erro');
+      }
+    }
+
+    function testarRobo() {
+      const mensagem = document.getElementById('teste-mensagem').value.toLowerCase();
+      const nome = document.getElementById('teste-nome').value || 'Cliente';
+
+      if (!mensagem) {
+        mostrarStatus('Digite uma mensagem para testar!', 'erro');
+        return;
+      }
+
+      // Simula a lógica do robô no frontend
+      let resposta = null;
+
+      // Ordena por ordem
+      const ordenadas = [...instrucoesCache]
+        .filter(i => i.ativo)
+        .sort((a, b) => a.ordem - b.ordem);
+
+      for (const inst of ordenadas) {
+        const palavras = inst.palavras_chave || [];
+        const encontrou = palavras.some(p => mensagem.includes(p.toLowerCase()));
+        if (encontrou) {
+          resposta = inst.resposta.replace(/{nome}/g, nome);
+          break;
+        }
+      }
+
+      // Fallback
+      if (!resposta) {
+        resposta = (document.getElementById('fallback-texto').value ||
+          `Entendi, ${nome}!\n\nComo posso ajudar?`).replace(/{nome}/g, nome);
+      }
+
+      document.getElementById('teste-resultado').style.display = 'block';
+      document.getElementById('teste-resposta').textContent = resposta;
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // Carrega ao abrir
+    carregarInstrucoes();
+    carregarFallback();
+  </script>
+</body>
+</html>

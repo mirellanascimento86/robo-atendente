@@ -1,37 +1,43 @@
 // ============================================
 // WEBHOOK WHATSAPP - RC REFORMA E CONSTRUCAO
-// Versao com PAINEL DE INTERVENCAO - CORRIGIDA
+// v2.0 - COM PAINEL DE TREINAMENTO + PERSISTÊNCIA
 // ============================================
 
-// CONFIGURACAO
+import { createClient } from '@supabase/supabase-js';
+
+// CONFIGURAÇÃO
 const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
 const WHATSAPP_PHONE_ID = process.env.WHATSAPP_PHONE_ID;
 const VERIFY_TOKEN = 'roboatendente';
 
-// ============================================
-// MEMORIA DO SISTEMA
-// ============================================
-const conversas = new Map();
+// SUPABASE (service_role = acesso total ao servidor)
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// CACHE EM MEMÓRIA (performance + fallback)
+const cacheInstrucoes = {
+  dados: null,
+  atualizadoEm: 0,
+  TTL: 30000 // 30 segundos
+};
 
 // ============================================
 // HANDLER PRINCIPAL
 // ============================================
 
 export default async function handler(req, res) {
-  // CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, DELETE, PUT');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
+  if (req.method === 'OPTIONS') return res.status(200).end();
 
   try {
     const { action } = req.query;
-    console.log(`[WEBHOOK] ${req.method} action=${action} query=`, req.query);
+    console.log(`[WEBHOOK] ${req.method} action=${action}`);
 
-    // ===== 1. VERIFICACAO DO WEBHOOK (Meta) =====
+    // ===== 1. VERIFICAÇÃO DO WEBHOOK (Meta) =====
     if (req.method === 'GET' && req.query['hub.mode'] === 'subscribe') {
       if (req.query['hub.verify_token'] === VERIFY_TOKEN) {
         return res.status(200).send(req.query['hub.challenge']);
@@ -39,133 +45,275 @@ export default async function handler(req, res) {
       return res.status(403).send('Forbidden');
     }
 
-    // ===== 2. ROTAS DO PAINEL =====
+    // ===== 2. ROTAS DO PAINEL DE INTERVENÇÃO =====
 
     // LISTAR CONVERSAS
     if (action === 'list') {
-      const lista = Array.from(conversas.values())
-        .sort((a, b) => new Date(b.ultimaAtividade || 0) - new Date(a.ultimaAtividade || 0));
+      const { data, error } = await supabase
+        .from('conversas')
+        .select('*')
+        .order('ultima_atividade', { ascending: false });
 
-      console.log(`[LIST] Retornando ${lista.length} conversas`);
+      if (error) throw error;
+
+      // Converter mensagens de JSONB para array normal
+      const lista = (data || []).map(c => ({
+        telefone: c.telefone,
+        nome: c.nome,
+        mensagens: c.mensagens || [],
+        emIntervencao: c.em_intervencao,
+        etapa: c.etapa,
+        ultimaAtividade: c.ultima_atividade,
+        ultima: c.ultima
+      }));
+
       return res.status(200).json({ conversas: lista });
     }
 
-    // BUSCAR MENSAGENS
+    // BUSCAR MENSAGENS DE UMA CONVERSA
     if (action === 'messages') {
       const phone = req.query.phone;
-      const conv = conversas.get(phone);
+      const { data, error } = await supabase
+        .from('conversas')
+        .select('*')
+        .eq('telefone', phone)
+        .single();
 
-      if (!conv) {
-        console.log(`[MESSAGES] Conversa nao encontrada: ${phone}`);
+      if (error || !data) {
         return res.status(404).json({ erro: 'Conversa nao encontrada' });
       }
 
-      console.log(`[MESSAGES] ${phone} - ${conv.mensagens?.length || 0} msgs, intervencao=${conv.emIntervencao}`);
-      return res.status(200).json({ 
-        mensagens: conv.mensagens || [],
-        emIntervencao: conv.emIntervencao,
-        telefone: conv.telefone,
-        nome: conv.nome
+      return res.status(200).json({
+        mensagens: data.mensagens || [],
+        emIntervencao: data.em_intervencao,
+        telefone: data.telefone,
+        nome: data.nome
       });
     }
 
-    // ASSUMIR CONTROLE
+    // ASSUMIR CONTROLE (intervenção humana)
     if (action === 'intervene' && req.method === 'POST') {
       const { phone } = req.body;
-      console.log(`[INTERVENE] Recebido phone=${phone}`);
 
-      const conv = conversas.get(phone);
+      const { data: existente } = await supabase
+        .from('conversas')
+        .select('*')
+        .eq('telefone', phone)
+        .single();
 
-      if (!conv) {
-        console.log(`[INTERVENE] Conversa nao existe, criando...`);
-        conversas.set(phone, {
+      if (!existente) {
+        await supabase.from('conversas').insert({
           telefone: phone,
           nome: 'Cliente',
-          mensagens: [],
-          emIntervencao: true,
+          mensagens: [{
+            tipo: 'system',
+            mensagem: '⚡ Humano assumiu o controle',
+            data: new Date().toISOString(),
+            nome: 'Sistema'
+          }],
+          em_intervencao: true,
           etapa: 'intervencao',
-          ultimaAtividade: new Date().toISOString(),
+          ultima_atividade: new Date().toISOString(),
           ultima: 'Intervencao iniciada'
         });
       } else {
-        conv.emIntervencao = true;
-        conv.ultimaAtividade = new Date().toISOString();
-        conv.mensagens.push({
+        const msgs = [...(existente.mensagens || []), {
           tipo: 'system',
           mensagem: '⚡ Humano assumiu o controle',
           data: new Date().toISOString(),
           nome: 'Sistema'
-        });
-        console.log(`[INTERVENE] Conversa ${phone} agora emIntervencao=true`);
+        }];
+
+        await supabase.from('conversas').update({
+          em_intervencao: true,
+          mensagens: msgs,
+          ultima_atividade: new Date().toISOString()
+        }).eq('telefone', phone);
       }
 
-      const convAtual = conversas.get(phone);
-      return res.status(200).json({ 
-        ok: true, 
-        emIntervencao: true,
-        telefone: phone,
-        confirmado: convAtual.emIntervencao
-      });
+      return res.status(200).json({ ok: true, emIntervencao: true, telefone: phone });
     }
 
     // LIBERAR ROBO
     if (action === 'release' && req.method === 'POST') {
       const { phone } = req.body;
-      console.log(`[RELEASE] phone=${phone}`);
 
-      const conv = conversas.get(phone);
+      const { data: existente } = await supabase
+        .from('conversas')
+        .select('mensagens')
+        .eq('telefone', phone)
+        .single();
 
-      if (conv) {
-        conv.emIntervencao = false;
-        conv.ultimaAtividade = new Date().toISOString();
-        conv.mensagens.push({
+      if (existente) {
+        const msgs = [...(existente.mensagens || []), {
           tipo: 'system',
           mensagem: '🤖 Robo retomou o atendimento',
           data: new Date().toISOString(),
           nome: 'Sistema'
-        });
-        console.log(`[RELEASE] Conversa ${phone} emIntervencao=false`);
+        }];
+
+        await supabase.from('conversas').update({
+          em_intervencao: false,
+          mensagens: msgs,
+          ultima_atividade: new Date().toISOString()
+        }).eq('telefone', phone);
       }
 
       return res.status(200).json({ ok: true, emIntervencao: false });
     }
 
-    // ENVIAR MENSAGEM MANUAL
+    // ENVIAR MENSAGEM MANUAL (humano)
     if (action === 'send' && req.method === 'POST') {
       const { phone, message } = req.body;
-      console.log(`[SEND] phone=${phone} message="${message?.substring(0,30)}..."`);
 
-      const conv = conversas.get(phone);
+      const { data: conv } = await supabase
+        .from('conversas')
+        .select('*')
+        .eq('telefone', phone)
+        .single();
 
-      // VERIFICACAO CRITICA: so envia se estiver em intervencao
-      if (!conv || !conv.emIntervencao) {
-        console.log(`[SEND] BLOQUEADO - emIntervencao=${conv?.emIntervencao}`);
-        return res.status(403).json({ 
-          ok: false, 
+      if (!conv || !conv.em_intervencao) {
+        return res.status(403).json({
+          ok: false,
           erro: 'Nao esta em intervencao',
-          emIntervencao: conv?.emIntervencao || false
+          emIntervencao: conv?.em_intervencao || false
         });
       }
 
-      // Envia pelo WhatsApp API
       const enviado = await enviarWhatsApp(phone, message);
 
       if (enviado) {
-        conv.mensagens.push({
+        const msgs = [...conv.mensagens, {
           tipo: 'humano',
           mensagem: message,
           data: new Date().toISOString(),
           nome: 'Atendente'
-        });
-        conv.ultima = message;
-        conv.ultimaAtividade = new Date().toISOString();
-        console.log(`[SEND] Mensagem enviada e salva`);
+        }];
+
+        await supabase.from('conversas').update({
+          mensagens: msgs,
+          ultima: message,
+          ultima_atividade: new Date().toISOString()
+        }).eq('telefone', phone);
       }
 
       return res.status(200).json({ ok: enviado });
     }
 
-    // ===== 3. RECEBER MENSAGEM DO WHATSAPP =====
+    // ===== 3. ROTAS DO PAINEL DE TREINAMENTO =====
+
+    // LISTAR INSTRUÇÕES
+    if (action === 'training-list') {
+      const { data, error } = await supabase
+        .from('instrucoes_robo')
+        .select('*')
+        .eq('ativo', true)
+        .order('ordem', { ascending: true });
+
+      if (error) throw error;
+      return res.status(200).json({ instrucoes: data || [] });
+    }
+
+    // CRIAR NOVA INSTRUÇÃO
+    if (action === 'training-create' && req.method === 'POST') {
+      const { palavras_chave, resposta, descricao, ordem } = req.body;
+
+      const { data, error } = await supabase
+        .from('instrucoes_robo')
+        .insert({
+          palavras_chave: Array.isArray(palavras_chave)
+            ? palavras_chave
+            : palavras_chave.split(',').map(p => p.trim().toLowerCase()),
+          resposta,
+          descricao: descricao || '',
+          ordem: ordem || 0,
+          ativo: true
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Invalida cache
+      cacheInstrucoes.dados = null;
+
+      return res.status(200).json({ ok: true, instrucao: data });
+    }
+
+    // ATUALIZAR INSTRUÇÃO
+    if (action === 'training-update' && req.method === 'PUT') {
+      const { id, palavras_chave, resposta, descricao, ordem, ativo } = req.body;
+
+      const updateData = {};
+      if (palavras_chave !== undefined) {
+        updateData.palavras_chave = Array.isArray(palavras_chave)
+          ? palavras_chave
+          : palavras_chave.split(',').map(p => p.trim().toLowerCase());
+      }
+      if (resposta !== undefined) updateData.resposta = resposta;
+      if (descricao !== undefined) updateData.descricao = descricao;
+      if (ordem !== undefined) updateData.ordem = ordem;
+      if (ativo !== undefined) updateData.ativo = ativo;
+
+      const { data, error } = await supabase
+        .from('instrucoes_robo')
+        .update(updateData)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      cacheInstrucoes.dados = null;
+
+      return res.status(200).json({ ok: true, instrucao: data });
+    }
+
+    // DELETAR INSTRUÇÃO
+    if (action === 'training-delete' && req.method === 'DELETE') {
+      const { id } = req.query;
+      const { error } = await supabase
+        .from('instrucoes_robo')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      cacheInstrucoes.dados = null;
+
+      return res.status(200).json({ ok: true });
+    }
+
+    // ATUALIZAR FALLBACK
+    if (action === 'training-fallback' && req.method === 'PUT') {
+      const { resposta } = req.body;
+
+      const { error } = await supabase
+        .from('config_robo')
+        .update({ valor: resposta })
+        .eq('chave', 'fallback');
+
+      if (error) throw error;
+
+      cacheInstrucoes.dados = null;
+
+      return res.status(200).json({ ok: true });
+    }
+
+    // PEGAR FALLBACK
+    if (action === 'training-fallback' && req.method === 'GET') {
+      const { data, error } = await supabase
+        .from('config_robo')
+        .select('valor')
+        .eq('chave', 'fallback')
+        .single();
+
+      if (error) throw error;
+
+      return res.status(200).json({ fallback: data?.valor || '' });
+    }
+
+    // ===== 4. RECEBER MENSAGEM DO WHATSAPP =====
     if (req.method === 'POST' && !action) {
       res.status(200).send('OK');
 
@@ -176,7 +324,7 @@ export default async function handler(req, res) {
       return;
     }
 
-    res.status(200).send('Webhook RC Reforma - OK');
+    res.status(200).send('Webhook RC Reforma v2.0 - OK');
 
   } catch (e) {
     console.error('ERRO GERAL:', e.message);
@@ -194,7 +342,6 @@ async function processarMensagem(body) {
   const entry = body.entry?.[0];
   const changes = entry?.changes?.[0]?.value;
   if (!changes) return;
-
   if (changes.statuses) return;
 
   const msg = changes.messages?.[0];
@@ -207,123 +354,144 @@ async function processarMensagem(body) {
 
   const texto = msg.text.body;
 
-  // CRIAR/ATUALIZAR CONVERSA
-  if (!conversas.has(telefone)) {
-    conversas.set(telefone, {
+  // Buscar ou criar conversa no Supabase
+  const { data: convExistente } = await supabase
+    .from('conversas')
+    .select('*')
+    .eq('telefone', telefone)
+    .single();
+
+  let conv;
+  if (!convExistente) {
+    const novaConv = {
       telefone: telefone,
       nome: nome,
       mensagens: [],
-      emIntervencao: false,
+      em_intervencao: false,
       etapa: 'novo',
-      ultimaAtividade: new Date().toISOString(),
+      ultima_atividade: new Date().toISOString(),
       ultima: ''
-    });
+    };
+
+    await supabase.from('conversas').insert(novaConv);
+    conv = novaConv;
+  } else {
+    conv = {
+      telefone: convExistente.telefone,
+      nome: convExistente.nome,
+      mensagens: convExistente.mensagens || [],
+      em_intervencao: convExistente.em_intervencao,
+      etapa: convExistente.etapa,
+      ultima_atividade: convExistente.ultima_atividade,
+      ultima: convExistente.ultima
+    };
   }
 
-  const conv = conversas.get(telefone);
-
-  // ADICIONAR MENSAGEM DO CLIENTE
-  conv.mensagens.push({
+  // Adicionar mensagem do cliente
+  const msgsCliente = [...conv.mensagens, {
     tipo: 'cliente',
     mensagem: texto,
     data: new Date().toISOString(),
     nome: nome
-  });
+  }];
 
-  conv.ultima = texto;
-  conv.ultimaAtividade = new Date().toISOString();
+  await supabase.from('conversas').update({
+    mensagens: msgsCliente,
+    ultima: texto,
+    ultima_atividade: new Date().toISOString()
+  }).eq('telefone', telefone);
 
-  console.log(`[RECEBIDO] ${telefone} (${nome}): ${texto.substring(0,50)}`);
-  console.log(`[ESTADO] emIntervencao=${conv.emIntervencao}`);
+  console.log(`[RECEBIDO] ${telefone} (${nome}): ${texto.substring(0, 50)}`);
+  console.log(`[ESTADO] emIntervencao=${conv.em_intervencao}`);
 
-  // SE NAO ESTIVER EM INTERVENCAO, RESPONDE AUTOMATICAMENTE
-  if (!conv.emIntervencao) {
-    const resposta = gerarResposta(texto.toLowerCase(), nome);
-    await enviarWhatsApp(telefone, resposta);
+  // SE NÃO ESTIVER EM INTERVENÇÃO, RESPONDE AUTOMATICAMENTE
+  if (!conv.em_intervencao) {
+    const resposta = await gerarRespostaDinamica(texto.toLowerCase(), nome);
 
-    conv.mensagens.push({
-      tipo: 'bot',
-      mensagem: resposta,
-      data: new Date().toISOString(),
-      nome: 'Robo'
-    });
+    const enviado = await enviarWhatsApp(telefone, resposta);
 
-    conv.ultima = resposta;
-    conv.ultimaAtividade = new Date().toISOString();
-    console.log(`[BOT] Resposta automatica enviada`);
+    if (enviado) {
+      const { data: convAtual } = await supabase
+        .from('conversas')
+        .select('mensagens')
+        .eq('telefone', telefone)
+        .single();
+
+      const msgsBot = [...(convAtual?.mensagens || []), {
+        tipo: 'bot',
+        mensagem: resposta,
+        data: new Date().toISOString(),
+        nome: 'Robo'
+      }];
+
+      await supabase.from('conversas').update({
+        mensagens: msgsBot,
+        ultima: resposta,
+        ultima_atividade: new Date().toISOString()
+      }).eq('telefone', telefone);
+
+      console.log(`[BOT] Resposta automatica enviada`);
+    }
   } else {
     console.log(`[BOT] BLOQUEADO - conversa em intervencao humana`);
   }
 }
 
 // ============================================
-// GERAR RESPOSTA
+// GERAR RESPOSTA DINÂMICA (do banco!)
 // ============================================
 
-function gerarResposta(texto, nome) {
-  if (texto.match(/(oi|ola|bom dia|boa tarde|boa noite|hey|eai)/)) {
-    return `Ola, ${nome}! Sou o assistente da RC Reforma e Construcao.
+async function gerarRespostaDinamica(texto, nome) {
+  // Busca instruções com cache
+  let instrucoes = cacheInstrucoes.dados;
+  const agora = Date.now();
 
-Posso ajudar com:
-• Reformas: Marcenaria, Hidraulica, Eletrica, Pintura, Gesso, Pedreiro
-• Eletrodomesticos: Ar Condicionado, Lava e Seca, Geladeira
+  if (!instrucoes || (agora - cacheInstrucoes.atualizadoEm) > cacheInstrucoes.TTL) {
+    const { data, error } = await supabase
+      .from('instrucoes_robo')
+      .select('*')
+      .eq('ativo', true)
+      .order('ordem', { ascending: true });
 
-Qual servico voce precisa e em qual bairro do Rio?`;
+    if (error) {
+      console.error('Erro ao buscar instrucoes:', error);
+      return `Ola, ${nome}! Como posso ajudar?`;
+    }
+
+    instrucoes = data || [];
+    cacheInstrucoes.dados = instrucoes;
+    cacheInstrucoes.atualizadoEm = agora;
+    console.log(`[CACHE] ${instrucoes.length} instrucoes carregadas`);
   }
 
-  if (texto.match(/(preco|valor|custo|quanto|caro)/)) {
-    return `Nossa visita tecnica custa R$180.
+  // Procura palavra-chave no texto
+  for (const inst of instrucoes) {
+    const palavras = inst.palavras_chave || [];
+    const encontrou = palavras.some(palavra => texto.includes(palavra.toLowerCase()));
 
-• Zona Sul: 50% OFF = R$90
-• Botafogo: GRATIS
-
-O valor da visita e abatido se voce aprovar o orcamento.
-
-Qual servico e bairro?`;
+    if (encontrou) {
+      // Substitui {nome} pelo nome do cliente
+      return inst.resposta.replace(/{nome}/g, nome);
+    }
   }
 
-  if (texto.match(/(agendar|marcar|visita|tecnico|horario)/)) {
-    return `Posso agendar uma visita tecnica para voce!
+  // Fallback: busca do banco
+  const { data: fallbackData } = await supabase
+    .from('config_robo')
+    .select('valor')
+    .eq('chave', 'fallback')
+    .single();
 
-Me informe:
-1. Qual servico precisa?
-2. Qual bairro?
-3. Prefere hoje, amanha ou outro dia?
-4. Qual horario: manha, tarde ou noite?`;
-  }
-
-  if (texto.match(/(servico|faz|trabalho|ajuda)/)) {
-    return `Trabalhamos com:
-
-REFORMAS:
-• Marcenaria, Hidraulica, Eletrica, Pintura, Gesso, Pedreiro
-
-ELETRODOMESTICOS:
-• Ar Condicionado, Lava e Seca, Geladeira
-
-Qual voce precisa?`;
-  }
-
-  if (texto.match(/(humano|pessoa|atendente|funcionario)/)) {
-    return `Entendido! Vou transferir voce para um atendente humano.
-
-Aguarde um momento, por favor.`;
-  }
-
-  if (texto.match(/(tchau|ate|obrigado|valeu)/)) {
-    return `Obrigado pelo contato, ${nome}!
-
-RC Reforma e Construcao - Botafogo
-Atendimento 24h`;
-  }
-
-  return `Entendi, ${nome}!
+  const fallback = fallbackData?.valor ||
+    `Entendi, ${nome}!
 
 Para agilizar seu atendimento, me diga:
 1. Qual servico precisa?
 2. Qual bairro do Rio?
 
 Ou pergunte sobre precos, horarios ou servicos disponiveis.`;
+
+  return fallback.replace(/{nome}/g, nome);
 }
 
 // ============================================
@@ -357,7 +525,7 @@ async function enviarWhatsApp(numero, texto) {
 
     if (!response.ok) {
       const erro = await response.json();
-      console.error('Erro API:', erro);
+      console.error('Erro API WhatsApp:', erro);
       return false;
     }
 
@@ -365,7 +533,7 @@ async function enviarWhatsApp(numero, texto) {
     return true;
 
   } catch (e) {
-    console.error('Erro ao enviar:', e.message);
+    console.error('Erro ao enviar WhatsApp:', e.message);
     return false;
   }
 }

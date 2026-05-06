@@ -1,6 +1,6 @@
 // ============================================
-// WEBHOOK WHATSAPP - RC REFORMA E CONSTRUCAO
-// v2.0 - COM PAINEL DE TREINAMENTO + PERSISTÊNCIA
+// WEBHOOK WHATSAPP - CONSERTA RIO
+// v3.0 - PAINEL DE TREINAMENTO + FLUXO COMPLETO
 // ============================================
 
 import { createClient } from '@supabase/supabase-js';
@@ -8,19 +8,15 @@ import { createClient } from '@supabase/supabase-js';
 // CONFIGURAÇÃO
 const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
 const WHATSAPP_PHONE_ID = process.env.WHATSAPP_PHONE_ID;
-const VERIFY_TOKEN = 'roboatendente';
+const VERIFY_TOKEN = process.env.VERIFY_TOKEN || 'consertario-bot';
 
-// SUPABASE (service_role = acesso total ao servidor)
+// SUPABASE
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// CACHE EM MEMÓRIA (performance + fallback)
-const cacheInstrucoes = {
-  dados: null,
-  atualizadoEm: 0,
-  TTL: 30000 // 30 segundos
-};
+// CACHE DE INSTRUÇÕES (30 segundos)
+const cache = { dados: null, atualizadoEm: 0, TTL: 30000 };
 
 // ============================================
 // HANDLER PRINCIPAL
@@ -37,7 +33,7 @@ export default async function handler(req, res) {
     const { action } = req.query;
     console.log(`[WEBHOOK] ${req.method} action=${action}`);
 
-    // ===== 1. VERIFICAÇÃO DO WEBHOOK (Meta) =====
+    // ===== 1. VERIFICAÇÃO META =====
     if (req.method === 'GET' && req.query['hub.mode'] === 'subscribe') {
       if (req.query['hub.verify_token'] === VERIFY_TOKEN) {
         return res.status(200).send(req.query['hub.challenge']);
@@ -47,493 +43,415 @@ export default async function handler(req, res) {
 
     // ===== 2. ROTAS DO PAINEL DE INTERVENÇÃO =====
 
-    // LISTAR CONVERSAS
     if (action === 'list') {
-      const { data, error } = await supabase
-        .from('conversas')
-        .select('*')
-        .order('ultima_atividade', { ascending: false });
-
+      const { data, error } = await supabase.from('conversas').select('*').order('ultima_atividade', { ascending: false });
       if (error) throw error;
-
-      // Converter mensagens de JSONB para array normal
-      const lista = (data || []).map(c => ({
-        telefone: c.telefone,
-        nome: c.nome,
-        mensagens: c.mensagens || [],
-        emIntervencao: c.em_intervencao,
-        etapa: c.etapa,
-        ultimaAtividade: c.ultima_atividade,
-        ultima: c.ultima
-      }));
-
-      return res.status(200).json({ conversas: lista });
-    }
-
-    // BUSCAR MENSAGENS DE UMA CONVERSA
-    if (action === 'messages') {
-      const phone = req.query.phone;
-      const { data, error } = await supabase
-        .from('conversas')
-        .select('*')
-        .eq('telefone', phone)
-        .single();
-
-      if (error || !data) {
-        return res.status(404).json({ erro: 'Conversa nao encontrada' });
-      }
-
       return res.status(200).json({
-        mensagens: data.mensagens || [],
-        emIntervencao: data.em_intervencao,
-        telefone: data.telefone,
-        nome: data.nome
+        conversas: (data || []).map(c => ({
+          telefone: c.telefone, nome: c.nome, mensagens: c.mensagens || [],
+          emIntervencao: c.em_intervencao, etapa: c.etapa,
+          ultimaAtividade: c.ultima_atividade, ultima: c.ultima,
+          aparelho: c.aparelho, marca: c.marca, bairro: c.bairro
+        }))
       });
     }
 
-    // ASSUMIR CONTROLE (intervenção humana)
-    if (action === 'intervene' && req.method === 'POST') {
-      const { phone } = req.body;
-
-      const { data: existente } = await supabase
-        .from('conversas')
-        .select('*')
-        .eq('telefone', phone)
-        .single();
-
-      if (!existente) {
-        await supabase.from('conversas').insert({
-          telefone: phone,
-          nome: 'Cliente',
-          mensagens: [{
-            tipo: 'system',
-            mensagem: '⚡ Humano assumiu o controle',
-            data: new Date().toISOString(),
-            nome: 'Sistema'
-          }],
-          em_intervencao: true,
-          etapa: 'intervencao',
-          ultima_atividade: new Date().toISOString(),
-          ultima: 'Intervencao iniciada'
-        });
-      } else {
-        const msgs = [...(existente.mensagens || []), {
-          tipo: 'system',
-          mensagem: '⚡ Humano assumiu o controle',
-          data: new Date().toISOString(),
-          nome: 'Sistema'
-        }];
-
-        await supabase.from('conversas').update({
-          em_intervencao: true,
-          mensagens: msgs,
-          ultima_atividade: new Date().toISOString()
-        }).eq('telefone', phone);
-      }
-
-      return res.status(200).json({ ok: true, emIntervencao: true, telefone: phone });
+    if (action === 'messages') {
+      const { data, error } = await supabase.from('conversas').select('*').eq('telefone', req.query.phone).single();
+      if (error || !data) return res.status(404).json({ erro: 'Conversa nao encontrada' });
+      return res.status(200).json({
+        mensagens: data.mensagens || [], emIntervencao: data.em_intervencao,
+        telefone: data.telefone, nome: data.nome,
+        aparelho: data.aparelho, marca: data.marca, bairro: data.bairro
+      });
     }
 
-    // LIBERAR ROBO
-    if (action === 'release' && req.method === 'POST') {
+    if (action === 'intervene' && req.method === 'POST') {
       const { phone } = req.body;
-
-      const { data: existente } = await supabase
-        .from('conversas')
-        .select('mensagens')
-        .eq('telefone', phone)
-        .single();
-
-      if (existente) {
-        const msgs = [...(existente.mensagens || []), {
-          tipo: 'system',
-          mensagem: '🤖 Robo retomou o atendimento',
-          data: new Date().toISOString(),
-          nome: 'Sistema'
-        }];
-
+      const { data: ex } = await supabase.from('conversas').select('*').eq('telefone', phone).single();
+      const sysMsg = { tipo: 'system', mensagem: '⚡ Humano assumiu o controle', data: new Date().toISOString(), nome: 'Sistema' };
+      if (!ex) {
+        await supabase.from('conversas').insert({
+          telefone: phone, nome: 'Cliente', mensagens: [sysMsg],
+          em_intervencao: true, etapa: 'intervencao',
+          ultima_atividade: new Date().toISOString(), ultima: 'Intervencao iniciada'
+        });
+      } else {
         await supabase.from('conversas').update({
-          em_intervencao: false,
-          mensagens: msgs,
+          em_intervencao: true,
+          mensagens: [...(ex.mensagens || []), sysMsg],
           ultima_atividade: new Date().toISOString()
         }).eq('telefone', phone);
       }
+      return res.status(200).json({ ok: true, emIntervencao: true });
+    }
 
+    if (action === 'release' && req.method === 'POST') {
+      const { phone } = req.body;
+      const { data: ex } = await supabase.from('conversas').select('mensagens').eq('telefone', phone).single();
+      if (ex) {
+        await supabase.from('conversas').update({
+          em_intervencao: false,
+          mensagens: [...(ex.mensagens || []), { tipo: 'system', mensagem: '🤖 Robo retomou o atendimento', data: new Date().toISOString(), nome: 'Sistema' }],
+          ultima_atividade: new Date().toISOString()
+        }).eq('telefone', phone);
+      }
       return res.status(200).json({ ok: true, emIntervencao: false });
     }
 
-    // ENVIAR MENSAGEM MANUAL (humano)
     if (action === 'send' && req.method === 'POST') {
       const { phone, message } = req.body;
-
-      const { data: conv } = await supabase
-        .from('conversas')
-        .select('*')
-        .eq('telefone', phone)
-        .single();
-
+      const { data: conv } = await supabase.from('conversas').select('*').eq('telefone', phone).single();
       if (!conv || !conv.em_intervencao) {
-        return res.status(403).json({
-          ok: false,
-          erro: 'Nao esta em intervencao',
-          emIntervencao: conv?.em_intervencao || false
-        });
+        return res.status(403).json({ ok: false, erro: 'Nao esta em intervencao', emIntervencao: conv?.em_intervencao || false });
       }
-
       const enviado = await enviarWhatsApp(phone, message);
-
       if (enviado) {
-        const msgs = [...conv.mensagens, {
-          tipo: 'humano',
-          mensagem: message,
-          data: new Date().toISOString(),
-          nome: 'Atendente'
-        }];
-
         await supabase.from('conversas').update({
-          mensagens: msgs,
-          ultima: message,
-          ultima_atividade: new Date().toISOString()
+          mensagens: [...conv.mensagens, { tipo: 'humano', mensagem: message, data: new Date().toISOString(), nome: 'Atendente' }],
+          ultima: message, ultima_atividade: new Date().toISOString()
         }).eq('telefone', phone);
       }
-
       return res.status(200).json({ ok: enviado });
     }
 
     // ===== 3. ROTAS DO PAINEL DE TREINAMENTO =====
 
-    // LISTAR INSTRUÇÕES
     if (action === 'training-list') {
-      const { data, error } = await supabase
-        .from('instrucoes_robo')
-        .select('*')
-        .eq('ativo', true)
-        .order('ordem', { ascending: true });
-
+      const { data, error } = await supabase.from('instrucoes_robo').select('*').eq('ativo', true).order('ordem', { ascending: true });
       if (error) throw error;
       return res.status(200).json({ instrucoes: data || [] });
     }
 
-    // CRIAR NOVA INSTRUÇÃO
     if (action === 'training-create' && req.method === 'POST') {
-      const { palavras_chave, resposta, descricao, ordem } = req.body;
-
-      const { data, error } = await supabase
-        .from('instrucoes_robo')
-        .insert({
-          palavras_chave: Array.isArray(palavras_chave)
-            ? palavras_chave
-            : palavras_chave.split(',').map(p => p.trim().toLowerCase()),
-          resposta,
-          descricao: descricao || '',
-          ordem: ordem || 0,
-          ativo: true
-        })
-        .select()
-        .single();
-
+      const { palavras_chave, resposta, descricao, ordem, categoria } = req.body;
+      const { data, error } = await supabase.from('instrucoes_robo').insert({
+        palavras_chave: Array.isArray(palavras_chave) ? palavras_chave : palavras_chave.split(',').map(p => p.trim().toLowerCase()),
+        resposta, descricao: descricao || '', ordem: ordem || 0, ativo: true, categoria: categoria || 'geral'
+      }).select().single();
       if (error) throw error;
-
-      // Invalida cache
-      cacheInstrucoes.dados = null;
-
+      cache.dados = null;
       return res.status(200).json({ ok: true, instrucao: data });
     }
 
-    // ATUALIZAR INSTRUÇÃO
     if (action === 'training-update' && req.method === 'PUT') {
-      const { id, palavras_chave, resposta, descricao, ordem, ativo } = req.body;
-
-      const updateData = {};
-      if (palavras_chave !== undefined) {
-        updateData.palavras_chave = Array.isArray(palavras_chave)
-          ? palavras_chave
-          : palavras_chave.split(',').map(p => p.trim().toLowerCase());
-      }
-      if (resposta !== undefined) updateData.resposta = resposta;
-      if (descricao !== undefined) updateData.descricao = descricao;
-      if (ordem !== undefined) updateData.ordem = ordem;
-      if (ativo !== undefined) updateData.ativo = ativo;
-
-      const { data, error } = await supabase
-        .from('instrucoes_robo')
-        .update(updateData)
-        .eq('id', id)
-        .select()
-        .single();
-
+      const { id, palavras_chave, resposta, descricao, ordem, ativo, categoria } = req.body;
+      const upd = {};
+      if (palavras_chave !== undefined) upd.palavras_chave = Array.isArray(palavras_chave) ? palavras_chave : palavras_chave.split(',').map(p => p.trim().toLowerCase());
+      if (resposta !== undefined) upd.resposta = resposta;
+      if (descricao !== undefined) upd.descricao = descricao;
+      if (ordem !== undefined) upd.ordem = ordem;
+      if (ativo !== undefined) upd.ativo = ativo;
+      if (categoria !== undefined) upd.categoria = categoria;
+      const { data, error } = await supabase.from('instrucoes_robo').update(upd).eq('id', id).select().single();
       if (error) throw error;
-
-      cacheInstrucoes.dados = null;
-
+      cache.dados = null;
       return res.status(200).json({ ok: true, instrucao: data });
     }
 
-    // DELETAR INSTRUÇÃO
     if (action === 'training-delete' && req.method === 'DELETE') {
-      const { id } = req.query;
-      const { error } = await supabase
-        .from('instrucoes_robo')
-        .delete()
-        .eq('id', id);
-
+      const { error } = await supabase.from('instrucoes_robo').delete().eq('id', req.query.id);
       if (error) throw error;
-
-      cacheInstrucoes.dados = null;
-
+      cache.dados = null;
       return res.status(200).json({ ok: true });
     }
 
-    // ATUALIZAR FALLBACK
     if (action === 'training-fallback' && req.method === 'PUT') {
-      const { resposta } = req.body;
-
-      const { error } = await supabase
-        .from('config_robo')
-        .update({ valor: resposta })
-        .eq('chave', 'fallback');
-
+      const { error } = await supabase.from('config_robo').update({ valor: req.body.resposta }).eq('chave', 'fallback');
       if (error) throw error;
-
-      cacheInstrucoes.dados = null;
-
+      cache.dados = null;
       return res.status(200).json({ ok: true });
     }
 
-    // PEGAR FALLBACK
     if (action === 'training-fallback' && req.method === 'GET') {
-      const { data, error } = await supabase
-        .from('config_robo')
-        .select('valor')
-        .eq('chave', 'fallback')
-        .single();
-
+      const { data, error } = await supabase.from('config_robo').select('valor').eq('chave', 'fallback').single();
       if (error) throw error;
-
       return res.status(200).json({ fallback: data?.valor || '' });
     }
 
-    // ===== 4. RECEBER MENSAGEM DO WHATSAPP =====
+    // ===== 4. RECEBER MENSAGEM WHATSAPP =====
     if (req.method === 'POST' && !action) {
       res.status(200).send('OK');
-
-      processarMensagem(req.body).catch(err => {
-        console.error('Erro ao processar:', err);
-      });
-
+      processarMensagem(req.body).catch(err => console.error('Erro:', err));
       return;
     }
 
-    res.status(200).send('Webhook RC Reforma v2.0 - OK');
+    res.status(200).send('Conserta Rio Bot v3.0 - OK');
 
   } catch (e) {
-    console.error('ERRO GERAL:', e.message);
+    console.error('ERRO:', e.message);
     res.status(200).send('OK');
   }
 }
 
 // ============================================
-// PROCESSAR MENSAGEM RECEBIDA
+// PROCESSAR MENSAGEM
 // ============================================
 
 async function processarMensagem(body) {
   if (!body || body.object !== 'whatsapp_business_account') return;
-
-  const entry = body.entry?.[0];
-  const changes = entry?.changes?.[0]?.value;
-  if (!changes) return;
-  if (changes.statuses) return;
-
+  const changes = body.entry?.[0]?.changes?.[0]?.value;
+  if (!changes || changes.statuses) return;
   const msg = changes.messages?.[0];
-  if (!msg) return;
+  if (!msg || msg.type !== 'text') return;
 
   const telefone = msg.from;
   const nome = changes.contacts?.[0]?.profile?.name || 'Cliente';
-
-  if (msg.type !== 'text') return;
-
   const texto = msg.text.body;
+  const lower = texto.toLowerCase();
 
-  // Buscar ou criar conversa no Supabase
-  const { data: convExistente } = await supabase
-    .from('conversas')
-    .select('*')
-    .eq('telefone', telefone)
-    .single();
+  // Buscar/criar conversa
+  const { data: ex } = await supabase.from('conversas').select('*').eq('telefone', telefone).single();
+  let conv = ex || {
+    telefone, nome, mensagens: [], em_intervencao: false,
+    etapa: 'novo', ultima_atividade: new Date().toISOString(), ultima: '',
+    aparelho: null, marca: null, bairro: null
+  };
 
-  let conv;
-  if (!convExistente) {
-    const novaConv = {
-      telefone: telefone,
-      nome: nome,
-      mensagens: [],
-      em_intervencao: false,
-      etapa: 'novo',
-      ultima_atividade: new Date().toISOString(),
-      ultima: ''
-    };
-
-    await supabase.from('conversas').insert(novaConv);
-    conv = novaConv;
-  } else {
-    conv = {
-      telefone: convExistente.telefone,
-      nome: convExistente.nome,
-      mensagens: convExistente.mensagens || [],
-      em_intervencao: convExistente.em_intervencao,
-      etapa: convExistente.etapa,
-      ultima_atividade: convExistente.ultima_atividade,
-      ultima: convExistente.ultima
-    };
+  if (!ex) {
+    await supabase.from('conversas').insert({
+      telefone, nome, mensagens: [], em_intervencao: false, etapa: 'novo',
+      ultima_atividade: new Date().toISOString(), ultima: '',
+      aparelho: null, marca: null, bairro: null
+    });
   }
 
-  // Adicionar mensagem do cliente
-  const msgsCliente = [...conv.mensagens, {
-    tipo: 'cliente',
-    mensagem: texto,
-    data: new Date().toISOString(),
-    nome: nome
+  // Salva mensagem do cliente
+  const msgsCliente = [...(conv.mensagens || []), {
+    tipo: 'cliente', mensagem: texto, data: new Date().toISOString(), nome
   }];
 
+  // Atualiza dados extraídos da conversa
+  const aparelho = extrairAparelho(lower);
+  const marca = extrairMarca(lower);
+  const bairro = extrairBairro(lower);
+
   await supabase.from('conversas').update({
-    mensagens: msgsCliente,
-    ultima: texto,
-    ultima_atividade: new Date().toISOString()
+    mensagens: msgsCliente, ultima: texto, ultima_atividade: new Date().toISOString(),
+    aparelho: aparelho || conv.aparelho,
+    marca: marca || conv.marca,
+    bairro: bairro || conv.bairro
   }).eq('telefone', telefone);
 
-  console.log(`[RECEBIDO] ${telefone} (${nome}): ${texto.substring(0, 50)}`);
-  console.log(`[ESTADO] emIntervencao=${conv.em_intervencao}`);
+  console.log(`[RECEBIDO] ${telefone}: ${texto.substring(0, 50)}`);
 
-  // SE NÃO ESTIVER EM INTERVENÇÃO, RESPONDE AUTOMATICAMENTE
-  if (!conv.em_intervencao) {
-    const resposta = await gerarRespostaDinamica(texto.toLowerCase(), nome);
-
-    const enviado = await enviarWhatsApp(telefone, resposta);
-
-    if (enviado) {
-      const { data: convAtual } = await supabase
-        .from('conversas')
-        .select('mensagens')
-        .eq('telefone', telefone)
-        .single();
-
-      const msgsBot = [...(convAtual?.mensagens || []), {
-        tipo: 'bot',
-        mensagem: resposta,
-        data: new Date().toISOString(),
-        nome: 'Robo'
-      }];
-
-      await supabase.from('conversas').update({
-        mensagens: msgsBot,
-        ultima: resposta,
-        ultima_atividade: new Date().toISOString()
-      }).eq('telefone', telefone);
-
-      console.log(`[BOT] Resposta automatica enviada`);
-    }
-  } else {
-    console.log(`[BOT] BLOQUEADO - conversa em intervencao humana`);
+  // Se em intervenção, não responde
+  if (conv.em_intervencao) {
+    console.log(`[BLOQUEADO] Em intervencao`);
+    return;
   }
+
+  // Verifica palavras para chamar atendente
+  const cfgHuman = await getConfig('human_keywords');
+  const humanWords = (cfgHuman || 'atendente,humano,pessoa,nao e bot').split(',').map(w => w.trim());
+  if (humanWords.some(w => lower.includes(w))) {
+    const resp = await getRespostaByCategoria('atendente_humano');
+    await enviarERegistrar(telefone, resp || '👨‍🔧 Vou chamar um atendente humano. Aguarde um momento...', nome, 'atendente_humano');
+    await supabase.from('conversas').update({ em_intervencao: true }).eq('telefone', telefone);
+    return;
+  }
+
+  // GERA RESPOSTA INTELIGENTE
+  const resposta = await gerarResposta(lower, nome, conv);
+  await enviarERegistrar(telefone, resposta, nome, 'bot');
 }
 
 // ============================================
-// GERAR RESPOSTA DINÂMICA (do banco!)
+// MOTOR DE RESPOSTA INTELIGENTE
 // ============================================
 
-async function gerarRespostaDinamica(texto, nome) {
-  // Busca instruções com cache
-  let instrucoes = cacheInstrucoes.dados;
-  const agora = Date.now();
+async function gerarResposta(texto, nome, conv) {
+  const etapa = conv.etapa || 'novo';
+  const bairro = conv.bairro;
 
-  if (!instrucoes || (agora - cacheInstrucoes.atualizadoEm) > cacheInstrucoes.TTL) {
-    const { data, error } = await supabase
-      .from('instrucoes_robo')
-      .select('*')
-      .eq('ativo', true)
-      .order('ordem', { ascending: true });
+  // 1. Busca instruções do treinamento (com cache)
+  const instrucoes = await getInstrucoes();
 
-    if (error) {
-      console.error('Erro ao buscar instrucoes:', error);
-      return `Ola, ${nome}! Como posso ajudar?`;
-    }
-
-    instrucoes = data || [];
-    cacheInstrucoes.dados = instrucoes;
-    cacheInstrucoes.atualizadoEm = agora;
-    console.log(`[CACHE] ${instrucoes.length} instrucoes carregadas`);
-  }
-
-  // Procura palavra-chave no texto
+  // 2. Verifica intenções específicas primeiro
   for (const inst of instrucoes) {
-    const palavras = inst.palavras_chave || [];
-    const encontrou = palavras.some(palavra => texto.includes(palavra.toLowerCase()));
+    const pchs = inst.palavras_chave || [];
+    const achou = pchs.some(p => texto.includes(p.toLowerCase()));
+    if (achou) return inst.resposta.replace(/{nome}/g, nome).replace(/{bairro}/g, bairro || '');
+  }
 
-    if (encontrou) {
-      // Substitui {nome} pelo nome do cliente
-      return inst.resposta.replace(/{nome}/g, nome);
+  // 3. FLUXO CONSERTA RIO (baseado no seu prompt)
+
+  // Se é novo e não tem aparelho/marca
+  if (etapa === 'novo' && !conv.aparelho) {
+    await supabase.from('conversas').update({ etapa: 'aguardando_aparelho' }).eq('telefone', conv.telefone);
+    return `Olá, ${nome}! 👋 Sou o assistente virtual da Conserta Rio.\n\nQual aparelho está com defeito e qual a marca dele?\n\nNós atendemos:\n🌀 Ar condicionado (portátil, janela, split, piso teto)\n🧺 Máquina de lavar, lava e seca, secadora, lava-louças\n❄️ Geladeira, freezer, frigobar\n\nTodas as marcas! ✅`;
+  }
+
+  // Se tem aparelho mas não perguntou sobre visita ainda
+  if (etapa === 'aguardando_aparelho' && conv.aparelho) {
+    await supabase.from('conversas').update({ etapa: 'aguardando_bairro' }).eq('telefone', conv.telefone);
+    return `Certo, ${nome}. Para agilizarmos o conserto, você gostaria de agendar uma visita técnica imediata? 🚗💨`;
+  }
+
+  // Se quer agendar mas não tem bairro
+  if ((etapa === 'aguardando_bairro' || texto.includes('agendar') || texto.includes('visita')) && !conv.bairro) {
+    return `Ótimo! Para verificar a disponibilidade e o valor da visita, me diga em qual bairro você está. 📍`;
+  }
+
+  // Se tem bairro
+  if (conv.bairro && (etapa === 'aguardando_bairro' || texto.includes('bairro'))) {
+    const valor = calcularVisita(conv.bairro);
+    if (valor === 'nao_atende') {
+      await supabase.from('conversas').update({ etapa: 'nao_atende' }).eq('telefone', conv.telefone);
+      return `Agradeço a informação, ${nome}. Infelizmente, no momento não conseguimos atender na Baixada Fluminense. Sinto muito por não poder ajudar diretamente. 😔`;
+    }
+    await supabase.from('conversas').update({ etapa: 'aguardando_horario' }).eq('telefone', conv.telefone);
+    return `Perfeito! Para o bairro ${conv.bairro}, a taxa de visita técnica é de ${valor}. 💰\n\nEsse valor é abatido do orçamento final se você aprovar o serviço. Aceitamos Pix ou dinheiro.\n\nQual dia da semana (incluindo fins de semana) e horário comercial seria melhor? 📅`;
+  }
+
+  // Se pergunta valor antes de dar bairro
+  if (texto.includes('quanto') || texto.includes('valor') || texto.includes('custa') || texto.includes('preço')) {
+    if (!conv.bairro) {
+      return `Compreendo. Para te informar o valor da visita, me diga em qual bairro você está. 📍`;
     }
   }
 
-  // Fallback: busca do banco
-  const { data: fallbackData } = await supabase
-    .from('config_robo')
-    .select('valor')
-    .eq('chave', 'fallback')
-    .single();
+  // Se pergunta sobre cartão
+  if (texto.includes('cartão') || texto.includes('cartao') || texto.includes('credito') || texto.includes('débito')) {
+    await supabase.from('conversas').update({ em_intervencao: true }).eq('telefone', conv.telefone);
+    return `Para pagamento com cartão, preciso de um momento para te auxiliar. Pode aguardar um instante? 💳\n\n⏳ Um atendente humano vai te ajudar agora.`;
+  }
 
-  const fallback = fallbackData?.valor ||
-    `Entendi, ${nome}!
+  // Se pede desconto
+  if (texto.includes('desconto') || texto.includes('barato') || texto.includes('muito caro')) {
+    await supabase.from('conversas').update({ em_intervencao: true }).eq('telefone', conv.telefone);
+    return `Entendi, ${nome}. Para verificar a possibilidade de desconto, vou precisar de um momento para analisar. Pode aguardar? 🕐\n\n⏳ Um atendente humano vai te ajudar agora.`;
+  }
 
-Para agilizar seu atendimento, me diga:
-1. Qual servico precisa?
-2. Qual bairro do Rio?
+  // Se pergunta sobre garantia
+  if (texto.includes('garantia') || texto.includes('retorno') || texto.includes('voltou')) {
+    await supabase.from('conversas').update({ em_intervencao: true }).eq('telefone', conv.telefone);
+    return `Entendi, ${nome}. Para verificar a garantia do serviço, vou precisar de um momento. Pode aguardar? 🛡️\n\n⏳ Um atendente humano vai te ajudar agora.`;
+  }
 
-Ou pergunte sobre precos, horarios ou servicos disponiveis.`;
+  // Se quer cancelar/reagendar
+  if (texto.includes('cancelar') || texto.includes('reagendar') || texto.includes('mudar') || texto.includes('adiar')) {
+    await supabase.from('conversas').update({ em_intervencao: true }).eq('telefone', conv.telefone);
+    return `Entendi, ${nome}. Para ${texto.includes('cancelar') ? 'cancelamento' : 'reagendamento'}, vou precisar verificar as informações. Pode aguardar? 📋\n\n⏳ Um atendente humano vai te ajudar agora.`;
+  }
 
-  return fallback.replace(/{nome}/g, nome);
+  // Se forneceu horário
+  if (etapa === 'aguardando_horario' && (texto.includes('hora') || texto.includes(':') || texto.includes('h') || /\d{1,2}[:h]\d{2}/.test(texto))) {
+    // Verifica se é menos de 2h
+    const horaSolicitada = extrairHora(texto);
+    const agora = new Date();
+    const diffHoras = horaSolicitada ? (horaSolicitada - agora) / (1000 * 60 * 60) : 0;
+    
+    if (diffHoras > 0 && diffHoras < 2) {
+      const novaHora = new Date(agora.getTime() + 2 * 60 * 60 * 1000);
+      const horaStr = novaHora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      return `Compreendo a urgência! Precisamos de 2h de prazo para deslocamento. Poderia sugerir a partir das ${horaStr} ou outro dia? ⏰`;
+    }
+    
+    await supabase.from('conversas').update({ etapa: 'agendado' }).eq('telefone', conv.telefone);
+    return `Visita agendada! 🎉\n\n📍 Bairro: ${conv.bairro}\n💰 Taxa visita: ${calcularVisita(conv.bairro)}\n\nO técnico chegará em até 2h após o horário combinado. Em breve você receberá a confirmação. Agradecemos a preferência pela Conserta Rio! 🛠️`;
+  }
+
+  // Fallback
+  const fallback = await getConfig('fallback');
+  return (fallback || `Entendi, ${nome}! Pode me dizer mais detalhes? Ou digite "atendente" para falar com uma pessoa.`).replace(/{nome}/g, nome);
 }
 
 // ============================================
-// ENVIAR MENSAGEM PELO WHATSAPP
+// FUNÇÕES AUXILIARES
 // ============================================
+
+async function getInstrucoes() {
+  const agora = Date.now();
+  if (cache.dados && (agora - cache.atualizadoEm) < cache.TTL) return cache.dados;
+  const { data, error } = await supabase.from('instrucoes_robo').select('*').eq('ativo', true).order('ordem', { ascending: true });
+  if (error) { console.error('Erro instrucoes:', error); return []; }
+  cache.dados = data || []; cache.atualizadoEm = agora;
+  console.log(`[CACHE] ${data?.length || 0} instrucoes`);
+  return cache.dados;
+}
+
+async function getConfig(chave) {
+  const { data } = await supabase.from('config_robo').select('valor').eq('chave', chave).single();
+  return data?.valor;
+}
+
+async function getRespostaByCategoria(cat) {
+  const { data } = await supabase.from('instrucoes_robo').select('resposta').eq('categoria', cat).eq('ativo', true).limit(1).single();
+  return data?.resposta;
+}
+
+async function enviarERegistrar(telefone, resposta, nome, etapa) {
+  const enviado = await enviarWhatsApp(telefone, resposta);
+  if (enviado) {
+    const { data: conv } = await supabase.from('conversas').select('mensagens').eq('telefone', telefone).single();
+    await supabase.from('conversas').update({
+      mensagens: [...(conv?.mensagens || []), { tipo: 'bot', mensagem: resposta, data: new Date().toISOString(), nome: 'Robo' }],
+      ultima: resposta, ultima_atividade: new Date().toISOString()
+    }).eq('telefone', telefone);
+  }
+}
+
+function calcularVisita(bairro) {
+  const b = bairro.toLowerCase();
+  const zonaSul = ['botafogo', 'copacabana', 'ipanema', 'leblon', 'lagoa', 'gavea', 'jardim botanico', 'humaita', 'urca', 'laranjeiras', 'catete', 'cosme velho', 'flamengo'];
+  const baixada = ['sao joao de meriti', 'nova iguacu', 'nilopolis', 'mesquita', 'queimados', 'japeri', 'paracambi', 'itatiaia', 'seropedica'];
+  
+  if (baixada.some(bai => b.includes(bai))) return 'nao_atende';
+  if (b.includes('botafogo')) return 'R$ 100';
+  if (zonaSul.some(bai => b.includes(bai))) return 'R$ 120';
+  return 'R$ 160';
+}
+
+function extrairAparelho(texto) {
+  const aparelhos = [
+    'ar condicionado portatil', 'ar condicionado de janela', 'ar condicionado split', 'ar split', 'ar portatil', 'ar janela',
+    'piso teto', 'piso-teto',
+    'maquina de lavar', 'maquina lava e seca', 'lava e seca', 'secadora', 'maquina de lavar louca', 'lava louca', 'lava-louca',
+    'geladeira', 'freezer', 'frigobar', 'refrigerador'
+  ];
+  for (const a of aparelhos) if (texto.includes(a)) return a;
+  return null;
+}
+
+function extrairMarca(texto) {
+  const marcas = ['samsung', 'lg', 'electrolux', 'brastemp', 'consul', 'panasonic', 'carrier', 'springer', 'fujitsu', 'gree', 'philco', 'midea', 'elgin'];
+  for (const m of marcas) if (texto.includes(m)) return m;
+  return null;
+}
+
+function extrairBairro(texto) {
+  const bairros = [
+    'botafogo', 'copacabana', 'ipanema', 'leblon', 'lagoa', 'gavea', 'humaita', 'urca', 'flamengo', 'catete', 'laranjeiras', 'cosme velho',
+    'tijuca', 'vila isabel', 'grajau', 'andaraí', 'engenho novo', 'engenho de dentro', 'meier', 'alto da boa vista',
+    'madureira', 'bangu', 'campo grande', 'santa cruz', 'realengo', 'padre miguel', 'jardim sulacap',
+    'barra da tijuca', 'jacarepagua', 'recreio', 'vargem grande', 'vargem pequena',
+    'centro', 'saude', 'gamboa', 'santo cristo', 'cidade nova',
+    'sao joao de meriti', 'nova iguacu', 'nilopolis', 'mesquita', 'queimados'
+  ];
+  for (const b of bairros) if (texto.includes(b)) return b;
+  return null;
+}
+
+function extrairHora(texto) {
+  const match = texto.match(/(\d{1,2})[:h](\d{2})/);
+  if (!match) return null;
+  const h = parseInt(match[1]), m = parseInt(match[2]);
+  const agora = new Date();
+  const data = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate(), h, m);
+  if (data < agora) data.setDate(data.getDate() + 1);
+  return data;
+}
 
 async function enviarWhatsApp(numero, texto) {
-  if (!WHATSAPP_TOKEN || !WHATSAPP_PHONE_ID) {
-    console.error('Token ou Phone ID nao configurado');
-    return false;
-  }
-
+  if (!WHATSAPP_TOKEN || !WHATSAPP_PHONE_ID) { console.error('Token nao configurado'); return false; }
   try {
-    const response = await fetch(
-      `https://graph.facebook.com/v20.0/${WHATSAPP_PHONE_ID}/messages`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${WHATSAPP_TOKEN}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          messaging_product: 'whatsapp',
-          recipient_type: 'individual',
-          to: numero,
-          type: 'text',
-          text: { body: texto }
-        })
-      }
-    );
-
-    if (!response.ok) {
-      const erro = await response.json();
-      console.error('Erro API WhatsApp:', erro);
-      return false;
-    }
-
-    console.log('Mensagem enviada para', numero);
+    const r = await fetch(`https://graph.facebook.com/v20.0/${WHATSAPP_PHONE_ID}/messages`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${WHATSAPP_TOKEN}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messaging_product: 'whatsapp', recipient_type: 'individual', to: numero, type: 'text', text: { body: texto } })
+    });
+    if (!r.ok) { const e = await r.json(); console.error('Erro API:', e); return false; }
     return true;
-
-  } catch (e) {
-    console.error('Erro ao enviar WhatsApp:', e.message);
-    return false;
-  }
+  } catch (e) { console.error('Erro envio:', e.message); return false; }
 }

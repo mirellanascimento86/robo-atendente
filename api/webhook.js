@@ -1,11 +1,12 @@
-// api/webhook.js
 import { createClient } from '@supabase/supabase-js';
 
-// ⚠️ SUBSTITUA ESTES VALORES
-const SUPABASE_URL = process.env.SUPABASE_URL || 'https://SEU-PROJETO.supabase.co';
-const SUPABASE_KEY = process.env.SUPABASE_KEY || 'sua-chave-anon-public-aqui';
-const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN || 'seu-token-do-meta';
-const WHATSAPP_PHONE_ID = process.env.WHATSAPP_PHONE_ID || 'seu-phone-id';
+// ✅ SEUS DADOS DO SUPABASE
+const SUPABASE_URL = 'https://fwcljognwdutsagppxcq.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ3Y2xqb2dud2R1dHNhZ3BweGNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4OTY4MjMsImV4cCI6MjA5MDQ3MjgyM30.6n8MejPbWRZlJnfZylrsK37_jwFha3FE7Xbj_Sn8VcE';
+
+// ⚠️ VARIÁVEIS DE AMBIENTE DO META (configure no Vercel)
+const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
+const WHATSAPP_PHONE_ID = process.env.WHATSAPP_PHONE_ID;
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
@@ -13,7 +14,6 @@ export default async function handler(req, res) {
     // Verificação do webhook (Meta)
     if (req.method === 'GET') {
         const mode = req.query['hub.mode'];
-        const token = req.query['hub.verify_token'];
         const challenge = req.query['hub.challenge'];
         
         if (mode === 'subscribe') {
@@ -26,9 +26,8 @@ export default async function handler(req, res) {
     if (req.method === 'POST') {
         try {
             const body = req.body;
-            console.log('Webhook recebido:', JSON.stringify(body));
+            console.log('📩 Webhook recebido:', JSON.stringify(body));
 
-            // Extrair dados da mensagem
             const entry = body.entry?.[0];
             const changes = entry?.changes?.[0];
             const value = changes?.value;
@@ -38,40 +37,65 @@ export default async function handler(req, res) {
                 return res.status(200).send('OK');
             }
 
-            const from = message.from; // Número do cliente
+            const from = message.from;
             const text = message.text?.body || '';
             const msgId = message.id;
 
             // 1. Buscar configuração atual do bot
-            const { data: training } = await supabase
+            const { data: training, error: trainingError } = await supabase
                 .from('bot_training')
                 .select('*')
                 .order('created_at', { ascending: false })
                 .limit(1)
                 .single();
 
-            if (!training || !training.active) {
-                // Bot desativado - apenas salva mensagem e aguarda humano
-                await saveMessage(from, text, 'inbound', 'human');
-                return res.status(200).send('Bot desativado');
+            if (trainingError || !training) {
+                console.error('Erro ao buscar treinamento:', trainingError);
+                return res.status(200).send('OK');
             }
 
-            // 2. Salvar mensagem do cliente
+            // 2. Verificar se bot está ativo
+            if (!training.active) {
+                await saveMessage(from, text, 'inbound', 'human');
+                return res.status(200).send('Bot desativado - aguardando humano');
+            }
+
+            // 3. Salvar mensagem do cliente
             await saveMessage(from, text, 'inbound', 'bot');
 
-            // 3. Gerar resposta do bot baseada no treinamento
-            const botResponse = await generateResponse(text, training, from);
+            // 4. Verificar se conversa está em modo humano
+            const { data: conversation } = await supabase
+                .from('conversations')
+                .select('status')
+                .eq('phone_number', from)
+                .single();
 
-            // 4. Enviar resposta pelo WhatsApp
-            await sendWhatsAppMessage(from, botResponse);
+            if (conversation?.status === 'human') {
+                // Modo humano ativo - apenas salva, não responde
+                return res.status(200).send('Modo humano ativo');
+            }
 
-            // 5. Salvar resposta do bot
+            // 5. Gerar resposta do bot
+            const botResponse = generateResponse(text, training);
+
+            // 6. Enviar resposta pelo WhatsApp
+            if (WHATSAPP_TOKEN && WHATSAPP_PHONE_ID) {
+                await sendWhatsAppMessage(from, botResponse);
+            } else {
+                console.log('⚠️ Token do WhatsApp não configurado. Resposta simulada:', botResponse);
+            }
+
+            // 7. Salvar resposta do bot
             await saveMessage(from, botResponse, 'outbound', 'bot');
 
-            return res.status(200).json({ success: true, response: botResponse });
+            return res.status(200).json({ 
+                success: true, 
+                response: botResponse,
+                phone: from 
+            });
 
         } catch (error) {
-            console.error('Erro no webhook:', error);
+            console.error('❌ Erro no webhook:', error);
             return res.status(500).json({ error: error.message });
         }
     }
@@ -79,17 +103,17 @@ export default async function handler(req, res) {
     return res.status(405).send('Method not allowed');
 }
 
-// Função principal de geração de resposta
-async function generateResponse(userMessage, training, phoneNumber) {
+// Função principal de geração de resposta (MESMA LÓGICA DO TREINAMENTO)
+function generateResponse(userMessage, training) {
     const msg = userMessage.toLowerCase().trim();
     
-    // 1. Verificar saudações
-    const greetings = ['oi', 'olá', 'ola', 'bom dia', 'boa tarde', 'boa noite', 'hey', 'hi', 'hello'];
+    // 1. Saudações
+    const greetings = ['oi', 'olá', 'ola', 'bom dia', 'boa tarde', 'boa noite', 'hey', 'hi', 'hello', 'eai', 'eae'];
     if (greetings.some(g => msg.includes(g))) {
         return training.greeting_message;
     }
 
-    // 2. Verificar FAQ
+    // 2. FAQ
     const faq = training.faq_data || [];
     for (const item of faq) {
         const questionWords = item.question.toLowerCase().split(' ');
@@ -128,19 +152,21 @@ async function generateResponse(userMessage, training, phoneNumber) {
         return `📅 Perfeito! Para agendar, preciso saber:\n1️⃣ Qual equipamento?\n2️⃣ Qual o problema/defeito?\n3️⃣ Qual dia e horário prefere?\n\nOu se preferir, posso transferir você para um atendente humano agora mesmo! 👨‍💼`;
     }
 
-    // 4. Verificar palavras de escalonamento (transferir para humano)
+    // 4. Escalonamento para humano
     const escalationWords = training.escalation_keywords || ['atendente', 'humano', 'pessoa', 'reclamação', 'problema grave', 'cancelar', 'chefe', 'gerente'];
     if (escalationWords.some(word => msg.includes(word))) {
-        // Atualizar conversa para humano
-        await supabase
+        // Atualizar conversa para humano no banco
+        supabase
             .from('conversations')
             .update({ status: 'human', updated_at: new Date().toISOString() })
-            .eq('phone_number', phoneNumber);
+            .eq('phone_number', from)
+            .then(() => console.log('🔄 Conversa transferida para humano:', from))
+            .catch(err => console.error('Erro ao transferir:', err));
         
         return `👨‍💼 Entendido! Vou transferir você para um atendente humano agora mesmo. Por favor, aguarde um momento... ⏳\n\n(Seu atendente já foi notificado e responderá em breve!)`;
     }
 
-    // 5. Fallback inteligente
+    // 5. Fallback
     return `${training.fallback_message}\n\nPosso te ajudar com:\n• 💰 Preços e orçamentos\n• ⏰ Horários de funcionamento\n• 🔧 Nossos serviços\n• 📅 Agendamentos\n• 📍 Localização\n\nOu digite "atendente" para falar com uma pessoa!`;
 }
 
@@ -155,7 +181,7 @@ async function saveMessage(phone, content, direction, senderType) {
             .single();
 
         if (!conversation) {
-            const { data: newConv } = await supabase
+            const { data: newConv, error: convError } = await supabase
                 .from('conversations')
                 .insert({
                     phone_number: phone,
@@ -166,6 +192,8 @@ async function saveMessage(phone, content, direction, senderType) {
                 })
                 .select()
                 .single();
+            
+            if (convError) throw convError;
             conversation = newConv;
         } else {
             await supabase
@@ -179,7 +207,7 @@ async function saveMessage(phone, content, direction, senderType) {
         }
 
         // Inserir mensagem
-        await supabase.from('messages').insert({
+        const { error: msgError } = await supabase.from('messages').insert({
             conversation_id: conversation.id,
             phone_number: phone,
             direction: direction,
@@ -187,8 +215,10 @@ async function saveMessage(phone, content, direction, senderType) {
             sender_type: senderType
         });
 
+        if (msgError) throw msgError;
+
     } catch (error) {
-        console.error('Erro ao salvar mensagem:', error);
+        console.error('❌ Erro ao salvar mensagem:', error);
     }
 }
 
@@ -211,11 +241,17 @@ async function sendWhatsAppMessage(to, text) {
         });
 
         const data = await response.json();
-        console.log('Resposta WhatsApp:', data);
+        
+        if (!response.ok) {
+            console.error('❌ Erro WhatsApp API:', data);
+            throw new Error(data.error?.message || 'Erro ao enviar mensagem');
+        }
+
+        console.log('✅ Mensagem enviada:', data);
         return data;
 
     } catch (error) {
-        console.error('Erro ao enviar WhatsApp:', error);
+        console.error('❌ Erro ao enviar WhatsApp:', error);
         throw error;
     }
 }

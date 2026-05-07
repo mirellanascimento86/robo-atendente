@@ -13,7 +13,7 @@
             padding: 10px;
             max-width: 600px;
             margin: 0 auto;
-            padding-bottom: 80px;
+            padding-bottom: 100px;
         }
         .header {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -214,6 +214,7 @@
             flex-direction: column;
             align-items: center;
             gap: 2px;
+            padding: 5px 15px;
         }
         .nav-item.active { color: #667eea; }
         .nav-item svg { width: 24px; height: 24px; }
@@ -255,6 +256,51 @@
             50% { opacity: 0.5; transform: scale(1.2); }
             100% { opacity: 1; transform: scale(1); }
         }
+        
+        .escalation-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin-top: 5px;
+        }
+        .escalation-tag {
+            background: #fee2e2;
+            color: #991b1b;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .escalation-tag button {
+            background: none;
+            border: none;
+            color: #991b1b;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .add-tag-input {
+            display: flex;
+            gap: 5px;
+            margin-top: 5px;
+        }
+        .add-tag-input input {
+            flex: 1;
+            padding: 8px 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 0.85rem;
+        }
+        .add-tag-input button {
+            padding: 8px 15px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.85rem;
+        }
     </style>
 </head>
 <body>
@@ -268,10 +314,10 @@
         <div class="switch">
             <div>
                 <div style="font-weight:600; color:#333;">🤖 Bot Ativo</div>
-                <div class="hint">Desligado = todas as mensagens vão para intervenção humana</div>
+                <div class="hint">Desligado = todas as mensagens vao para intervencao humana</div>
                 <div class="realtime-indicator">
                     <div class="pulse"></div>
-                    <span>Atualizações em tempo real ativas</span>
+                    <span>Atualizacoes em tempo real ativas</span>
                 </div>
             </div>
             <div class="toggle active" id="botToggle" onclick="toggleBot()"></div>
@@ -280,18 +326,18 @@
 
     <!-- Identidade do Bot -->
     <div class="card">
-        <div class="card-title">🤖 Identidade do Bot <span class="section-badge">Obrigatório</span></div>
+        <div class="card-title">🤖 Identidade do Bot <span class="section-badge">Obrigatorio</span></div>
         <div class="form-group">
             <label>Nome do Bot</label>
             <input type="text" id="botName" placeholder="Ex: TecBot">
         </div>
         <div class="form-group">
             <label>Nome da Empresa</label>
-            <input type="text" id="companyName" placeholder="Ex: Assistência Técnica Express">
+            <input type="text" id="companyName" placeholder="Ex: Assistencia Tecnica Express">
         </div>
         <div class="form-group">
-            <label>Mensagem de Saudação <span class="hint">Primeira mensagem que o bot envia quando o cliente diz "Oi"</span></label>
-            <textarea id="greeting" placeholder="Olá! Sou o assistente virtual..."></textarea>
+            <label>Mensagem de Saudacao <span class="hint">Primeira mensagem que o bot envia quando o cliente diz "Oi"</span></label>
+            <textarea id="greeting" placeholder="Ola! Sou o assistente virtual..."></textarea>
         </div>
     </div>
 
@@ -299,24 +345,35 @@
     <div class="card">
         <div class="card-title">🧠 Personalidade & Comportamento</div>
         <div class="form-group">
-            <label>Instruções de Personalidade <span class="hint">Como o bot deve se comportar? Ex: "Seja cordial, use emojis, seja direto..."</span></label>
+            <label>Instrucoes de Personalidade <span class="hint">Como o bot deve se comportar? Ex: "Seja cordial, use emojis, seja direto..."</span></label>
             <textarea id="personality" placeholder="Descreva a personalidade do bot..."></textarea>
         </div>
         <div class="form-group">
-            <label>Serviços Oferecidos <span class="hint">Lista de serviços que o bot pode mencionar</span></label>
+            <label>Servicos Oferecidos <span class="hint">Lista de servicos que o bot pode mencionar</span></label>
             <textarea id="services" placeholder="Conserto de celulares, notebooks..."></textarea>
         </div>
         <div class="form-group">
-            <label>Horário de Funcionamento</label>
-            <textarea id="businessHours" placeholder="Segunda a Sexta: 9h às 18h..."></textarea>
+            <label>Horario de Funcionamento</label>
+            <textarea id="businessHours" placeholder="Segunda a Sexta: 9h as 18h..."></textarea>
         </div>
         <div class="form-group">
-            <label>Informações de Preços <span class="hint">O que o bot diz quando perguntam de valores</span></label>
-            <textarea id="pricing" placeholder="Orçamento gratuito..."></textarea>
+            <label>Informacoes de Precos <span class="hint">O que o bot diz quando perguntam de valores</span></label>
+            <textarea id="pricing" placeholder="Orcamento gratuito..."></textarea>
         </div>
         <div class="form-group">
-            <label>Mensagem quando não entende (Fallback) <span class="hint">Quando o bot não sabe responder</span></label>
-            <textarea id="fallback" placeholder="Desculpe, não entendi..."></textarea>
+            <label>Mensagem quando nao entende (Fallback) <span class="hint">Quando o bot nao sabe responder</span></label>
+            <textarea id="fallback" placeholder="Desculpe, nao entendi..."></textarea>
+        </div>
+    </div>
+
+    <!-- Palavras de Escalonamento -->
+    <div class="card">
+        <div class="card-title">🚨 Palavras que Transferem para Humano <span class="section-badge">Automatico</span></div>
+        <div class="hint" style="margin-bottom:10px;">Quando o cliente digitar alguma dessas palavras, o bot transfere automaticamente para um atendente humano.</div>
+        <div class="escalation-tags" id="escalationTags"></div>
+        <div class="add-tag-input">
+            <input type="text" id="newTagInput" placeholder="Digite uma palavra..." onkeypress="if(event.key==='Enter') addEscalationTag()">
+            <button onclick="addEscalationTag()">+ Adicionar</button>
         </div>
     </div>
 
@@ -343,40 +400,37 @@
         </div>
     </div>
 
-    <!-- Botões -->
+    <!-- Botoes -->
     <button class="btn btn-primary" onclick="saveTraining()" id="saveBtn">
-        💾 Salvar Alterações no Bot
+        💾 Salvar Alteracoes no Bot
     </button>
     <div class="status" id="statusMsg"></div>
 
-    <!-- Navegação -->
+    <!-- Navegacao -->
     <div class="nav-bottom">
-        <a href="intervention.html" class="nav-item">
+        <a href="painel.html" class="nav-item">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path></svg>
-            <div>Intervenção</div>
+            <div>Intervencao</div>
         </a>
-        <a href="training.html" class="nav-item active">
+        <a href="treinar.html" class="nav-item active">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
             <div>Treinamento</div>
-        </a>
-        <a href="index.html" class="nav-item">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
-            <div>Início</div>
         </a>
     </div>
 
     <script>
-        // ✅ SEUS DADOS DO SUPABASE (JÁ CONFIGURADOS)
+        // ✅ SEUS DADOS DO SUPABASE (JA CONFIGURADOS)
         const SUPABASE_URL = 'https://fwcljognwdutsagppxcq.supabase.co';
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ3Y2xqb2dud2R1dHNhZ3BweGNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4OTY4MjMsImV4cCI6MjA5MDQ3MjgyM30.6n8MejPbWRZlJnfZylrsK37_jwFha3FE7Xbj_Sn8VcE';
         
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
         let currentTraining = null;
         let faqData = [];
+        let escalationKeywords = ['atendente', 'humano', 'pessoa', 'reclamacao', 'problema grave', 'cancelar', 'chefe', 'gerente'];
 
         // Carregar dados ao abrir
         async function loadTraining() {
-            showStatus('🔄 Carregando configurações...', 'info');
+            showStatus('🔄 Carregando configuracoes...', 'info');
             
             const { data, error } = await supabaseClient
                 .from('bot_training')
@@ -386,12 +440,18 @@
                 .single();
 
             if (error) {
+                // Se nao existe, criar um novo
+                if (error.code === 'PGRST116') {
+                    await createDefaultTraining();
+                    return;
+                }
                 showStatus('❌ Erro ao carregar: ' + error.message, 'error');
                 return;
             }
 
             currentTraining = data;
             faqData = data.faq_data || [];
+            escalationKeywords = data.escalation_keywords || escalationKeywords;
 
             // Preencher campos
             document.getElementById('botName').value = data.bot_name || '';
@@ -409,7 +469,68 @@
             else toggle.classList.remove('active');
 
             renderFaqList();
-            showStatus('✅ Configurações carregadas!', 'success');
+            renderEscalationTags();
+            showStatus('✅ Configuracoes carregadas!', 'success');
+        }
+
+        async function createDefaultTraining() {
+            const defaultData = {
+                bot_name: 'TecBot',
+                company_name: 'Minha Empresa',
+                greeting_message: 'Ola! Sou o assistente virtual. Como posso ajudar voce hoje? 😊',
+                personality: 'Seja cordial, direto e profissional. Use emojis com moderacao.',
+                services: 'Conserto de celulares, notebooks, tablets e videogames.',
+                business_hours: 'Segunda a Sexta: 9h as 18h | Sabado: 9h as 13h',
+                pricing_info: 'Fazemos orcamento gratuito! Os valores variam conforme o defeito e o modelo do aparelho.',
+                fallback_message: 'Desculpe, nao entendi bem. Posso te ajudar com orcamentos, horarios, servicos e agendamentos.',
+                faq_data: [],
+                escalation_keywords: escalationKeywords,
+                active: true
+            };
+
+            const { data, error } = await supabaseClient
+                .from('bot_training')
+                .insert(defaultData)
+                .select()
+                .single();
+
+            if (error) {
+                showStatus('❌ Erro ao criar configuracao padrao: ' + error.message, 'error');
+                return;
+            }
+
+            currentTraining = data;
+            loadTraining();
+        }
+
+        function renderEscalationTags() {
+            const container = document.getElementById('escalationTags');
+            container.innerHTML = escalationKeywords.map((tag, index) => `
+                <div class="escalation-tag">
+                    ${tag}
+                    <button onclick="removeEscalationTag(${index})">×</button>
+                </div>
+            `).join('');
+        }
+
+        function addEscalationTag() {
+            const input = document.getElementById('newTagInput');
+            const tag = input.value.trim().toLowerCase();
+            if (!tag) return;
+            if (escalationKeywords.includes(tag)) {
+                showStatus('⚠️ Palavra ja existe!', 'info');
+                return;
+            }
+            escalationKeywords.push(tag);
+            input.value = '';
+            renderEscalationTags();
+            showStatus('✅ Palavra adicionada! Salve para aplicar.', 'info');
+        }
+
+        function removeEscalationTag(index) {
+            escalationKeywords.splice(index, 1);
+            renderEscalationTags();
+            showStatus('✅ Palavra removida! Salve para aplicar.', 'info');
         }
 
         function renderFaqList() {
@@ -432,12 +553,12 @@
             const question = prompt('📝 Digite a PERGUNTA que o cliente faz:\nEx: Quanto custa trocar a tela?');
             if (!question || question.trim() === '') return;
             
-            const answer = prompt('💬 Digite a RESPOSTA que o bot deve dar:\nEx: A troca de tela custa entre R$150 e R$400 dependendo do modelo. Posso verificar o valor exato do seu aparelho?');
+            const answer = prompt('💬 Digite a RESPOSTA que o bot deve dar:\nEx: A troca de tela custa entre R$150 e R$400 dependendo do modelo.');
             if (!answer || answer.trim() === '') return;
             
             faqData.push({ question: question.trim(), answer: answer.trim() });
             renderFaqList();
-            showStatus('✅ FAQ adicionada! Não esqueça de salvar.', 'info');
+            showStatus('✅ FAQ adicionada! Nao esqueca de salvar.', 'info');
         }
 
         function removeFaq(index) {
@@ -452,10 +573,10 @@
             const toggle = document.getElementById('botToggle');
             toggle.classList.toggle('active');
             const isActive = toggle.classList.contains('active');
-            showStatus(isActive ? '🟢 Bot será ATIVADO ao salvar' : '🔴 Bot será DESLIGADO ao salvar', 'info');
+            showStatus(isActive ? '🟢 Bot sera ATIVADO ao salvar' : '🔴 Bot sera DESLIGADO ao salvar', 'info');
         }
 
-        // Preview da resposta (simulação exata do webhook)
+        // Preview da resposta (simulacao exata do webhook)
         function previewResponse() {
             const question = document.getElementById('testQuestion').value.toLowerCase().trim();
             const previewBox = document.getElementById('previewBox');
@@ -467,26 +588,27 @@
             }
 
             if (!currentTraining) {
-                previewText.textContent = '⚠️ Carregue as configurações primeiro';
+                previewText.textContent = '⚠️ Carregue as configuracoes primeiro';
                 previewBox.style.display = 'block';
                 return;
             }
 
-            // Lógica EXATA do webhook
+            // Logica EXATA do webhook
             let response = null;
             const msg = question;
+            const training = currentTraining;
 
-            // 1. Saudações
-            const greetings = ['oi', 'olá', 'ola', 'bom dia', 'boa tarde', 'boa noite', 'hey', 'hi', 'hello', 'eai', 'eae'];
+            // 1. Saudacoes
+            const greetings = ['oi', 'ola', 'ola', 'bom dia', 'boa tarde', 'boa noite', 'hey', 'hi', 'hello', 'eai', 'eae'];
             if (greetings.some(g => msg.includes(g))) {
-                response = currentTraining.greeting_message;
+                response = training.greeting_message;
             }
 
             // 2. FAQ
             if (!response) {
-                const faq = currentTraining.faq_data || [];
+                const faq = training.faq_data || [];
                 for (const item of faq) {
-                    const questionWords = item.question.toLowerCase().split(' ');
+                    const questionWords = item.question.toLowerCase().split(' ').filter(w => w.length > 2);
                     const matchCount = questionWords.filter(word => msg.includes(word)).length;
                     if (matchCount >= 2 || msg.includes(item.question.toLowerCase())) {
                         response = item.answer;
@@ -497,33 +619,33 @@
 
             // 3. Palavras-chave
             if (!response) {
-                if (msg.includes('preço') || msg.includes('valor') || msg.includes('custa') || msg.includes('quanto'))
-                    response = currentTraining.pricing_info + '\\n\\nPosso agendar um orçamento gratuito para você! Qual equipamento precisa de assistência?';
-                else if (msg.includes('horário') || msg.includes('hora') || msg.includes('aberto') || msg.includes('funciona') || msg.includes('atende'))
-                    response = '⏰ ' + currentTraining.business_hours + '\\n\\nEstamos prontos para te atender! 😊';
-                else if (msg.includes('serviço') || msg.includes('faz') || msg.includes('conserta') || msg.includes('concerta') || msg.includes('arruma') || msg.includes('troca'))
-                    response = '🔧 ' + currentTraining.services + '\\n\\nQual desses serviços você precisa? Posso te passar mais detalhes!';
-                else if (msg.includes('local') || msg.includes('endereço') || msg.includes('onde') || msg.includes('fica'))
-                    response = '📍 Nossa assistência fica em local de fácil acesso! Posso te enviar a localização ou você pode buscar no Google Maps por \"' + currentTraining.company_name + '\".\\n\\nPrefere atendimento delivery? Buscamos e entregamos seu aparelho! 🚚';
+                if (msg.includes('preco') || msg.includes('valor') || msg.includes('custa') || msg.includes('quanto'))
+                    response = training.pricing_info + '\n\nPosso agendar um orcamento gratuito para voce! Qual equipamento precisa de assistencia?';
+                else if (msg.includes('horario') || msg.includes('hora') || msg.includes('aberto') || msg.includes('funciona') || msg.includes('atende'))
+                    response = '⏰ ' + training.business_hours + '\n\nEstamos prontos para te atender! 😊';
+                else if (msg.includes('servico') || msg.includes('faz') || msg.includes('conserta') || msg.includes('concerta') || msg.includes('arruma') || msg.includes('troca'))
+                    response = '🔧 ' + training.services + '\n\nQual desses servicos voce precisa? Posso te passar mais detalhes!';
+                else if (msg.includes('local') || msg.includes('endereco') || msg.includes('onde') || msg.includes('fica'))
+                    response = '📍 Nossa assistencia fica em local de facil acesso! Voce pode buscar no Google Maps por "' + training.company_name + '".';
                 else if (msg.includes('garantia') || msg.includes('garante'))
-                    response = '✅ Todos os nossos serviços possuem garantia! O prazo varia conforme o tipo de reparo (geralmente 30 a 90 dias).\\n\\nA garantia cobre o mesmo defeito reparado. Quer saber mais sobre algum serviço específico?';
-                else if (msg.includes('prazo') || msg.includes('tempo') || msg.includes('demora') || msg.includes('rápido'))
-                    response = '⏱️ O prazo depende do defeito e da disponibilidade de peças:\\n• Troca de tela: 30min a 2h\\n• Formatação: 2-4h\\n• Reparos complexos: 1-3 dias\\n\\nFazemos orçamento em até 24h! Qual equipamento você tem?';
+                    response = '✅ Todos os nossos servicos possuem garantia! O prazo varia conforme o tipo de reparo (geralmente 30 a 90 dias).';
+                else if (msg.includes('prazo') || msg.includes('tempo') || msg.includes('demora') || msg.includes('rapido'))
+                    response = '⏱️ O prazo depende do defeito e da disponibilidade de pecas.\n\nFazemos orcamento em ate 24h! Qual equipamento voce tem?';
                 else if (msg.includes('agendar') || msg.includes('marcar') || msg.includes('quando') || msg.includes('posso ir'))
-                    response = '📅 Perfeito! Para agendar, preciso saber:\\n1️⃣ Qual equipamento?\\n2️⃣ Qual o problema/defeito?\\n3️⃣ Qual dia e horário prefere?\\n\\nOu se preferir, posso transferir você para um atendente humano agora mesmo! 👨‍💼';
+                    response = '📅 Perfeito! Para agendar, preciso saber:\n1️⃣ Qual equipamento?\n2️⃣ Qual o problema/defeito?\n3️⃣ Qual dia e horario prefere?\n\nOu digite "atendente" para falar com uma pessoa!';
             }
 
             // 4. Escalonamento
             if (!response) {
-                const escalationWords = currentTraining.escalation_keywords || ['atendente', 'humano', 'pessoa', 'reclamação', 'problema grave', 'cancelar', 'chefe', 'gerente'];
+                const escalationWords = training.escalation_keywords || ['atendente', 'humano', 'pessoa', 'reclamacao', 'problema grave', 'cancelar', 'chefe', 'gerente'];
                 if (escalationWords.some(word => msg.includes(word))) {
-                    response = '👨‍💼 Entendido! Vou transferir você para um atendente humano agora mesmo. Por favor, aguarde um momento... ⏳\\n\\n(Seu atendente já foi notificado e responderá em breve!)';
+                    response = '👨‍💼 Entendido! Vou transferir voce para um atendente humano agora mesmo. Por favor, aguarde um momento... ⏳';
                 }
             }
 
             // 5. Fallback
             if (!response) {
-                response = currentTraining.fallback_message + '\\n\\nPosso te ajudar com:\\n• 💰 Preços e orçamentos\\n• ⏰ Horários de funcionamento\\n• 🔧 Nossos serviços\\n• 📅 Agendamentos\\n• 📍 Localização\\n\\nOu digite \"atendente\" para falar com uma pessoa!';
+                response = training.fallback_message + '\n\nPosso te ajudar com:\n• 💰 Precos e orcamentos\n• ⏰ Horarios de funcionamento\n• 🔧 Nossos servicos\n• 📅 Agendamentos\n• 📍 Localizacao\n\nOu digite "atendente" para falar com uma pessoa!';
             }
 
             previewText.textContent = response;
@@ -533,7 +655,7 @@
         async function saveTraining() {
             const btn = document.getElementById('saveBtn');
             const originalText = btn.innerHTML;
-            btn.innerHTML = '<span class=\"loading\"></span> Salvando...';
+            btn.innerHTML = '<span class="loading"></span> Salvando...';
             btn.disabled = true;
 
             const active = document.getElementById('botToggle').classList.contains('active');
@@ -548,23 +670,36 @@
                 pricing_info: document.getElementById('pricing').value,
                 fallback_message: document.getElementById('fallback').value,
                 faq_data: faqData,
+                escalation_keywords: escalationKeywords,
                 active: active,
                 updated_at: new Date().toISOString()
             };
 
-            const { error } = await supabaseClient
-                .from('bot_training')
-                .update(data)
-                .eq('id', currentTraining.id);
+            let result;
+            if (currentTraining?.id) {
+                result = await supabaseClient
+                    .from('bot_training')
+                    .update(data)
+                    .eq('id', currentTraining.id);
+            } else {
+                result = await supabaseClient
+                    .from('bot_training')
+                    .insert(data)
+                    .select()
+                    .single();
+                if (result.data) currentTraining = result.data;
+            }
 
             btn.innerHTML = originalText;
             btn.disabled = false;
 
-            if (error) {
-                showStatus('❌ Erro ao salvar: ' + error.message, 'error');
+            if (result.error) {
+                showStatus('❌ Erro ao salvar: ' + result.error.message, 'error');
             } else {
-                showStatus('✅ Bot atualizado com sucesso! As próximas mensagens dos clientes já usarão estas novas configurações.', 'success');
-                currentTraining = { ...currentTraining, ...data };
+                showStatus('✅ Bot atualizado com sucesso! As proximas mensagens dos clientes ja usarao estas novas configuracoes.', 'success');
+                if (currentTraining) {
+                    currentTraining = { ...currentTraining, ...data };
+                }
             }
         }
 
@@ -586,7 +721,7 @@
             .on('postgres_changes', { event: '*', schema: 'public', table: 'bot_training' }, payload => {
                 if (payload.new.id === currentTraining?.id) {
                     loadTraining();
-                    showStatus('🔄 Configurações atualizadas em tempo real!', 'success');
+                    showStatus('🔄 Configuracoes atualizadas em tempo real!', 'success');
                 }
             })
             .subscribe();

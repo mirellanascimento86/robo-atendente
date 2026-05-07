@@ -13,6 +13,7 @@
             padding: 10px;
             max-width: 600px;
             margin: 0 auto;
+            padding-bottom: 80px;
         }
         .header {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -87,23 +88,22 @@
             color: white;
         }
         .btn-primary:active { transform: scale(0.98); }
-        
-        .btn-success {
-            background: #10b981;
-            color: white;
-        }
+        .btn-success { background: #10b981; color: white; }
+        .btn-danger { background: #ef4444; color: white; }
         
         .status {
-            padding: 10px;
-            border-radius: 8px;
+            padding: 12px;
+            border-radius: 10px;
             text-align: center;
-            font-size: 0.85rem;
+            font-size: 0.9rem;
             margin-top: 10px;
             display: none;
+            font-weight: 500;
         }
         .status.show { display: block; }
-        .status.success { background: #d1fae5; color: #065f46; }
-        .status.error { background: #fee2e2; color: #991b1b; }
+        .status.success { background: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
+        .status.error { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+        .status.info { background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; }
         
         .faq-item {
             background: #f8f9fa;
@@ -112,17 +112,17 @@
             margin-bottom: 8px;
             border-left: 3px solid #667eea;
         }
-        .faq-question { font-weight: 600; color: #333; margin-bottom: 4px; }
-        .faq-answer { color: #666; font-size: 0.85rem; }
+        .faq-question { font-weight: 600; color: #333; margin-bottom: 4px; font-size: 0.85rem; }
+        .faq-answer { color: #666; font-size: 0.8rem; line-height: 1.4; }
         .btn-small {
             padding: 6px 12px;
             font-size: 0.75rem;
             border-radius: 6px;
             border: none;
             cursor: pointer;
-            margin-top: 5px;
+            margin-top: 8px;
+            margin-right: 5px;
         }
-        .btn-danger { background: #ef4444; color: white; }
         
         .add-faq {
             background: #f0f0f0;
@@ -132,13 +132,16 @@
             text-align: center;
             cursor: pointer;
             margin-top: 10px;
+            color: #666;
+            font-weight: 500;
         }
+        .add-faq:active { background: #e0e0e0; }
         
         .switch {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 10px 0;
+            padding: 5px 0;
         }
         .toggle {
             width: 50px;
@@ -148,6 +151,7 @@
             position: relative;
             cursor: pointer;
             transition: 0.3s;
+            flex-shrink: 0;
         }
         .toggle.active { background: #10b981; }
         .toggle::after {
@@ -160,27 +164,30 @@
             top: 2px;
             left: 2px;
             transition: 0.3s;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
         }
         .toggle.active::after { left: 24px; }
         
         .preview-box {
-            background: #f8f9fa;
+            background: #f0fdf4;
             border-radius: 10px;
             padding: 15px;
             margin-top: 10px;
-            border: 1px solid #e0e0e0;
+            border: 1px solid #86efac;
         }
-        .preview-box h4 { color: #667eea; margin-bottom: 8px; font-size: 0.85rem; }
-        .preview-text { color: #555; font-size: 0.85rem; line-height: 1.5; }
+        .preview-box h4 { color: #15803d; margin-bottom: 8px; font-size: 0.85rem; }
+        .preview-text { color: #166534; font-size: 0.85rem; line-height: 1.5; white-space: pre-wrap; }
         
         .loading {
             display: inline-block;
             width: 20px;
             height: 20px;
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #667eea;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-top: 3px solid white;
             border-radius: 50%;
             animation: spin 1s linear infinite;
+            vertical-align: middle;
+            margin-right: 8px;
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         
@@ -196,17 +203,58 @@
             box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
             max-width: 600px;
             margin: 0 auto;
+            z-index: 100;
         }
         .nav-item {
             text-align: center;
             color: #999;
             text-decoration: none;
             font-size: 0.7rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
         }
         .nav-item.active { color: #667eea; }
-        .nav-item svg { width: 24px; height: 24px; margin-bottom: 2px; }
+        .nav-item svg { width: 24px; height: 24px; }
         
-        body { padding-bottom: 70px; }
+        .section-badge {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            margin-left: 8px;
+        }
+        
+        .hint {
+            font-size: 0.75rem;
+            color: #888;
+            margin-top: 3px;
+            line-height: 1.3;
+        }
+        
+        .realtime-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 0.75rem;
+            color: #10b981;
+            margin-top: 5px;
+        }
+        .pulse {
+            width: 8px;
+            height: 8px;
+            background: #10b981;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.2); }
+            100% { opacity: 1; transform: scale(1); }
+        }
     </style>
 </head>
 <body>
@@ -219,16 +267,20 @@
     <div class="card">
         <div class="switch">
             <div>
-                <div style="font-weight:600; color:#333;">Bot Ativo</div>
-                <div style="font-size:0.75rem; color:#666;">Quando desligado, todas as mensagens vão para intervenção humana</div>
+                <div style="font-weight:600; color:#333;">🤖 Bot Ativo</div>
+                <div class="hint">Desligado = todas as mensagens vão para intervenção humana</div>
+                <div class="realtime-indicator">
+                    <div class="pulse"></div>
+                    <span>Atualizações em tempo real ativas</span>
+                </div>
             </div>
             <div class="toggle active" id="botToggle" onclick="toggleBot()"></div>
         </div>
     </div>
 
-    <!-- Informações Básicas -->
+    <!-- Identidade do Bot -->
     <div class="card">
-        <div class="card-title">🤖 Identidade do Bot</div>
+        <div class="card-title">🤖 Identidade do Bot <span class="section-badge">Obrigatório</span></div>
         <div class="form-group">
             <label>Nome do Bot</label>
             <input type="text" id="botName" placeholder="Ex: TecBot">
@@ -238,8 +290,8 @@
             <input type="text" id="companyName" placeholder="Ex: Assistência Técnica Express">
         </div>
         <div class="form-group">
-            <label>Mensagem de Saudação</label>
-            <textarea id="greeting" placeholder="Primeira mensagem que o bot envia..."></textarea>
+            <label>Mensagem de Saudação <span class="hint">Primeira mensagem que o bot envia quando o cliente diz "Oi"</span></label>
+            <textarea id="greeting" placeholder="Olá! Sou o assistente virtual..."></textarea>
         </div>
     </div>
 
@@ -247,30 +299,31 @@
     <div class="card">
         <div class="card-title">🧠 Personalidade & Comportamento</div>
         <div class="form-group">
-            <label>Instruções de Personalidade (como o bot deve se comportar)</label>
+            <label>Instruções de Personalidade <span class="hint">Como o bot deve se comportar? Ex: "Seja cordial, use emojis, seja direto..."</span></label>
             <textarea id="personality" placeholder="Descreva a personalidade do bot..."></textarea>
         </div>
         <div class="form-group">
-            <label>Serviços Oferecidos</label>
-            <textarea id="services" placeholder="Liste os serviços..."></textarea>
+            <label>Serviços Oferecidos <span class="hint">Lista de serviços que o bot pode mencionar</span></label>
+            <textarea id="services" placeholder="Conserto de celulares, notebooks..."></textarea>
         </div>
         <div class="form-group">
             <label>Horário de Funcionamento</label>
-            <textarea id="businessHours" placeholder="Horários de atendimento..."></textarea>
+            <textarea id="businessHours" placeholder="Segunda a Sexta: 9h às 18h..."></textarea>
         </div>
         <div class="form-group">
-            <label>Informações de Preços</label>
-            <textarea id="pricing" placeholder="Informações sobre valores..."></textarea>
+            <label>Informações de Preços <span class="hint">O que o bot diz quando perguntam de valores</span></label>
+            <textarea id="pricing" placeholder="Orçamento gratuito..."></textarea>
         </div>
         <div class="form-group">
-            <label>Mensagem quando não entende (Fallback)</label>
-            <textarea id="fallback" placeholder="O que o bot diz quando não sabe responder..."></textarea>
+            <label>Mensagem quando não entende (Fallback) <span class="hint">Quando o bot não sabe responder</span></label>
+            <textarea id="fallback" placeholder="Desculpe, não entendi..."></textarea>
         </div>
     </div>
 
     <!-- FAQ Inteligente -->
     <div class="card">
-        <div class="card-title">❓ Perguntas Frequentes (FAQ)</div>
+        <div class="card-title">❓ Perguntas Frequentes (FAQ) <span class="section-badge">Inteligente</span></div>
+        <div class="hint" style="margin-bottom:10px;">O bot procura palavras-chave nas perguntas do cliente e responde automaticamente</div>
         <div id="faqList"></div>
         <div class="add-faq" onclick="addNewFaq()">
             + Adicionar nova pergunta/resposta
@@ -279,47 +332,53 @@
 
     <!-- Preview -->
     <div class="card">
-        <div class="card-title">👁️ Preview da Resposta</div>
+        <div class="card-title">👁️ Testar Resposta do Bot</div>
         <div class="form-group">
             <label>Simule uma pergunta do cliente:</label>
-            <input type="text" id="testQuestion" placeholder="Digite uma pergunta..." onkeyup="previewResponse()">
+            <input type="text" id="testQuestion" placeholder="Ex: Quanto custa trocar a tela?" onkeyup="previewResponse()">
         </div>
         <div class="preview-box" id="previewBox" style="display:none;">
-            <h4>Resposta do Bot:</h4>
+            <h4>✅ Resposta que o bot enviaria:</h4>
             <div class="preview-text" id="previewText"></div>
         </div>
     </div>
 
     <!-- Botões -->
     <button class="btn btn-primary" onclick="saveTraining()" id="saveBtn">
-        💾 Salvar Alterações
+        💾 Salvar Alterações no Bot
     </button>
     <div class="status" id="statusMsg"></div>
 
     <!-- Navegação -->
     <div class="nav-bottom">
-        <a href="/intervention" class="nav-item">
+        <a href="intervention.html" class="nav-item">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path></svg>
             <div>Intervenção</div>
         </a>
-        <a href="/training" class="nav-item active">
+        <a href="training.html" class="nav-item active">
             <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
             <div>Treinamento</div>
+        </a>
+        <a href="index.html" class="nav-item">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
+            <div>Início</div>
         </a>
     </div>
 
     <script>
-        // ⚠️ SUBSTITUA ESTES VALORES PELOS SEUS DO SUPABASE
-        const SUPABASE_URL = 'https://SEU-PROJETO.supabase.co';
-        const SUPABASE_KEY = 'sua-chave-anon-public-aqui';
+        // ✅ SEUS DADOS DO SUPABASE (JÁ CONFIGURADOS)
+        const SUPABASE_URL = 'https://fwcljognwdutsagppxcq.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ3Y2xqb2dud2R1dHNhZ3BweGNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4OTY4MjMsImV4cCI6MjA5MDQ3MjgyM30.6n8MejPbWRZlJnfZylrsK37_jwFha3FE7Xbj_Sn8VcE';
         
-        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
         let currentTraining = null;
         let faqData = [];
 
         // Carregar dados ao abrir
         async function loadTraining() {
-            const { data, error } = await supabase
+            showStatus('🔄 Carregando configurações...', 'info');
+            
+            const { data, error } = await supabaseClient
                 .from('bot_training')
                 .select('*')
                 .order('created_at', { ascending: false })
@@ -327,7 +386,7 @@
                 .single();
 
             if (error) {
-                showStatus('Erro ao carregar: ' + error.message, 'error');
+                showStatus('❌ Erro ao carregar: ' + error.message, 'error');
                 return;
             }
 
@@ -350,44 +409,55 @@
             else toggle.classList.remove('active');
 
             renderFaqList();
+            showStatus('✅ Configurações carregadas!', 'success');
         }
 
         function renderFaqList() {
             const container = document.getElementById('faqList');
+            if (faqData.length === 0) {
+                container.innerHTML = '<div style="text-align:center; color:#999; padding:20px;">Nenhuma FAQ cadastrada ainda</div>';
+                return;
+            }
+            
             container.innerHTML = faqData.map((faq, index) => `
                 <div class="faq-item">
-                    <div class="faq-question">${faq.question}</div>
-                    <div class="faq-answer">${faq.answer}</div>
-                    <button class="btn-small btn-danger" onclick="removeFaq(${index})">Remover</button>
+                    <div class="faq-question">❓ ${faq.question}</div>
+                    <div class="faq-answer">💬 ${faq.answer}</div>
+                    <button class="btn-small btn-danger" onclick="removeFaq(${index})">🗑️ Remover</button>
                 </div>
             `).join('');
         }
 
         function addNewFaq() {
-            const question = prompt('Digite a pergunta do cliente:');
-            if (!question) return;
-            const answer = prompt('Digite a resposta do bot:');
-            if (!answer) return;
+            const question = prompt('📝 Digite a PERGUNTA que o cliente faz:\nEx: Quanto custa trocar a tela?');
+            if (!question || question.trim() === '') return;
             
-            faqData.push({ question, answer });
+            const answer = prompt('💬 Digite a RESPOSTA que o bot deve dar:\nEx: A troca de tela custa entre R$150 e R$400 dependendo do modelo. Posso verificar o valor exato do seu aparelho?');
+            if (!answer || answer.trim() === '') return;
+            
+            faqData.push({ question: question.trim(), answer: answer.trim() });
             renderFaqList();
+            showStatus('✅ FAQ adicionada! Não esqueça de salvar.', 'info');
         }
 
         function removeFaq(index) {
-            if (confirm('Remover esta pergunta?')) {
+            if (confirm('🗑️ Remover esta pergunta?')) {
                 faqData.splice(index, 1);
                 renderFaqList();
+                showStatus('✅ FAQ removida! Salve para aplicar.', 'info');
             }
         }
 
         function toggleBot() {
             const toggle = document.getElementById('botToggle');
             toggle.classList.toggle('active');
+            const isActive = toggle.classList.contains('active');
+            showStatus(isActive ? '🟢 Bot será ATIVADO ao salvar' : '🔴 Bot será DESLIGADO ao salvar', 'info');
         }
 
-        // Preview da resposta (simulação simples)
+        // Preview da resposta (simulação exata do webhook)
         function previewResponse() {
-            const question = document.getElementById('testQuestion').value.toLowerCase();
+            const question = document.getElementById('testQuestion').value.toLowerCase().trim();
             const previewBox = document.getElementById('previewBox');
             const previewText = document.getElementById('previewText');
             
@@ -396,28 +466,64 @@
                 return;
             }
 
-            // Procurar no FAQ
+            if (!currentTraining) {
+                previewText.textContent = '⚠️ Carregue as configurações primeiro';
+                previewBox.style.display = 'block';
+                return;
+            }
+
+            // Lógica EXATA do webhook
             let response = null;
-            for (const faq of faqData) {
-                if (question.includes(faq.question.toLowerCase()) || 
-                    faq.question.toLowerCase().includes(question)) {
-                    response = faq.answer;
-                    break;
+            const msg = question;
+
+            // 1. Saudações
+            const greetings = ['oi', 'olá', 'ola', 'bom dia', 'boa tarde', 'boa noite', 'hey', 'hi', 'hello', 'eai', 'eae'];
+            if (greetings.some(g => msg.includes(g))) {
+                response = currentTraining.greeting_message;
+            }
+
+            // 2. FAQ
+            if (!response) {
+                const faq = currentTraining.faq_data || [];
+                for (const item of faq) {
+                    const questionWords = item.question.toLowerCase().split(' ');
+                    const matchCount = questionWords.filter(word => msg.includes(word)).length;
+                    if (matchCount >= 2 || msg.includes(item.question.toLowerCase())) {
+                        response = item.answer;
+                        break;
+                    }
                 }
             }
 
-            // Palavras-chave simples
+            // 3. Palavras-chave
             if (!response) {
-                if (question.includes('preço') || question.includes('valor') || question.includes('custa'))
-                    response = currentTraining?.pricing_info || 'Consulte nossos preços...';
-                else if (question.includes('horário') || question.includes('aberto') || question.includes('funciona'))
-                    response = currentTraining?.business_hours || 'Nosso horário...';
-                else if (question.includes('serviço') || question.includes('faz') || question.includes('conserta'))
-                    response = currentTraining?.services || 'Oferecemos...';
-                else if (question.includes('oi') || question.includes('olá') || question.includes('ola'))
-                    response = currentTraining?.greeting_message || 'Olá!';
-                else
-                    response = currentTraining?.fallback_message || 'Não entendi...';
+                if (msg.includes('preço') || msg.includes('valor') || msg.includes('custa') || msg.includes('quanto'))
+                    response = currentTraining.pricing_info + '\\n\\nPosso agendar um orçamento gratuito para você! Qual equipamento precisa de assistência?';
+                else if (msg.includes('horário') || msg.includes('hora') || msg.includes('aberto') || msg.includes('funciona') || msg.includes('atende'))
+                    response = '⏰ ' + currentTraining.business_hours + '\\n\\nEstamos prontos para te atender! 😊';
+                else if (msg.includes('serviço') || msg.includes('faz') || msg.includes('conserta') || msg.includes('concerta') || msg.includes('arruma') || msg.includes('troca'))
+                    response = '🔧 ' + currentTraining.services + '\\n\\nQual desses serviços você precisa? Posso te passar mais detalhes!';
+                else if (msg.includes('local') || msg.includes('endereço') || msg.includes('onde') || msg.includes('fica'))
+                    response = '📍 Nossa assistência fica em local de fácil acesso! Posso te enviar a localização ou você pode buscar no Google Maps por \"' + currentTraining.company_name + '\".\\n\\nPrefere atendimento delivery? Buscamos e entregamos seu aparelho! 🚚';
+                else if (msg.includes('garantia') || msg.includes('garante'))
+                    response = '✅ Todos os nossos serviços possuem garantia! O prazo varia conforme o tipo de reparo (geralmente 30 a 90 dias).\\n\\nA garantia cobre o mesmo defeito reparado. Quer saber mais sobre algum serviço específico?';
+                else if (msg.includes('prazo') || msg.includes('tempo') || msg.includes('demora') || msg.includes('rápido'))
+                    response = '⏱️ O prazo depende do defeito e da disponibilidade de peças:\\n• Troca de tela: 30min a 2h\\n• Formatação: 2-4h\\n• Reparos complexos: 1-3 dias\\n\\nFazemos orçamento em até 24h! Qual equipamento você tem?';
+                else if (msg.includes('agendar') || msg.includes('marcar') || msg.includes('quando') || msg.includes('posso ir'))
+                    response = '📅 Perfeito! Para agendar, preciso saber:\\n1️⃣ Qual equipamento?\\n2️⃣ Qual o problema/defeito?\\n3️⃣ Qual dia e horário prefere?\\n\\nOu se preferir, posso transferir você para um atendente humano agora mesmo! 👨‍💼';
+            }
+
+            // 4. Escalonamento
+            if (!response) {
+                const escalationWords = currentTraining.escalation_keywords || ['atendente', 'humano', 'pessoa', 'reclamação', 'problema grave', 'cancelar', 'chefe', 'gerente'];
+                if (escalationWords.some(word => msg.includes(word))) {
+                    response = '👨‍💼 Entendido! Vou transferir você para um atendente humano agora mesmo. Por favor, aguarde um momento... ⏳\\n\\n(Seu atendente já foi notificado e responderá em breve!)';
+                }
+            }
+
+            // 5. Fallback
+            if (!response) {
+                response = currentTraining.fallback_message + '\\n\\nPosso te ajudar com:\\n• 💰 Preços e orçamentos\\n• ⏰ Horários de funcionamento\\n• 🔧 Nossos serviços\\n• 📅 Agendamentos\\n• 📍 Localização\\n\\nOu digite \"atendente\" para falar com uma pessoa!';
             }
 
             previewText.textContent = response;
@@ -427,7 +533,7 @@
         async function saveTraining() {
             const btn = document.getElementById('saveBtn');
             const originalText = btn.innerHTML;
-            btn.innerHTML = '<div class="loading"></div> Salvando...';
+            btn.innerHTML = '<span class=\"loading\"></span> Salvando...';
             btn.disabled = true;
 
             const active = document.getElementById('botToggle').classList.contains('active');
@@ -446,7 +552,7 @@
                 updated_at: new Date().toISOString()
             };
 
-            const { error } = await supabase
+            const { error } = await supabaseClient
                 .from('bot_training')
                 .update(data)
                 .eq('id', currentTraining.id);
@@ -457,7 +563,7 @@
             if (error) {
                 showStatus('❌ Erro ao salvar: ' + error.message, 'error');
             } else {
-                showStatus('✅ Alterações salvas com sucesso! O bot já está respondendo com as novas configurações.', 'success');
+                showStatus('✅ Bot atualizado com sucesso! As próximas mensagens dos clientes já usarão estas novas configurações.', 'success');
                 currentTraining = { ...currentTraining, ...data };
             }
         }
@@ -466,14 +572,16 @@
             const status = document.getElementById('statusMsg');
             status.textContent = msg;
             status.className = 'status show ' + type;
-            setTimeout(() => status.className = 'status', 3000);
+            if (type !== 'info') {
+                setTimeout(() => status.className = 'status', 4000);
+            }
         }
 
         // Carregar ao iniciar
         loadTraining();
 
         // Atualizar em tempo real se outra pessoa editar
-        supabase
+        supabaseClient
             .channel('training_changes')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'bot_training' }, payload => {
                 if (payload.new.id === currentTraining?.id) {

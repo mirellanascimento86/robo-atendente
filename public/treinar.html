@@ -1,1441 +1,487 @@
-
-html_content = '''<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>🛠️ Conserta Rio - Treinamento do Bot</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <title>🎓 Painel de Treinamento - Bot</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        :root {
-            --primary: #2563eb;
-            --primary-dark: #1d4ed8;
-            --success: #10b981;
-            --warning: #f59e0b;
-            --danger: #ef4444;
-            --gray-50: #f9fafb;
-            --gray-100: #f3f4f6;
-            --gray-200: #e5e7eb;
-            --gray-300: #d1d5db;
-            --gray-400: #9ca3af;
-            --gray-500: #6b7280;
-            --gray-600: #4b5563;
-            --gray-700: #374151;
-            --gray-800: #1f2937;
-            --gray-900: #111827;
-            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-            --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
-            --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-        }
-
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            background: var(--gray-50);
-            color: var(--gray-800);
-            line-height: 1.5;
-            -webkit-font-smoothing: antialiased;
-        }
-
-        /* Header */
-        .header {
-            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
-            color: white;
-            padding: 16px 20px;
-            position: sticky;
-            top: 0;
-            z-index: 100;
-            box-shadow: var(--shadow-md);
-        }
-        .header-content {
-            max-width: 1200px;
-            margin: 0 auto;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-        .logo {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-weight: 700;
-            font-size: 1.1rem;
-        }
-        .logo-icon {
-            width: 36px; height: 36px;
-            background: rgba(255,255,255,0.2);
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.2rem;
-        }
-        .status-badge {
-            background: rgba(255,255,255,0.2);
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 0.75rem;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-        .status-dot {
-            width: 8px; height: 8px;
-            background: var(--success);
-            border-radius: 50%;
-            animation: pulse 2s infinite;
-        }
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
-
-        /* Container */
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-
-        /* Stats Bar */
-        .stats-bar {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-            gap: 12px;
-            margin-bottom: 24px;
-        }
-        .stat-card {
-            background: white;
-            padding: 16px;
-            border-radius: 12px;
-            box-shadow: var(--shadow-sm);
-            border: 1px solid var(--gray-100);
-        }
-        .stat-label {
-            font-size: 0.75rem;
-            color: var(--gray-500);
-            font-weight: 500;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            margin-bottom: 4px;
-        }
-        .stat-value {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: var(--gray-800);
-        }
-
-        /* Main Layout */
-        .main-layout {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 20px;
-        }
-        @media (min-width: 1024px) {
-            .main-layout {
-                grid-template-columns: 1fr 380px;
-            }
-        }
-
-        /* Section Cards */
-        .section-card {
-            background: white;
-            border-radius: 16px;
-            box-shadow: var(--shadow);
-            border: 1px solid var(--gray-100);
-            overflow: hidden;
-        }
-        .section-header {
-            padding: 20px 24px;
-            border-bottom: 1px solid var(--gray-100);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            flex-wrap: wrap;
-            gap: 12px;
-        }
-        .section-title {
-            font-size: 1.1rem;
-            font-weight: 700;
-            color: var(--gray-800);
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .section-title .icon {
-            width: 32px; height: 32px;
-            background: var(--gray-100);
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1rem;
-        }
-
-        /* Buttons */
-        .btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            padding: 10px 18px;
-            border-radius: 10px;
-            font-weight: 600;
-            font-size: 0.875rem;
-            cursor: pointer;
-            border: none;
-            transition: all 0.2s;
-            white-space: nowrap;
-        }
-        .btn-primary {
-            background: var(--primary);
-            color: white;
-            box-shadow: 0 1px 2px rgba(37, 99, 235, 0.2);
-        }
-        .btn-primary:hover { background: var(--primary-dark); transform: translateY(-1px); }
-        .btn-success {
-            background: var(--success);
-            color: white;
-        }
-        .btn-success:hover { background: #059669; }
-        .btn-danger {
-            background: var(--danger);
-            color: white;
-        }
-        .btn-danger:hover { background: #dc2626; }
-        .btn-ghost {
-            background: transparent;
-            color: var(--gray-600);
-            border: 1px solid var(--gray-200);
-        }
-        .btn-ghost:hover { background: var(--gray-50); }
-        .btn-sm {
-            padding: 6px 12px;
-            font-size: 0.8rem;
-            border-radius: 8px;
-        }
-        .btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            transform: none !important;
-        }
-
-        /* Intent Cards */
-        .intents-list {
-            padding: 16px;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-        .intent-card {
-            background: var(--gray-50);
-            border: 2px solid var(--gray-200);
-            border-radius: 14px;
-            padding: 20px;
-            transition: all 0.2s;
-            position: relative;
-        }
-        .intent-card:hover {
-            border-color: var(--primary);
-            box-shadow: var(--shadow-md);
-        }
-        .intent-card.active {
-            border-color: var(--primary);
-            background: #eff6ff;
-        }
-        .intent-header {
-            display: flex;
-            align-items: flex-start;
-            justify-content: space-between;
-            margin-bottom: 12px;
-            gap: 12px;
-        }
-        .intent-name {
-            font-weight: 700;
-            font-size: 1rem;
-            color: var(--gray-800);
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .intent-type {
-            display: inline-block;
-            padding: 2px 10px;
-            border-radius: 20px;
-            font-size: 0.7rem;
-            font-weight: 600;
-            text-transform: uppercase;
-        }
-        .type-keyword { background: #dbeafe; color: #1e40af; }
-        .type-exact { background: #d1fae5; color: #065f46; }
-        .type-fallback { background: #fef3c7; color: #92400e; }
-        .intent-actions {
-            display: flex;
-            gap: 6px;
-            flex-shrink: 0;
-        }
-        .intent-actions .btn {
-            padding: 6px 10px;
-            font-size: 0.8rem;
-        }
-
-        .intent-body {
-            display: grid;
-            gap: 12px;
-        }
-        .field-group {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-        }
-        .field-label {
-            font-size: 0.75rem;
-            font-weight: 600;
-            color: var(--gray-500);
-            text-transform: uppercase;
-            letter-spacing: 0.03em;
-        }
-        .field-value {
-            font-size: 0.9rem;
-            color: var(--gray-700);
-            line-height: 1.5;
-            word-break: break-word;
-        }
-        .tags-list {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 6px;
-        }
-        .tag {
-            background: white;
-            border: 1px solid var(--gray-200);
-            padding: 4px 10px;
-            border-radius: 20px;
-            font-size: 0.8rem;
-            color: var(--gray-600);
-            font-weight: 500;
-        }
-
-        /* Empty State */
-        .empty-state {
-            text-align: center;
-            padding: 48px 24px;
-            color: var(--gray-400);
-        }
-        .empty-state .icon {
-            font-size: 3rem;
-            margin-bottom: 16px;
-            opacity: 0.5;
-        }
-        .empty-state h3 {
-            font-size: 1.1rem;
-            color: var(--gray-600);
-            margin-bottom: 8px;
-        }
-        .empty-state p {
-            font-size: 0.875rem;
-            max-width: 300px;
-            margin: 0 auto;
-        }
-
-        /* Modal */
-        .modal-overlay {
-            position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,0.5);
-            backdrop-filter: blur(4px);
-            z-index: 200;
-            display: none;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-            overflow-y: auto;
-        }
-        .modal-overlay.active { display: flex; }
-        .modal {
-            background: white;
-            border-radius: 20px;
-            width: 100%;
-            max-width: 640px;
-            max-height: 90vh;
-            overflow-y: auto;
-            box-shadow: var(--shadow-lg);
-            animation: modalIn 0.3s ease;
-        }
-        @keyframes modalIn {
-            from { opacity: 0; transform: translateY(20px) scale(0.95); }
-            to { opacity: 1; transform: translateY(0) scale(1); }
-        }
-        .modal-header {
-            padding: 24px 28px;
-            border-bottom: 1px solid var(--gray-100);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-        .modal-title {
-            font-size: 1.25rem;
-            font-weight: 700;
-            color: var(--gray-800);
-        }
-        .modal-close {
-            width: 36px; height: 36px;
-            border-radius: 10px;
-            border: none;
-            background: var(--gray-100);
-            cursor: pointer;
-            font-size: 1.2rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.2s;
-        }
-        .modal-close:hover { background: var(--gray-200); }
-        .modal-body {
-            padding: 24px 28px;
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-        }
-        .form-group {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-        }
-        .form-label {
-            font-size: 0.875rem;
-            font-weight: 600;
-            color: var(--gray-700);
-        }
-        .form-hint {
-            font-size: 0.8rem;
-            color: var(--gray-400);
-        }
-        .form-input, .form-textarea, .form-select {
-            padding: 12px 14px;
-            border: 2px solid var(--gray-200);
-            border-radius: 10px;
-            font-size: 0.95rem;
-            font-family: inherit;
-            transition: all 0.2s;
-            background: white;
-            width: 100%;
-        }
-        .form-input:focus, .form-textarea:focus, .form-select:focus {
-            outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
-        }
-        .form-textarea {
-            resize: vertical;
-            min-height: 100px;
-        }
-        .form-select {
-            cursor: pointer;
-        }
-        .modal-footer {
-            padding: 20px 28px;
-            border-top: 1px solid var(--gray-100);
-            display: flex;
-            justify-content: flex-end;
-            gap: 10px;
-        }
-
-        /* Test Chat Panel */
-        .test-panel {
-            position: sticky;
-            top: 80px;
-            height: calc(100vh - 100px);
-            display: flex;
-            flex-direction: column;
-        }
-        .test-messages {
-            flex: 1;
-            overflow-y: auto;
-            padding: 16px;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: #f0f2f5;
-            border-radius: 0 0 16px 16px;
+            padding: 10px;
+            max-width: 600px;
+            margin: 0 auto;
         }
-        .chat-message {
-            max-width: 85%;
-            padding: 12px 16px;
-            border-radius: 18px;
-            font-size: 0.9rem;
-            line-height: 1.4;
-            animation: messageIn 0.3s ease;
-        }
-        @keyframes messageIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .chat-message.user {
-            align-self: flex-end;
-            background: var(--primary);
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            border-bottom-right-radius: 4px;
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 15px;
+            text-align: center;
         }
-        .chat-message.bot {
-            align-self: flex-start;
+        .header h1 { font-size: 1.3rem; margin-bottom: 5px; }
+        .header p { font-size: 0.85rem; opacity: 0.9; }
+        
+        .card {
             background: white;
-            color: var(--gray-800);
-            border-bottom-left-radius: 4px;
-            box-shadow: var(--shadow-sm);
+            border-radius: 15px;
+            padding: 15px;
+            margin-bottom: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
         }
-        .chat-message.bot .meta {
-            font-size: 0.7rem;
-            color: var(--gray-400);
-            margin-top: 6px;
+        .card-title {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.95rem;
+        }
+        
+        .form-group { margin-bottom: 12px; }
+        .form-group label {
+            display: block;
+            font-size: 0.8rem;
+            color: #666;
+            margin-bottom: 4px;
             font-weight: 500;
         }
-        .test-input-area {
-            padding: 12px 16px;
-            background: white;
-            border-top: 1px solid var(--gray-100);
-            display: flex;
-            gap: 10px;
-            border-radius: 0 0 16px 16px;
-        }
-        .test-input {
-            flex: 1;
-            padding: 10px 14px;
-            border: 2px solid var(--gray-200);
-            border-radius: 24px;
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
             font-size: 0.9rem;
+            transition: border-color 0.3s;
             font-family: inherit;
         }
-        .test-input:focus {
+        .form-group input:focus,
+        .form-group textarea:focus {
             outline: none;
-            border-color: var(--primary);
+            border-color: #667eea;
         }
-        .send-btn {
-            width: 40px; height: 40px;
-            border-radius: 50%;
-            background: var(--primary);
-            color: white;
+        .form-group textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+        
+        .btn {
+            width: 100%;
+            padding: 14px;
             border: none;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.1rem;
-            flex-shrink: 0;
-        }
-        .send-btn:hover { background: var(--primary-dark); }
-        .typing-indicator {
-            display: flex;
-            gap: 4px;
-            padding: 12px 16px;
-            align-self: flex-start;
-        }
-        .typing-indicator span {
-            width: 8px; height: 8px;
-            background: var(--gray-400);
-            border-radius: 50%;
-            animation: typing 1.4s infinite;
-        }
-        .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
-        .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
-        @keyframes typing {
-            0%, 60%, 100% { transform: translateY(0); }
-            30% { transform: translateY(-6px); }
-        }
-
-        /* Toast */
-        .toast-container {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            z-index: 300;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-        .toast {
-            background: var(--gray-800);
-            color: white;
-            padding: 14px 20px;
             border-radius: 12px;
-            font-size: 0.9rem;
-            font-weight: 500;
-            box-shadow: var(--shadow-lg);
-            animation: toastIn 0.3s ease;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            max-width: 400px;
-        }
-        .toast.success { background: var(--success); }
-        .toast.error { background: var(--danger); }
-        @keyframes toastIn {
-            from { transform: translateX(100%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
-        }
-
-        /* Loading */
-        .loading-overlay {
-            position: fixed;
-            inset: 0;
-            background: rgba(255,255,255,0.9);
-            z-index: 400;
-            display: none;
-            align-items: center;
-            justify-content: center;
-            flex-direction: column;
-            gap: 16px;
-        }
-        .loading-overlay.active { display: flex; }
-        .spinner {
-            width: 48px; height: 48px;
-            border: 4px solid var(--gray-200);
-            border-top-color: var(--primary);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
-
-        /* Config Panel */
-        .config-section {
-            padding: 20px 24px;
-            border-top: 1px solid var(--gray-100);
-        }
-        .config-grid {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 16px;
-        }
-        @media (min-width: 640px) {
-            .config-grid { grid-template-columns: 1fr 1fr; }
-        }
-
-        /* Toggle Switch */
-        .toggle-row {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 12px 0;
-        }
-        .toggle-label {
-            font-size: 0.9rem;
-            font-weight: 500;
-            color: var(--gray-700);
-        }
-        .toggle {
-            position: relative;
-            width: 48px;
-            height: 26px;
-            background: var(--gray-300);
-            border-radius: 13px;
+            font-size: 1rem;
+            font-weight: 600;
             cursor: pointer;
             transition: all 0.3s;
+            margin-top: 5px;
         }
-        .toggle.active { background: var(--success); }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .btn-primary:active { transform: scale(0.98); }
+        
+        .btn-success {
+            background: #10b981;
+            color: white;
+        }
+        
+        .status {
+            padding: 10px;
+            border-radius: 8px;
+            text-align: center;
+            font-size: 0.85rem;
+            margin-top: 10px;
+            display: none;
+        }
+        .status.show { display: block; }
+        .status.success { background: #d1fae5; color: #065f46; }
+        .status.error { background: #fee2e2; color: #991b1b; }
+        
+        .faq-item {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 12px;
+            margin-bottom: 8px;
+            border-left: 3px solid #667eea;
+        }
+        .faq-question { font-weight: 600; color: #333; margin-bottom: 4px; }
+        .faq-answer { color: #666; font-size: 0.85rem; }
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 0.75rem;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            margin-top: 5px;
+        }
+        .btn-danger { background: #ef4444; color: white; }
+        
+        .add-faq {
+            background: #f0f0f0;
+            border: 2px dashed #ccc;
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        
+        .switch {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 0;
+        }
+        .toggle {
+            width: 50px;
+            height: 28px;
+            background: #ccc;
+            border-radius: 14px;
+            position: relative;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+        .toggle.active { background: #10b981; }
         .toggle::after {
             content: '';
             position: absolute;
-            width: 22px; height: 22px;
+            width: 24px;
+            height: 24px;
             background: white;
             border-radius: 50%;
             top: 2px;
             left: 2px;
-            transition: all 0.3s;
-            box-shadow: var(--shadow-sm);
+            transition: 0.3s;
         }
         .toggle.active::after { left: 24px; }
-
-        /* Mobile optimizations */
-        @media (max-width: 640px) {
-            .header-content { padding: 0; }
-            .container { padding: 12px; }
-            .stats-bar { grid-template-columns: repeat(2, 1fr); }
-            .section-header { padding: 16px; }
-            .intents-list { padding: 12px; }
-            .intent-card { padding: 16px; }
-            .modal { border-radius: 16px 16px 0 0; max-height: 85vh; }
-            .test-panel { position: relative; top: 0; height: 500px; }
+        
+        .preview-box {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 10px;
+            border: 1px solid #e0e0e0;
         }
-
-        /* Scrollbar */
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: var(--gray-300); border-radius: 3px; }
-        ::-webkit-scrollbar-thumb:hover { background: var(--gray-400); }
+        .preview-box h4 { color: #667eea; margin-bottom: 8px; font-size: 0.85rem; }
+        .preview-text { color: #555; font-size: 0.85rem; line-height: 1.5; }
+        
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        .nav-bottom {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            display: flex;
+            justify-content: space-around;
+            padding: 10px;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .nav-item {
+            text-align: center;
+            color: #999;
+            text-decoration: none;
+            font-size: 0.7rem;
+        }
+        .nav-item.active { color: #667eea; }
+        .nav-item svg { width: 24px; height: 24px; margin-bottom: 2px; }
+        
+        body { padding-bottom: 70px; }
     </style>
 </head>
 <body>
-
-    <!-- Loading -->
-    <div class="loading-overlay" id="loadingOverlay">
-        <div class="spinner"></div>
-        <p style="color: var(--gray-500); font-weight: 500;">Carregando treinamento...</p>
+    <div class="header">
+        <h1>🎓 Painel de Treinamento</h1>
+        <p>Edite a personalidade do seu bot em tempo real</p>
     </div>
 
-    <!-- Header -->
-    <header class="header">
-        <div class="header-content">
-            <div class="logo">
-                <div class="logo-icon">🛠️</div>
-                <span>Conserta Rio - Treinamento do Bot</span>
-            </div>
-            <div class="status-badge">
-                <span class="status-dot"></span>
-                <span id="connectionStatus">Conectado</span>
-            </div>
-        </div>
-    </header>
-
-    <div class="container">
-        <!-- Stats -->
-        <div class="stats-bar">
-            <div class="stat-card">
-                <div class="stat-label">Intenções</div>
-                <div class="stat-value" id="statIntents">0</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-label">Palavras-chave</div>
-                <div class="stat-value" id="statKeywords">0</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-label">Respostas</div>
-                <div class="stat-value" id="statResponses">0</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-label">Última atualização</div>
-                <div class="stat-value" style="font-size: 0.9rem; color: var(--gray-500);" id="statLastUpdate">-</div>
-            </div>
-        </div>
-
-        <div class="main-layout">
-            <!-- Left: Intents -->
+    <!-- Status do Bot -->
+    <div class="card">
+        <div class="switch">
             <div>
-                <!-- Intents Section -->
-                <div class="section-card" style="margin-bottom: 20px;">
-                    <div class="section-header">
-                        <div class="section-title">
-                            <div class="icon">🧠</div>
-                            Intenções do Bot
-                        </div>
-                        <button class="btn btn-primary" onclick="openModal()">
-                            <span>+</span> Nova Intenção
-                        </button>
-                    </div>
-                    <div class="intents-list" id="intentsList">
-                        <div class="empty-state">
-                            <div class="icon">📝</div>
-                            <h3>Nenhuma intenção cadastrada</h3>
-                            <p>Clique em "Nova Intenção" para começar a treinar seu bot</p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Config Section -->
-                <div class="section-card">
-                    <div class="section-header">
-                        <div class="section-title">
-                            <div class="icon">⚙️</div>
-                            Configurações Gerais
-                        </div>
-                    </div>
-                    <div class="config-section">
-                        <div class="config-grid">
-                            <div class="form-group">
-                                <label class="form-label">Mensagem de Boas-vindas</label>
-                                <p class="form-hint">Primeira mensagem quando alguém fala "oi" ou inicia conversa</p>
-                                <textarea class="form-textarea" id="welcomeMessage" rows="3" placeholder="Olá! Sou o assistente virtual da Conserta Rio...">Olá! 👋 Bem-vindo à Conserta Rio! Sou seu assistente virtual. Como posso ajudar você hoje?</textarea>
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">Mensagem de Fallback</label>
-                                <p class="form-hint">Quando o bot não entende o que o cliente quer</p>
-                                <textarea class="form-textarea" id="fallbackMessage" rows="3" placeholder="Desculpe, não entendi...">Desculpe, não entendi muito bem. 😅 Pode reformular? Ou digite "atendente" para falar com uma pessoa.</textarea>
-                            </div>
-                        </div>
-                        <div style="margin-top: 16px;">
-                            <div class="toggle-row">
-                                <span class="toggle-label">Bot ativo (responde sozinho)</span>
-                                <div class="toggle active" id="botActiveToggle" onclick="toggleBotActive()"></div>
-                            </div>
-                            <div class="toggle-row">
-                                <span class="toggle-label">Chamar humano em palavras específicas</span>
-                                <div class="toggle active" id="humanToggle" onclick="toggleHuman()"></div>
-                            </div>
-                        </div>
-                        <div style="margin-top: 16px;">
-                            <label class="form-label">Palavras para chamar atendente (separadas por vírgula)</label>
-                            <input type="text" class="form-input" id="humanKeywords" value="atendente, humano, pessoa, falar com alguém, não é bot" placeholder="atendente, humano, pessoa...">
-                        </div>
-                        <div style="margin-top: 16px; text-align: right;">
-                            <button class="btn btn-success" onclick="saveConfig()">
-                                💾 Salvar Configurações
-                            </button>
-                        </div>
-                    </div>
-                </div>
+                <div style="font-weight:600; color:#333;">Bot Ativo</div>
+                <div style="font-size:0.75rem; color:#666;">Quando desligado, todas as mensagens vão para intervenção humana</div>
             </div>
-
-            <!-- Right: Test Panel -->
-            <div class="section-card test-panel">
-                <div class="section-header" style="border-radius: 16px 16px 0 0;">
-                    <div class="section-title">
-                        <div class="icon">💬</div>
-                        Testar Bot
-                    </div>
-                    <button class="btn btn-ghost btn-sm" onclick="clearTestChat()">🗑️ Limpar</button>
-                </div>
-                <div class="test-messages" id="testMessages">
-                    <div class="chat-message bot">
-                        👋 Olá! Sou o bot da Conserta Rio. Teste meu treinamento aqui!
-                        <div class="meta">Bot • Agora</div>
-                    </div>
-                </div>
-                <div class="test-input-area">
-                    <input type="text" class="test-input" id="testInput" placeholder="Digite uma mensagem de teste..." onkeypress="if(event.key==='Enter') sendTestMessage()">
-                    <button class="send-btn" onclick="sendTestMessage()">➤</button>
-                </div>
-            </div>
+            <div class="toggle active" id="botToggle" onclick="toggleBot()"></div>
         </div>
     </div>
 
-    <!-- Modal -->
-    <div class="modal-overlay" id="modalOverlay" onclick="if(event.target===this) closeModal()">
-        <div class="modal">
-            <div class="modal-header">
-                <h2 class="modal-title" id="modalTitle">Nova Intenção</h2>
-                <button class="modal-close" onclick="closeModal()">✕</button>
-            </div>
-            <div class="modal-body">
-                <input type="hidden" id="intentId">
-                
-                <div class="form-group">
-                    <label class="form-label">Nome da Intenção *</label>
-                    <p class="form-hint">Um nome fácil de identificar (ex: "Saudação", "Preço", "Suporte")</p>
-                    <input type="text" class="form-input" id="intentName" placeholder="Ex: Saudação">
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label">Tipo de Reconhecimento</label>
-                    <select class="form-select" id="intentType">
-                        <option value="keyword">Palavras-chave (recomendado)</option>
-                        <option value="exact">Frase exata</option>
-                        <option value="fallback">Reserva (fallback)</option>
-                    </select>
-                    <p class="form-hint" id="typeHint">O bot responde quando detecta palavras similares nas mensagens</p>
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label">Palavras-chave / Gatilhos *</label>
-                    <p class="form-hint">Separe por vírgula. O bot ativa quando o cliente digita algo parecido</p>
-                    <input type="text" class="form-input" id="intentKeywords" placeholder="oi, olá, bom dia, boa tarde, e aí">
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label">Resposta do Bot *</label>
-                    <p class="form-hint">O que o bot vai dizer. Use {{nome}} para nome do cliente</p>
-                    <textarea class="form-textarea" id="intentResponse" rows="4" placeholder="Olá! Como posso ajudar você hoje?"></textarea>
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label">Prioridade</label>
-                    <select class="form-select" id="intentPriority">
-                        <option value="1">Alta (verifica primeiro)</option>
-                        <option value="2" selected>Média</option>
-                        <option value="3">Baixa (verifica por último)</option>
-                    </select>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
-                <button class="btn btn-primary" onclick="saveIntent()">
-                    <span>💾</span> Salvar Intenção
-                </button>
-            </div>
+    <!-- Informações Básicas -->
+    <div class="card">
+        <div class="card-title">🤖 Identidade do Bot</div>
+        <div class="form-group">
+            <label>Nome do Bot</label>
+            <input type="text" id="botName" placeholder="Ex: TecBot">
+        </div>
+        <div class="form-group">
+            <label>Nome da Empresa</label>
+            <input type="text" id="companyName" placeholder="Ex: Assistência Técnica Express">
+        </div>
+        <div class="form-group">
+            <label>Mensagem de Saudação</label>
+            <textarea id="greeting" placeholder="Primeira mensagem que o bot envia..."></textarea>
         </div>
     </div>
 
-    <!-- Toast Container -->
-    <div class="toast-container" id="toastContainer"></div>
+    <!-- Personalidade -->
+    <div class="card">
+        <div class="card-title">🧠 Personalidade & Comportamento</div>
+        <div class="form-group">
+            <label>Instruções de Personalidade (como o bot deve se comportar)</label>
+            <textarea id="personality" placeholder="Descreva a personalidade do bot..."></textarea>
+        </div>
+        <div class="form-group">
+            <label>Serviços Oferecidos</label>
+            <textarea id="services" placeholder="Liste os serviços..."></textarea>
+        </div>
+        <div class="form-group">
+            <label>Horário de Funcionamento</label>
+            <textarea id="businessHours" placeholder="Horários de atendimento..."></textarea>
+        </div>
+        <div class="form-group">
+            <label>Informações de Preços</label>
+            <textarea id="pricing" placeholder="Informações sobre valores..."></textarea>
+        </div>
+        <div class="form-group">
+            <label>Mensagem quando não entende (Fallback)</label>
+            <textarea id="fallback" placeholder="O que o bot diz quando não sabe responder..."></textarea>
+        </div>
+    </div>
+
+    <!-- FAQ Inteligente -->
+    <div class="card">
+        <div class="card-title">❓ Perguntas Frequentes (FAQ)</div>
+        <div id="faqList"></div>
+        <div class="add-faq" onclick="addNewFaq()">
+            + Adicionar nova pergunta/resposta
+        </div>
+    </div>
+
+    <!-- Preview -->
+    <div class="card">
+        <div class="card-title">👁️ Preview da Resposta</div>
+        <div class="form-group">
+            <label>Simule uma pergunta do cliente:</label>
+            <input type="text" id="testQuestion" placeholder="Digite uma pergunta..." onkeyup="previewResponse()">
+        </div>
+        <div class="preview-box" id="previewBox" style="display:none;">
+            <h4>Resposta do Bot:</h4>
+            <div class="preview-text" id="previewText"></div>
+        </div>
+    </div>
+
+    <!-- Botões -->
+    <button class="btn btn-primary" onclick="saveTraining()" id="saveBtn">
+        💾 Salvar Alterações
+    </button>
+    <div class="status" id="statusMsg"></div>
+
+    <!-- Navegação -->
+    <div class="nav-bottom">
+        <a href="/intervention" class="nav-item">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path></svg>
+            <div>Intervenção</div>
+        </a>
+        <a href="/training" class="nav-item active">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+            <div>Treinamento</div>
+        </a>
+    </div>
 
     <script>
-        // ==========================================
-        // CONFIGURAÇÃO - ALTERE AQUI PARA CONECTAR AO SEU SUPABASE
-        // ==========================================
+        // ⚠️ SUBSTITUA ESTES VALORES PELOS SEUS DO SUPABASE
         const SUPABASE_URL = 'https://SEU-PROJETO.supabase.co';
-        const SUPABASE_KEY = 'sua-chave-anon-publica-aqui';
+        const SUPABASE_KEY = 'sua-chave-anon-public-aqui';
         
-        // ==========================================
-        // ESTADO DA APLICAÇÃO
-        // ==========================================
-        let intents = [];
-        let config = {
-            welcomeMessage: "Olá! 👋 Bem-vindo à Conserta Rio! Sou seu assistente virtual. Como posso ajudar você hoje?",
-            fallbackMessage: "Desculpe, não entendi muito bem. 😅 Pode reformular? Ou digite \"atendente\" para falar com uma pessoa.",
-            botActive: true,
-            humanEnabled: true,
-            humanKeywords: "atendente, humano, pessoa, falar com alguém, não é bot"
-        };
-        let isOnline = true;
+        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        let currentTraining = null;
+        let faqData = [];
 
-        // ==========================================
-        // SUPABASE CLIENT (fallback para localStorage se não configurado)
-        // ==========================================
-        const isSupabaseConfigured = SUPABASE_URL.includes('supabase.co') && SUPABASE_KEY.length > 20;
+        // Carregar dados ao abrir
+        async function loadTraining() {
+            const { data, error } = await supabase
+                .from('bot_training')
+                .select('*')
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .single();
 
-        async function supabaseFetch(table, method = 'GET', data = null, id = null) {
-            if (!isSupabaseConfigured) {
-                // Fallback: usa localStorage
-                return localStorageFallback(table, method, data, id);
-            }
-            
-            let url = `${SUPABASE_URL}/rest/v1/${table}`;
-            if (id) url += `?id=eq.${id}`;
-            
-            const options = {
-                method,
-                headers: {
-                    'apikey': SUPABASE_KEY,
-                    'Authorization': `Bearer ${SUPABASE_KEY}`,
-                    'Content-Type': 'application/json',
-                    'Prefer': method === 'POST' ? 'return=representation' : 'return=representation'
-                }
-            };
-            if (data) options.body = JSON.stringify(data);
-            
-            try {
-                const res = await fetch(url, options);
-                if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                return await res.json();
-            } catch (e) {
-                showToast('Erro de conexão. Usando dados locais.', 'error');
-                isOnline = false;
-                updateConnectionStatus();
-                return localStorageFallback(table, method, data, id);
-            }
-        }
-
-        function localStorageFallback(table, method, data, id) {
-            const key = `conserta_rio_${table}`;
-            let items = JSON.parse(localStorage.getItem(key) || '[]');
-            
-            if (method === 'GET') return items;
-            if (method === 'POST') {
-                const newItem = { ...data, id: Date.now(), created_at: new Date().toISOString() };
-                items.push(newItem);
-                localStorage.setItem(key, JSON.stringify(items));
-                return [newItem];
-            }
-            if (method === 'PATCH') {
-                items = items.map(item => item.id === id ? { ...item, ...data } : item);
-                localStorage.setItem(key, JSON.stringify(items));
-                return items.filter(item => item.id === id);
-            }
-            if (method === 'DELETE') {
-                items = items.filter(item => item.id !== id);
-                localStorage.setItem(key, JSON.stringify(items));
-                return [];
-            }
-        }
-
-        // ==========================================
-        // INICIALIZAÇÃO
-        // ==========================================
-        document.addEventListener('DOMContentLoaded', async () => {
-            showLoading(true);
-            await loadData();
-            updateStats();
-            renderIntents();
-            loadConfigToForm();
-            showLoading(false);
-            
-            if (!isSupabaseConfigured) {
-                showToast('⚠️ Configure seu Supabase no código para persistência em nuvem', 'error');
-            }
-        });
-
-        async function loadData() {
-            // Carrega intenções
-            const intentsData = await supabaseFetch('intents');
-            if (intentsData && intentsData.length > 0) {
-                intents = intentsData;
-            } else {
-                // Dados iniciais de exemplo para Conserta Rio
-                intents = getDefaultIntents();
-                // Salva no Supabase/localStorage
-                for (const intent of intents) {
-                    await supabaseFetch('intents', 'POST', intent);
-                }
-            }
-            
-            // Carrega configurações
-            const configData = await supabaseFetch('bot_config');
-            if (configData && configData.length > 0) {
-                config = { ...config, ...configData[0] };
-            }
-        }
-
-        function getDefaultIntents() {
-            return [
-                {
-                    id: 1,
-                    name: "Saudação",
-                    type: "keyword",
-                    keywords: "oi, olá, ola, bom dia, boa tarde, boa noite, e aí, eaí, oii, oie, hey, hello, hi",
-                    response: "Olá! 👋 Bem-vindo à Conserta Rio! Sou seu assistente virtual. Como posso ajudar você hoje? Temos serviços de manutenção e reparos em geral. 🔧",
-                    priority: 1,
-                    created_at: new Date().toISOString()
-                },
-                {
-                    id: 2,
-                    name: "Preço / Orçamento",
-                    type: "keyword",
-                    keywords: "preço, valor, custa, quanto, orçamento, orçar, mão de obra, barato, caro, desconto, promoção, promocao",
-                    response: "💰 Para fazer um orçamento preciso, preciso saber qual serviço você precisa. Pode me dizer o que precisa consertar? Ex: encanamento, elétrica, pintura, etc. Nossos preços são justos e com garantia! ✅",
-                    priority: 1,
-                    created_at: new Date().toISOString()
-                },
-                {
-                    id: 3,
-                    name: "Serviços Oferecidos",
-                    type: "keyword",
-                    keywords: "serviço, servicos, o que fazem, trabalham, consertam, reparo, reforma, manutenção, manutencao, o que vocês fazem",
-                    response: "🔧 A Conserta Rio oferece diversos serviços:\n\n• Hidráulica e encanamento\n• Elétrica residencial\n• Pintura e acabamentos\n• Marcenaria\n• Serralheria\n• Pequenos reparos\n• Instalações em geral\n\nQual desses você precisa? 😊",
-                    priority: 2,
-                    created_at: new Date().toISOString()
-                },
-                {
-                    id: 4,
-                    name: "Agendamento / Horário",
-                    type: "keyword",
-                    keywords: "agendar, horário, horario, quando, disponibilidade, dia, semana, urgente, emergência, emergencia, hoje, amanhã, amanha",
-                    response: "📅 Entendido! Para agendar, preciso de algumas informações:\n\n1️⃣ Qual serviço você precisa?\n2️⃣ Qual bairro do Rio?\n3️⃣ Qual melhor dia/horário para você?\n\nResponderemos em breve com a confirmação! ⚡",
-                    priority: 2,
-                    created_at: new Date().toISOString()
-                },
-                {
-                    id: 5,
-                    name: "Localização / Bairros",
-                    type: "keyword",
-                    keywords: "onde, local, bairro, zona, região, regiao, atende, cobertura, area, área, rio de janeiro, rj, capital",
-                    response: "📍 Atendemos em toda a cidade do Rio de Janeiro!\n\nZona Sul, Zona Norte, Zona Oeste, Centro e Baixada.\n\nQual bairro você está? Assim já verifico a disponibilidade na sua região! 🚗",
-                    priority: 2,
-                    created_at: new Date().toISOString()
-                },
-                {
-                    id: 6,
-                    name: "Garantia",
-                    type: "keyword",
-                    keywords: "garantia, garantem, seguro, confiável, confiavel, confio, riscos, problema, deu errado, refazer",
-                    response: "✅ Todos os nossos serviços têm garantia!\n\n• Serviço bem feito na primeira vez\n• Garantia de 90 dias nos reparos\n• Profissionais qualificados\n• Orçamento sem compromisso\n\nSua satisfação é nossa prioridade! 💪",
-                    priority: 3,
-                    created_at: new Date().toISOString()
-                },
-                {
-                    id: 7,
-                    name: "Pagamento",
-                    type: "keyword",
-                    keywords: "pagamento, pagar, dinheiro, pix, cartão, cartao, boleto, transferência, transferencia, parcela, formas de pagamento",
-                    response: "💳 Aceitamos diversas formas de pagamento:\n\n• PIX (com desconto!)\n• Cartão de crédito/débito\n• Transferência bancária\n• Dinheiro\n\nPagamento só após a execução do serviço. Sem surpresas! 🎯",
-                    priority: 3,
-                    created_at: new Date().toISOString()
-                },
-                {
-                    id: 8,
-                    name: "Reclamação / Problema",
-                    type: "keyword",
-                    keywords: "reclamação, reclamacao, reclamar, insatisfeito, problema, defeito, errado, não funcionou, nao funcionou, ruim, péssimo, pessimo",
-                    response: "😔 Sentimos muito pelo transtorno! Nossa missão é resolver 100%.\n\nVou encaminhar você imediatamente para um atendente humano que vai resolver isso com prioridade máxima.\n\n⏳ Um momento...",
-                    priority: 1,
-                    created_at: new Date().toISOString()
-                },
-                {
-                    id: 9,
-                    name: "Agradecimento / Tchau",
-                    type: "keyword",
-                    keywords: "obrigado, obrigada, valeu, thanks, agradeço, agradeco, tchau, até logo, ate logo, flw, falou, bye",
-                    response: "😊 Por nada! Fico feliz em ajudar!\n\nSe precisar de mais alguma coisa, é só chamar. A Conserta Rio está sempre à disposição!\n\nTenha um ótimo dia! 🌟",
-                    priority: 3,
-                    created_at: new Date().toISOString()
-                },
-                {
-                    id: 10,
-                    name: "Chamar Atendente",
-                    type: "keyword",
-                    keywords: "atendente, humano, pessoa, falar com alguém, falar com alguem, não é bot, nao e bot, quero falar com gente, operador",
-                    response: "👨‍🔧 Claro! Vou chamar um atendente humano da Conserta Rio para você.\n\n⏳ Por favor, aguarde um momento... Nosso time entrará em contato em breve!",
-                    priority: 1,
-                    created_at: new Date().toISOString()
-                }
-            ];
-        }
-
-        // ==========================================
-        // RENDERIZAÇÃO
-        // ==========================================
-        function renderIntents() {
-            const container = document.getElementById('intentsList');
-            
-            if (intents.length === 0) {
-                container.innerHTML = `
-                    <div class="empty-state">
-                        <div class="icon">📝</div>
-                        <h3>Nenhuma intenção cadastrada</h3>
-                        <p>Clique em "Nova Intenção" para começar a treinar seu bot</p>
-                    </div>
-                `;
+            if (error) {
+                showStatus('Erro ao carregar: ' + error.message, 'error');
                 return;
             }
+
+            currentTraining = data;
+            faqData = data.faq_data || [];
+
+            // Preencher campos
+            document.getElementById('botName').value = data.bot_name || '';
+            document.getElementById('companyName').value = data.company_name || '';
+            document.getElementById('greeting').value = data.greeting_message || '';
+            document.getElementById('personality').value = data.personality || '';
+            document.getElementById('services').value = data.services || '';
+            document.getElementById('businessHours').value = data.business_hours || '';
+            document.getElementById('pricing').value = data.pricing_info || '';
+            document.getElementById('fallback').value = data.fallback_message || '';
             
-            // Ordena por prioridade
-            const sorted = [...intents].sort((a, b) => (a.priority || 2) - (b.priority || 2));
-            
-            container.innerHTML = sorted.map(intent => `
-                <div class="intent-card" data-id="${intent.id}">
-                    <div class="intent-header">
-                        <div class="intent-name">
-                            ${intent.name}
-                            <span class="intent-type type-${intent.type || 'keyword'}">${intent.type || 'keyword'}</span>
-                        </div>
-                        <div class="intent-actions">
-                            <button class="btn btn-ghost btn-sm" onclick="testIntent(${intent.id})" title="Testar">🧪</button>
-                            <button class="btn btn-ghost btn-sm" onclick="editIntent(${intent.id})" title="Editar">✏️</button>
-                            <button class="btn btn-danger btn-sm" onclick="deleteIntent(${intent.id})" title="Excluir">🗑️</button>
-                        </div>
-                    </div>
-                    <div class="intent-body">
-                        <div class="field-group">
-                            <span class="field-label">🎯 Palavras-chave / Gatilhos</span>
-                            <div class="tags-list">
-                                ${intent.keywords.split(',').map(k => `<span class="tag">${k.trim()}</span>`).join('')}
-                            </div>
-                        </div>
-                        <div class="field-group">
-                            <span class="field-label">💬 Resposta</span>
-                            <span class="field-value">${intent.response}</span>
-                        </div>
-                        <div class="field-group">
-                            <span class="field-label">📊 Prioridade: ${intent.priority || 2} | ID: ${intent.id}</span>
-                        </div>
-                    </div>
+            // Toggle
+            const toggle = document.getElementById('botToggle');
+            if (data.active) toggle.classList.add('active');
+            else toggle.classList.remove('active');
+
+            renderFaqList();
+        }
+
+        function renderFaqList() {
+            const container = document.getElementById('faqList');
+            container.innerHTML = faqData.map((faq, index) => `
+                <div class="faq-item">
+                    <div class="faq-question">${faq.question}</div>
+                    <div class="faq-answer">${faq.answer}</div>
+                    <button class="btn-small btn-danger" onclick="removeFaq(${index})">Remover</button>
                 </div>
             `).join('');
         }
 
-        function updateStats() {
-            document.getElementById('statIntents').textContent = intents.length;
-            document.getElementById('statKeywords').textContent = intents.reduce((acc, i) => acc + (i.keywords ? i.keywords.split(',').length : 0), 0);
-            document.getElementById('statResponses').textContent = intents.length;
+        function addNewFaq() {
+            const question = prompt('Digite a pergunta do cliente:');
+            if (!question) return;
+            const answer = prompt('Digite a resposta do bot:');
+            if (!answer) return;
             
-            const last = intents.length > 0 
-                ? new Date(Math.max(...intents.map(i => new Date(i.updated_at || i.created_at || Date.now()))))
-                : new Date();
-            document.getElementById('statLastUpdate').textContent = last.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+            faqData.push({ question, answer });
+            renderFaqList();
         }
 
-        function updateConnectionStatus() {
-            const status = document.getElementById('connectionStatus');
-            const dot = document.querySelector('.status-dot');
-            if (isOnline) {
-                status.textContent = 'Conectado';
-                dot.style.background = 'var(--success)';
-            } else {
-                status.textContent = 'Modo Offline';
-                dot.style.background = 'var(--warning)';
+        function removeFaq(index) {
+            if (confirm('Remover esta pergunta?')) {
+                faqData.splice(index, 1);
+                renderFaqList();
             }
         }
 
-        // ==========================================
-        // MODAL
-        // ==========================================
-        function openModal(intentId = null) {
-            const modal = document.getElementById('modalOverlay');
-            const title = document.getElementById('modalTitle');
-            
-            if (intentId) {
-                const intent = intents.find(i => i.id === intentId);
-                if (!intent) return;
-                
-                title.textContent = 'Editar Intenção';
-                document.getElementById('intentId').value = intent.id;
-                document.getElementById('intentName').value = intent.name;
-                document.getElementById('intentType').value = intent.type || 'keyword';
-                document.getElementById('intentKeywords').value = intent.keywords;
-                document.getElementById('intentResponse').value = intent.response;
-                document.getElementById('intentPriority').value = intent.priority || 2;
-            } else {
-                title.textContent = 'Nova Intenção';
-                document.getElementById('intentId').value = '';
-                document.getElementById('intentName').value = '';
-                document.getElementById('intentType').value = 'keyword';
-                document.getElementById('intentKeywords').value = '';
-                document.getElementById('intentResponse').value = '';
-                document.getElementById('intentPriority').value = 2;
-            }
-            
-            updateTypeHint();
-            modal.classList.add('active');
-            document.body.style.overflow = 'hidden';
+        function toggleBot() {
+            const toggle = document.getElementById('botToggle');
+            toggle.classList.toggle('active');
         }
 
-        function closeModal() {
-            document.getElementById('modalOverlay').classList.remove('active');
-            document.body.style.overflow = '';
-        }
-
-        document.getElementById('intentType').addEventListener('change', updateTypeHint);
-        
-        function updateTypeHint() {
-            const type = document.getElementById('intentType').value;
-            const hints = {
-                keyword: 'O bot responde quando detecta palavras similares nas mensagens do cliente',
-                exact: 'O bot só responde se a mensagem for exatamente igual (ou muito próxima)',
-                fallback: 'Usada quando nenhuma outra intenção for detectada'
-            };
-            document.getElementById('typeHint').textContent = hints[type];
-        }
-
-        // ==========================================
-        // CRUD INTENÇÕES
-        // ==========================================
-        async function saveIntent() {
-            const id = document.getElementById('intentId').value;
-            const name = document.getElementById('intentName').value.trim();
-            const type = document.getElementById('intentType').value;
-            const keywords = document.getElementById('intentKeywords').value.trim();
-            const response = document.getElementById('intentResponse').value.trim();
-            const priority = parseInt(document.getElementById('intentPriority').value);
+        // Preview da resposta (simulação simples)
+        function previewResponse() {
+            const question = document.getElementById('testQuestion').value.toLowerCase();
+            const previewBox = document.getElementById('previewBox');
+            const previewText = document.getElementById('previewText');
             
-            if (!name || !keywords || !response) {
-                showToast('Preencha todos os campos obrigatórios!', 'error');
+            if (!question) {
+                previewBox.style.display = 'none';
                 return;
             }
-            
-            showLoading(true);
-            
+
+            // Procurar no FAQ
+            let response = null;
+            for (const faq of faqData) {
+                if (question.includes(faq.question.toLowerCase()) || 
+                    faq.question.toLowerCase().includes(question)) {
+                    response = faq.answer;
+                    break;
+                }
+            }
+
+            // Palavras-chave simples
+            if (!response) {
+                if (question.includes('preço') || question.includes('valor') || question.includes('custa'))
+                    response = currentTraining?.pricing_info || 'Consulte nossos preços...';
+                else if (question.includes('horário') || question.includes('aberto') || question.includes('funciona'))
+                    response = currentTraining?.business_hours || 'Nosso horário...';
+                else if (question.includes('serviço') || question.includes('faz') || question.includes('conserta'))
+                    response = currentTraining?.services || 'Oferecemos...';
+                else if (question.includes('oi') || question.includes('olá') || question.includes('ola'))
+                    response = currentTraining?.greeting_message || 'Olá!';
+                else
+                    response = currentTraining?.fallback_message || 'Não entendi...';
+            }
+
+            previewText.textContent = response;
+            previewBox.style.display = 'block';
+        }
+
+        async function saveTraining() {
+            const btn = document.getElementById('saveBtn');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<div class="loading"></div> Salvando...';
+            btn.disabled = true;
+
+            const active = document.getElementById('botToggle').classList.contains('active');
+
             const data = {
-                name, type, keywords, response, priority,
+                bot_name: document.getElementById('botName').value,
+                company_name: document.getElementById('companyName').value,
+                greeting_message: document.getElementById('greeting').value,
+                personality: document.getElementById('personality').value,
+                services: document.getElementById('services').value,
+                business_hours: document.getElementById('businessHours').value,
+                pricing_info: document.getElementById('pricing').value,
+                fallback_message: document.getElementById('fallback').value,
+                faq_data: faqData,
+                active: active,
                 updated_at: new Date().toISOString()
             };
-            
-            if (id) {
-                await supabaseFetch('intents', 'PATCH', data, parseInt(id));
-                const idx = intents.findIndex(i => i.id === parseInt(id));
-                if (idx >= 0) intents[idx] = { ...intents[idx], ...data };
-                showToast('✅ Intenção atualizada com sucesso!');
+
+            const { error } = await supabase
+                .from('bot_training')
+                .update(data)
+                .eq('id', currentTraining.id);
+
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+
+            if (error) {
+                showStatus('❌ Erro ao salvar: ' + error.message, 'error');
             } else {
-                const result = await supabaseFetch('intents', 'POST', data);
-                if (result && result[0]) {
-                    intents.push(result[0]);
-                } else {
-                    data.id = Date.now();
-                    intents.push(data);
+                showStatus('✅ Alterações salvas com sucesso! O bot já está respondendo com as novas configurações.', 'success');
+                currentTraining = { ...currentTraining, ...data };
+            }
+        }
+
+        function showStatus(msg, type) {
+            const status = document.getElementById('statusMsg');
+            status.textContent = msg;
+            status.className = 'status show ' + type;
+            setTimeout(() => status.className = 'status', 3000);
+        }
+
+        // Carregar ao iniciar
+        loadTraining();
+
+        // Atualizar em tempo real se outra pessoa editar
+        supabase
+            .channel('training_changes')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'bot_training' }, payload => {
+                if (payload.new.id === currentTraining?.id) {
+                    loadTraining();
+                    showStatus('🔄 Configurações atualizadas em tempo real!', 'success');
                 }
-                showToast('✅ Intenção criada com sucesso!');
-            }
-            
-            updateStats();
-            renderIntents();
-            closeModal();
-            showLoading(false);
-        }
-
-        async function deleteIntent(id) {
-            if (!confirm('Tem certeza que deseja excluir esta intenção?')) return;
-            
-            showLoading(true);
-            await supabaseFetch('intents', 'DELETE', null, id);
-            intents = intents.filter(i => i.id !== id);
-            updateStats();
-            renderIntents();
-            showToast('🗑️ Intenção excluída');
-            showLoading(false);
-        }
-
-        function editIntent(id) {
-            openModal(id);
-        }
-
-        function testIntent(id) {
-            const intent = intents.find(i => i.id === id);
-            if (!intent) return;
-            
-            addTestMessage('user', `Testando: "${intent.keywords.split(',')[0].trim()}"`);
-            setTimeout(() => {
-                addTestMessage('bot', intent.response, `Intenção: ${intent.name}`);
-            }, 600);
-        }
-
-        // ==========================================
-        // CONFIGURAÇÕES
-        // ==========================================
-        function loadConfigToForm() {
-            document.getElementById('welcomeMessage').value = config.welcomeMessage;
-            document.getElementById('fallbackMessage').value = config.fallbackMessage;
-            document.getElementById('humanKeywords').value = config.humanKeywords;
-            
-            const botToggle = document.getElementById('botActiveToggle');
-            const humanToggle = document.getElementById('humanToggle');
-            
-            if (config.botActive) botToggle.classList.add('active');
-            else botToggle.classList.remove('active');
-            
-            if (config.humanEnabled) humanToggle.classList.add('active');
-            else humanToggle.classList.remove('active');
-        }
-
-        function toggleBotActive() {
-            const toggle = document.getElementById('botActiveToggle');
-            toggle.classList.toggle('active');
-            config.botActive = toggle.classList.contains('active');
-        }
-
-        function toggleHuman() {
-            const toggle = document.getElementById('humanToggle');
-            toggle.classList.toggle('active');
-            config.humanEnabled = toggle.classList.contains('active');
-        }
-
-        async function saveConfig() {
-            config.welcomeMessage = document.getElementById('welcomeMessage').value;
-            config.fallbackMessage = document.getElementById('fallbackMessage').value;
-            config.humanKeywords = document.getElementById('humanKeywords').value;
-            
-            showLoading(true);
-            
-            if (isSupabaseConfigured) {
-                await supabaseFetch('bot_config', 'PATCH', config, 1);
-            } else {
-                localStorage.setItem('conserta_rio_bot_config', JSON.stringify(config));
-            }
-            
-            showLoading(false);
-            showToast('✅ Configurações salvas com sucesso!');
-        }
-
-        // ==========================================
-        // TESTE DO BOT
-        // ==========================================
-        function sendTestMessage() {
-            const input = document.getElementById('testInput');
-            const text = input.value.trim();
-            if (!text) return;
-            
-            addTestMessage('user', text);
-            input.value = '';
-            
-            // Mostra typing
-            const typingId = showTyping();
-            
-            // Simula processamento
-            setTimeout(() => {
-                removeTyping(typingId);
-                const response = processBotResponse(text);
-                addTestMessage('bot', response.text, response.meta);
-            }, 800 + Math.random() * 600);
-        }
-
-        function processBotResponse(text) {
-            const lower = text.toLowerCase();
-            
-            // Verifica palavras de atendente humano
-            if (config.humanEnabled) {
-                const humanWords = config.humanKeywords.toLowerCase().split(',').map(w => w.trim());
-                for (const word of humanWords) {
-                    if (lower.includes(word)) {
-                        return {
-                            text: "👨‍🔧 Vou chamar um atendente humano da Conserta Rio para você.\n\n⏳ Por favor, aguarde um momento...",
-                            meta: "Ação: Transferir para humano"
-                        };
-                    }
-                }
-            }
-            
-            // Ordena por prioridade
-            const sorted = [...intents].sort((a, b) => (a.priority || 2) - (b.priority || 2));
-            
-            for (const intent of sorted) {
-                const keywords = intent.keywords.toLowerCase().split(',').map(k => k.trim());
-                
-                if (intent.type === 'exact') {
-                    if (keywords.some(k => lower === k || lower.includes(k))) {
-                        return { text: intent.response, meta: `Intenção: ${intent.name}` };
-                    }
-                } else {
-                    if (keywords.some(k => lower.includes(k))) {
-                        return { text: intent.response, meta: `Intenção: ${intent.name}` };
-                    }
-                }
-            }
-            
-            // Fallback
-            return { text: config.fallbackMessage, meta: "Intenção: Fallback (não reconhecido)" };
-        }
-
-        function addTestMessage(type, text, meta = '') {
-            const container = document.getElementById('testMessages');
-            const div = document.createElement('div');
-            div.className = `chat-message ${type}`;
-            
-            const time = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-            
-            if (meta) {
-                div.innerHTML = `${text.replace(/\\n/g, '<br>')}<div class="meta">${meta} • ${time}</div>`;
-            } else {
-                div.innerHTML = `${text.replace(/\\n/g, '<br>')}<div class="meta">${type === 'user' ? 'Você' : 'Bot'} • ${time}</div>`;
-            }
-            
-            container.appendChild(div);
-            container.scrollTop = container.scrollHeight;
-        }
-
-        function showTyping() {
-            const container = document.getElementById('testMessages');
-            const div = document.createElement('div');
-            div.className = 'typing-indicator';
-            div.id = 'typing-' + Date.now();
-            div.innerHTML = '<span></span><span></span><span></span>';
-            container.appendChild(div);
-            container.scrollTop = container.scrollHeight;
-            return div.id;
-        }
-
-        function removeTyping(id) {
-            const el = document.getElementById(id);
-            if (el) el.remove();
-        }
-
-        function clearTestChat() {
-            document.getElementById('testMessages').innerHTML = `
-                <div class="chat-message bot">
-                    👋 Olá! Sou o bot da Conserta Rio. Teste meu treinamento aqui!
-                    <div class="meta">Bot • Agora</div>
-                </div>
-            `;
-        }
-
-        // ==========================================
-        // UTILITÁRIOS
-        // ==========================================
-        function showToast(message, type = 'success') {
-            const container = document.getElementById('toastContainer');
-            const toast = document.createElement('div');
-            toast.className = `toast ${type}`;
-            toast.innerHTML = type === 'success' ? `✅ ${message}` : `⚠️ ${message}`;
-            container.appendChild(toast);
-            
-            setTimeout(() => {
-                toast.style.opacity = '0';
-                toast.style.transform = 'translateX(100%)';
-                setTimeout(() => toast.remove(), 300);
-            }, 4000);
-        }
-
-        function showLoading(show) {
-            const overlay = document.getElementById('loadingOverlay');
-            if (show) overlay.classList.add('active');
-            else overlay.classList.remove('active');
-        }
+            })
+            .subscribe();
     </script>
 </body>
 </html>

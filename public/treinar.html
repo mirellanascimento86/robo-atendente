@@ -419,7 +419,7 @@
     </div>
 
     <script>
-        // ✅ SEUS DADOS DO SUPABASE (JA CONFIGURADOS)
+        // ✅ SUPABASE
         const SUPABASE_URL = 'https://fwcljognwdutsagppxcq.supabase.co';
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ3Y2xqb2dud2R1dHNhZ3BweGNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4OTY4MjMsImV4cCI6MjA5MDQ3MjgyM30.6n8MejPbWRZlJnfZylrsK37_jwFha3FE7Xbj_Sn8VcE';
         
@@ -432,45 +432,52 @@
         async function loadTraining() {
             showStatus('🔄 Carregando configuracoes...', 'info');
             
-            const { data, error } = await supabaseClient
-                .from('bot_training')
-                .select('*')
-                .order('created_at', { ascending: false })
-                .limit(1)
-                .single();
+            try {
+                const { data, error } = await supabaseClient
+                    .from('bot_training')
+                    .select('*')
+                    .order('created_at', { ascending: false })
+                    .limit(1)
+                    .maybeSingle();
 
-            if (error) {
-                // Se nao existe, criar um novo
-                if (error.code === 'PGRST116') {
+                if (error) {
+                    showStatus('❌ Erro ao carregar: ' + error.message, 'error');
+                    console.error(error);
+                    return;
+                }
+
+                // Se nao existe, criar padrao
+                if (!data) {
                     await createDefaultTraining();
                     return;
                 }
-                showStatus('❌ Erro ao carregar: ' + error.message, 'error');
-                return;
+
+                currentTraining = data;
+                faqData = data.faq_data || [];
+                escalationKeywords = data.escalation_keywords || escalationKeywords;
+
+                // Preencher campos
+                document.getElementById('botName').value = data.bot_name || '';
+                document.getElementById('companyName').value = data.company_name || '';
+                document.getElementById('greeting').value = data.greeting_message || '';
+                document.getElementById('personality').value = data.personality || '';
+                document.getElementById('services').value = data.services || '';
+                document.getElementById('businessHours').value = data.business_hours || '';
+                document.getElementById('pricing').value = data.pricing_info || '';
+                document.getElementById('fallback').value = data.fallback_message || '';
+                
+                // Toggle
+                const toggle = document.getElementById('botToggle');
+                if (data.active) toggle.classList.add('active');
+                else toggle.classList.remove('active');
+
+                renderFaqList();
+                renderEscalationTags();
+                showStatus('✅ Configuracoes carregadas!', 'success');
+            } catch (err) {
+                showStatus('❌ Erro inesperado: ' + err.message, 'error');
+                console.error(err);
             }
-
-            currentTraining = data;
-            faqData = data.faq_data || [];
-            escalationKeywords = data.escalation_keywords || escalationKeywords;
-
-            // Preencher campos
-            document.getElementById('botName').value = data.bot_name || '';
-            document.getElementById('companyName').value = data.company_name || '';
-            document.getElementById('greeting').value = data.greeting_message || '';
-            document.getElementById('personality').value = data.personality || '';
-            document.getElementById('services').value = data.services || '';
-            document.getElementById('businessHours').value = data.business_hours || '';
-            document.getElementById('pricing').value = data.pricing_info || '';
-            document.getElementById('fallback').value = data.fallback_message || '';
-            
-            // Toggle
-            const toggle = document.getElementById('botToggle');
-            if (data.active) toggle.classList.add('active');
-            else toggle.classList.remove('active');
-
-            renderFaqList();
-            renderEscalationTags();
-            showStatus('✅ Configuracoes carregadas!', 'success');
         }
 
         async function createDefaultTraining() {
@@ -488,19 +495,24 @@
                 active: true
             };
 
-            const { data, error } = await supabaseClient
-                .from('bot_training')
-                .insert(defaultData)
-                .select()
-                .single();
+            try {
+                const { data, error } = await supabaseClient
+                    .from('bot_training')
+                    .insert(defaultData)
+                    .select()
+                    .single();
 
-            if (error) {
-                showStatus('❌ Erro ao criar configuracao padrao: ' + error.message, 'error');
-                return;
+                if (error) {
+                    showStatus('❌ Erro ao criar padrao: ' + error.message, 'error');
+                    console.error(error);
+                    return;
+                }
+
+                currentTraining = data;
+                loadTraining();
+            } catch (err) {
+                showStatus('❌ Erro: ' + err.message, 'error');
             }
-
-            currentTraining = data;
-            loadTraining();
         }
 
         function renderEscalationTags() {
@@ -576,7 +588,6 @@
             showStatus(isActive ? '🟢 Bot sera ATIVADO ao salvar' : '🔴 Bot sera DESLIGADO ao salvar', 'info');
         }
 
-        // Preview da resposta (simulacao exata do webhook)
         function previewResponse() {
             const question = document.getElementById('testQuestion').value.toLowerCase().trim();
             const previewBox = document.getElementById('previewBox');
@@ -593,7 +604,6 @@
                 return;
             }
 
-            // Logica EXATA do webhook
             let response = null;
             const msg = question;
             const training = currentTraining;
@@ -675,31 +685,39 @@
                 updated_at: new Date().toISOString()
             };
 
-            let result;
-            if (currentTraining?.id) {
-                result = await supabaseClient
-                    .from('bot_training')
-                    .update(data)
-                    .eq('id', currentTraining.id);
-            } else {
-                result = await supabaseClient
-                    .from('bot_training')
-                    .insert(data)
-                    .select()
-                    .single();
-                if (result.data) currentTraining = result.data;
-            }
-
-            btn.innerHTML = originalText;
-            btn.disabled = false;
-
-            if (result.error) {
-                showStatus('❌ Erro ao salvar: ' + result.error.message, 'error');
-            } else {
-                showStatus('✅ Bot atualizado com sucesso! As proximas mensagens dos clientes ja usarao estas novas configuracoes.', 'success');
-                if (currentTraining) {
-                    currentTraining = { ...currentTraining, ...data };
+            try {
+                let result;
+                if (currentTraining?.id) {
+                    result = await supabaseClient
+                        .from('bot_training')
+                        .update(data)
+                        .eq('id', currentTraining.id);
+                } else {
+                    result = await supabaseClient
+                        .from('bot_training')
+                        .insert(data)
+                        .select()
+                        .single();
+                    if (result.data) currentTraining = result.data;
                 }
+
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+
+                if (result.error) {
+                    showStatus('❌ Erro ao salvar: ' + result.error.message, 'error');
+                    console.error(result.error);
+                } else {
+                    showStatus('✅ Bot atualizado com sucesso!', 'success');
+                    if (currentTraining) {
+                        currentTraining = { ...currentTraining, ...data };
+                    }
+                }
+            } catch (err) {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+                showStatus('❌ Erro inesperado: ' + err.message, 'error');
+                console.error(err);
             }
         }
 
@@ -714,17 +732,6 @@
 
         // Carregar ao iniciar
         loadTraining();
-
-        // Atualizar em tempo real se outra pessoa editar
-        supabaseClient
-            .channel('training_changes')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'bot_training' }, payload => {
-                if (payload.new.id === currentTraining?.id) {
-                    loadTraining();
-                    showStatus('🔄 Configuracoes atualizadas em tempo real!', 'success');
-                }
-            })
-            .subscribe();
     </script>
 </body>
 </html>

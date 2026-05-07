@@ -2,1077 +2,518 @@
 
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Treinar Atendente</title>
-  <link href="https://fonts.googleapis.com/css2?family=Cabinet+Grotesk:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,400&display=swap" rel="stylesheet">
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <style>
-    :root {
-      --bg: #F7F6F3;
-      --surface: #FFFFFF;
-      --surface2: #F2F1ED;
-      --border: #E8E6E0;
-      --text: #1A1916;
-      --text2: #6B6860;
-      --text3: #9E9C96;
-      --accent: #2D6A4F;
-      --accent-light: #E8F5EE;
-      --accent2: #E9762B;
-      --accent2-light: #FEF0E6;
-      --danger: #C0392B;
-      --danger-light: #FDECEA;
-      --warn: #D4820A;
-      --warn-light: #FEF7E6;
-      --radius: 14px;
-      --radius-sm: 8px;
-      --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04);
-      --shadow-md: 0 4px 20px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.04);
-    }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ZapBot — Treinamento</title>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+:root{
+  --blue:#0A84FF;--blue-dk:#006FE0;--blue-bg:#EBF4FF;
+  --green:#34C759;--green-bg:#EDFBF1;
+  --red:#FF3B30;--red-bg:#FFF1F0;
+  --orange:#FF9500;--orange-bg:#FFF7EB;
+  --ink:#0D0D0D;--ink2:#3C3C43;--ink3:#6C6C70;--ink4:#AEAEB2;
+  --line:#E5E5EA;--line2:#F2F2F7;
+  --bg:#F2F2F7;--card:#FFFFFF;
+  --r:14px;--r-sm:10px;
+}
+html,body{height:100%;background:var(--bg)}
+body{font-family:'Inter',sans-serif;color:var(--ink);padding-bottom:96px;overscroll-behavior:none}
 
-```
-* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+/* HEADER */
+.hd{position:sticky;top:0;z-index:80;background:rgba(242,242,247,.9);backdrop-filter:saturate(180%) blur(20px);-webkit-backdrop-filter:saturate(180%) blur(20px);border-bottom:1px solid var(–line);padding:0 16px}
+.hd-in{max-width:560px;margin:0 auto;height:56px;display:flex;align-items:center;justify-content:space-between}
+.brand{display:flex;align-items:center;gap:10px}
+.brand-ico{width:32px;height:32px;border-radius:8px;background:var(–ink);display:flex;align-items:center;justify-content:center}
+.brand-ico svg{width:18px;height:18px;fill:white}
+.brand-name{font-family:‘Sora’,sans-serif;font-weight:700;font-size:.95rem}
+.brand-name em{font-style:normal;color:var(–blue)}
+.btn-save{display:flex;align-items:center;gap:6px;background:var(–blue);color:white;border:none;border-radius:20px;padding:8px 18px;font-family:‘Sora’,sans-serif;font-size:.8rem;font-weight:600;cursor:pointer;transition:background .15s,transform .1s;white-space:nowrap}
+.btn-save:active{background:var(–blue-dk);transform:scale(.97)}
+.btn-save:disabled{opacity:.5;pointer-events:none}
+.ld{width:12px;height:12px;border:2px solid rgba(255,255,255,.35);border-top-color:white;border-radius:50%;animation:spin .6s linear infinite;display:none}
+.btn-save.loading .ld{display:block}
+.btn-save.loading .lbl{display:none}
+@keyframes spin{to{transform:rotate(360deg)}}
 
-body {
-  font-family: 'DM Sans', sans-serif;
-  background: var(--bg);
-  color: var(--text);
-  min-height: 100vh;
-  padding-bottom: 100px;
-}
+/* WRAP */
+.wrap{max-width:560px;margin:0 auto;padding:20px 16px}
+.hero{margin-bottom:24px}
+.hero h1{font-family:‘Sora’,sans-serif;font-weight:800;font-size:1.5rem;line-height:1.2;margin-bottom:6px}
+.hero p{font-size:.84rem;color:var(–ink3);line-height:1.55}
 
-/* ─── HEADER ─── */
-.app-header {
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-  padding: 16px 20px 14px;
-  position: sticky;
-  top: 0;
-  z-index: 50;
-}
-.app-header-inner {
-  max-width: 640px;
-  margin: 0 auto;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-.app-logo {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.app-logo-icon {
-  width: 34px; height: 34px;
-  background: var(--accent);
-  border-radius: 10px;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 16px;
-}
-.app-logo-text {
-  font-family: 'Cabinet Grotesk', sans-serif;
-  font-weight: 700;
-  font-size: 1.05rem;
-  color: var(--text);
-}
-.app-logo-text span { color: var(--accent); }
+/* CARDS */
+.card{background:var(–card);border-radius:var(–r);margin-bottom:12px;overflow:hidden;border:1px solid var(–line)}
+.sh{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;cursor:pointer;user-select:none;transition:background .1s}
+.sh:active{background:var(–line2)}
+.sh-l{display:flex;align-items:center;gap:12px}
+.sh-ico{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
+.i1{background:#EBF4FF}.i2{background:#EDFBF1}.i3{background:#FFF7EB}.i4{background:#FFF1F0}
+.sh-title{font-family:‘Sora’,sans-serif;font-weight:700;font-size:.88rem}
+.sh-sub{font-size:.73rem;color:var(–ink3);margin-top:1px}
+.sh-arr{color:var(–ink4);font-size:.7rem;transition:transform .2s}
+.card.open .sh-arr{transform:rotate(180deg)}
+.cb{display:none;border-top:1px solid var(–line)}
+.card.open .cb{display:block}
+.cp{padding:18px}
 
-.save-btn {
-  background: var(--accent);
-  color: white;
-  border: none;
-  padding: 9px 18px;
-  border-radius: var(--radius-sm);
-  font-family: 'DM Sans', sans-serif;
-  font-size: 0.85rem;
-  font-weight: 500;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  transition: opacity 0.2s, transform 0.15s;
-}
-.save-btn:active { transform: scale(0.97); opacity: 0.85; }
-.save-btn:disabled { opacity: 0.5; }
+/* STATUS */
+.st-row{display:flex;align-items:center;justify-content:space-between;padding:16px 18px}
+.st-l{display:flex;align-items:center;gap:12px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(–green);box-shadow:0 0 0 3px var(–green-bg);flex-shrink:0}
+.dot.off{background:var(–ink4);box-shadow:0 0 0 3px var(–line2)}
+.st-t strong{font-size:.875rem;font-weight:600;display:block;margin-bottom:1px}
+.st-t span{font-size:.75rem;color:var(–ink3)}
+.tog{width:51px;height:31px;border-radius:100px;background:var(–line);cursor:pointer;transition:background .25s;position:relative;flex-shrink:0}
+.tog.on{background:var(–green)}
+.tog::after{content:’’;position:absolute;width:27px;height:27px;border-radius:50%;background:white;top:2px;left:2px;box-shadow:0 2px 6px rgba(0,0,0,.15);transition:left .25s cubic-bezier(.34,1.4,.64,1)}
+.tog.on::after{left:22px}
 
-/* ─── MAIN CONTAINER ─── */
-.main {
-  max-width: 640px;
-  margin: 0 auto;
-  padding: 20px 16px;
-}
+/* FIELDS */
+.fld{margin-bottom:14px}
+.fld:last-child{margin-bottom:0}
+.fld-lbl{display:block;font-size:.73rem;font-weight:600;color:var(–ink3);margin-bottom:6px;letter-spacing:.02em;text-transform:uppercase}
+.fld input,.fld textarea{width:100%;padding:12px 14px;background:var(–bg);border:1.5px solid var(–line);border-radius:var(–r-sm);font-family:‘Inter’,sans-serif;font-size:.875rem;color:var(–ink);transition:border-color .15s,background .15s;-webkit-appearance:none}
+.fld input::placeholder,.fld textarea::placeholder{color:var(–ink4)}
+.fld input:focus,.fld textarea:focus{outline:none;border-color:var(–blue);background:white}
+.fld textarea{min-height:88px;resize:vertical;line-height:1.5}
+.fld-hint{font-size:.73rem;color:var(–ink3);margin-top:5px;line-height:1.45}
+.fld-hint b{color:var(–blue)}
 
-/* ─── PAGE TITLE ─── */
-.page-title {
-  margin-bottom: 22px;
-}
-.page-title h1 {
-  font-family: 'Cabinet Grotesk', sans-serif;
-  font-size: 1.6rem;
-  font-weight: 800;
-  color: var(--text);
-  margin-bottom: 4px;
-}
-.page-title p {
-  color: var(--text2);
-  font-size: 0.88rem;
-  line-height: 1.5;
-}
+/* INFO BOX */
+.info{background:var(–blue-bg);border-radius:var(–r-sm);padding:13px 15px;margin-bottom:16px}
+.info-t{font-size:.75rem;font-weight:700;color:var(–blue);margin-bottom:4px}
+.info-b{font-size:.76rem;color:var(–blue);opacity:.85;line-height:1.55}
+.info-b b{opacity:1}
 
-/* ─── STATUS TOAST ─── */
-.toast {
-  position: fixed;
-  bottom: 110px;
-  left: 50%;
-  transform: translateX(-50%) translateY(10px);
-  background: var(--text);
-  color: white;
-  padding: 10px 20px;
-  border-radius: 100px;
-  font-size: 0.83rem;
-  font-weight: 500;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.25s, transform 0.25s;
-  white-space: nowrap;
-  z-index: 200;
-}
-.toast.show {
-  opacity: 1;
-  transform: translateX(-50%) translateY(0);
-}
-.toast.success { background: var(--accent); }
-.toast.error { background: var(--danger); }
+/* STEP SELECTOR */
+.slbl{font-size:.73rem;font-weight:600;color:var(–ink3);margin-bottom:8px;letter-spacing:.02em;text-transform:uppercase}
+.sgrid{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:4px}
+.sp{width:42px;height:42px;border-radius:var(–r-sm);background:var(–bg);border:1.5px solid var(–line);display:flex;align-items:center;justify-content:center;font-family:‘Sora’,sans-serif;font-weight:700;font-size:.9rem;color:var(–ink3);cursor:pointer;transition:all .15s}
+.sp:active{transform:scale(.93)}
+.sp.sel{background:var(–blue);border-color:var(–blue);color:white;box-shadow:0 2px 8px rgba(10,132,255,.3)}
 
-/* ─── SECTION ─── */
-.section {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  margin-bottom: 14px;
-  overflow: hidden;
-  box-shadow: var(--shadow);
-}
-.section-header {
-  padding: 16px 18px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  cursor: pointer;
-  user-select: none;
-}
-.section-header-left {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.section-icon {
-  width: 34px; height: 34px;
-  border-radius: 9px;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 16px;
-  flex-shrink: 0;
-}
-.section-icon.green { background: var(--accent-light); }
-.section-icon.orange { background: var(--accent2-light); }
-.section-icon.blue { background: #EDF4FF; }
-.section-icon.warn { background: var(--warn-light); }
+/* RULE CARDS */
+.rc-empty{text-align:center;padding:32px 20px;font-size:.83rem;color:var(–ink4)}
+.rc-empty span{font-size:2rem;display:block;margin-bottom:8px}
+.rc{background:var(–bg);border-radius:var(–r-sm);border:1px solid var(–line);margin-bottom:10px;overflow:hidden}
+.rc:last-child{margin-bottom:0}
+.rc-top{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:white;border-bottom:1px solid var(–line)}
+.rc-badge{display:flex;align-items:center;gap:6px;background:var(–blue-bg);color:var(–blue);border-radius:100px;padding:3px 10px;font-family:‘Sora’,sans-serif;font-size:.7rem;font-weight:700}
+.rc-del{background:none;border:none;cursor:pointer;color:var(–ink4);font-size:.75rem;padding:4px 8px;border-radius:6px;transition:background .15s,color .15s;font-family:‘Inter’,sans-serif}
+.rc-del:hover{background:var(–red-bg);color:var(–red)}
+.rc-body{padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.rc-row{display:flex;gap:10px;align-items:flex-start}
+.rc-lbl{font-size:.68rem;font-weight:600;color:var(–ink4);text-transform:uppercase;letter-spacing:.04em;width:64px;flex-shrink:0;padding-top:1px;line-height:1.4}
+.rc-val{font-size:.82rem;color:var(–ink2);line-height:1.5;flex:1}
+.rc-chips{display:flex;flex-wrap:wrap;gap:4px}
+.chip{background:white;border:1px solid var(–line);color:var(–ink2);font-size:.72rem;padding:2px 9px;border-radius:100px}
+.rc-arrow{display:inline-flex;align-items:center;gap:5px;background:var(–orange-bg);color:var(–orange);font-size:.72rem;font-weight:600;padding:3px 10px;border-radius:100px;font-family:‘Sora’,sans-serif}
 
-.section-title {
-  font-family: 'Cabinet Grotesk', sans-serif;
-  font-weight: 700;
-  font-size: 0.95rem;
-  color: var(--text);
-}
-.section-sub {
-  font-size: 0.76rem;
-  color: var(--text3);
-  margin-top: 1px;
-}
-.section-chevron {
-  color: var(--text3);
-  font-size: 12px;
-  transition: transform 0.25s;
-}
-.section.open .section-chevron { transform: rotate(180deg); }
+/* ADD BTN */
+.add-btn{width:100%;margin-top:12px;padding:12px;background:none;border:1.5px dashed var(–line);border-radius:var(–r-sm);color:var(–ink3);font-family:‘Inter’,sans-serif;font-size:.83rem;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;transition:border-color .15s,color .15s,background .15s}
+.add-btn:hover,.add-btn:active{border-color:var(–blue);color:var(–blue);background:var(–blue-bg)}
 
-.section-body {
-  display: none;
-  border-top: 1px solid var(--border);
-}
-.section.open .section-body { display: block; }
-.section-body-inner { padding: 16px 18px; }
+/* FAQ */
+.faq-item{display:flex;align-items:flex-start;gap:10px;padding:12px 14px;background:var(–bg);border-radius:var(–r-sm);border:1px solid var(–line);margin-bottom:8px}
+.faq-item:last-child{margin-bottom:0}
+.faq-q{font-size:.83rem;font-weight:600;margin-bottom:3px}
+.faq-a{font-size:.78rem;color:var(–ink3);line-height:1.45}
+.faq-del{background:none;border:none;cursor:pointer;color:var(–ink4);font-size:14px;padding:2px;flex-shrink:0}
 
-/* ─── TOGGLE ─── */
-.bot-status-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px 18px;
-}
-.bot-status-info strong { font-weight: 600; font-size: 0.9rem; }
-.bot-status-info p { font-size: 0.78rem; color: var(--text2); margin-top: 2px; line-height: 1.4; }
+/* ESC */
+.esc-wrap{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:14px;min-height:10px}
+.ew{display:flex;align-items:center;gap:5px;background:var(–red-bg);color:var(–red);font-size:.78rem;font-weight:500;padding:5px 12px;border-radius:100px;cursor:pointer;transition:opacity .15s}
+.ew:hover{opacity:.7}
+.ew b{font-size:.65rem;font-weight:700}
+.esc-row{display:flex;gap:8px}
+.esc-row input{flex:1;padding:10px 14px;background:var(–bg);border:1.5px solid var(–line);border-radius:var(–r-sm);font-family:‘Inter’,sans-serif;font-size:.85rem;color:var(–ink)}
+.esc-row input:focus{outline:none;border-color:var(–red)}
+.esc-add{background:var(–red);color:white;border:none;border-radius:var(–r-sm);padding:10px 16px;font-family:‘Sora’,sans-serif;font-size:.8rem;font-weight:700;cursor:pointer;transition:opacity .15s;white-space:nowrap}
+.esc-add:active{opacity:.8}
 
-.pill-toggle {
-  width: 52px; height: 30px;
-  background: var(--border);
-  border-radius: 100px;
-  position: relative;
-  cursor: pointer;
-  transition: background 0.25s;
-  flex-shrink: 0;
-}
-.pill-toggle.on { background: var(--accent); }
-.pill-toggle::after {
-  content: '';
-  position: absolute;
-  width: 24px; height: 24px;
-  background: white;
-  border-radius: 50%;
-  top: 3px; left: 3px;
-  transition: left 0.25s;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.15);
-}
-.pill-toggle.on::after { left: 25px; }
+/* MODAL */
+.ov{position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.45);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);display:flex;align-items:flex-end;opacity:0;pointer-events:none;transition:opacity .25s}
+.ov.show{opacity:1;pointer-events:all}
+.modal{background:white;border-radius:22px 22px 0 0;width:100%;max-width:560px;margin:0 auto;padding:0 0 40px;max-height:92vh;overflow-y:auto;transform:translateY(40px);transition:transform .3s cubic-bezier(.22,1,.36,1)}
+.ov.show .modal{transform:translateY(0)}
+.modal-grip{width:36px;height:4px;border-radius:100px;background:var(–line);margin:14px auto 0}
+.modal-head{padding:18px 20px 16px;border-bottom:1px solid var(–line)}
+.modal-title{font-family:‘Sora’,sans-serif;font-weight:800;font-size:1.1rem;margin-bottom:3px}
+.modal-sub{font-size:.78rem;color:var(–ink3);line-height:1.45}
+.modal-body{padding:20px}
+.modal-body .fld{margin-bottom:16px}
+.modal-foot{padding:0 20px;display:flex;gap:10px}
+.btn-c{flex:1;padding:13px;background:var(–bg);border:1.5px solid var(–line);border-radius:var(–r-sm);font-family:‘Sora’,sans-serif;font-size:.85rem;font-weight:600;color:var(–ink3);cursor:pointer;transition:background .15s}
+.btn-c:active{background:var(–line)}
+.btn-ok{flex:2;padding:13px;background:var(–blue);border:none;border-radius:var(–r-sm);font-family:‘Sora’,sans-serif;font-size:.85rem;font-weight:700;color:white;cursor:pointer;transition:background .15s,transform .1s}
+.btn-ok:active{background:var(–blue-dk);transform:scale(.98)}
 
-/* ─── INPUTS ─── */
-.field { margin-bottom: 14px; }
-.field:last-child { margin-bottom: 0; }
-.field label {
-  display: block;
-  font-size: 0.78rem;
-  font-weight: 500;
-  color: var(--text2);
-  margin-bottom: 6px;
-  letter-spacing: 0.01em;
-}
-.field input,
-.field textarea {
-  width: 100%;
-  padding: 11px 14px;
-  background: var(--bg);
-  border: 1.5px solid var(--border);
-  border-radius: var(--radius-sm);
-  font-family: 'DM Sans', sans-serif;
-  font-size: 0.88rem;
-  color: var(--text);
-  transition: border-color 0.2s, background 0.2s;
-  resize: none;
-}
-.field input::placeholder, .field textarea::placeholder { color: var(--text3); }
-.field input:focus, .field textarea:focus {
-  outline: none;
-  border-color: var(--accent);
-  background: white;
-}
-.field textarea { min-height: 80px; }
-.field-hint { font-size: 0.74rem; color: var(--text3); margin-top: 5px; line-height: 1.4; }
+/* TOAST */
+.toast{position:fixed;bottom:108px;left:50%;transform:translateX(-50%) translateY(6px);background:var(–ink);color:white;padding:10px 20px;border-radius:100px;font-size:.8rem;font-weight:500;white-space:nowrap;z-index:200;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.ok{background:var(–green)}
+.toast.err{background:var(–red)}
 
-/* ─── FLOW CARDS ─── */
-.flow-empty {
-  text-align: center;
-  padding: 28px 20px;
-  color: var(--text3);
-  font-size: 0.85rem;
-}
-.flow-empty-icon { font-size: 28px; margin-bottom: 8px; }
+/* NAV */
+.nav{position:fixed;bottom:0;left:0;right:0;z-index:80;background:rgba(255,255,255,.92);backdrop-filter:saturate(180%) blur(20px);-webkit-backdrop-filter:saturate(180%) blur(20px);border-top:1px solid var(–line);display:flex;justify-content:space-around;padding:8px 0 14px}
+.nav a{display:flex;flex-direction:column;align-items:center;gap:3px;text-decoration:none;color:var(–ink4);font-size:.65rem;font-weight:500;letter-spacing:.02em;padding:0 20px;transition:color .15s}
+.nav a.on{color:var(–blue)}
+.nav a svg{width:22px;height:22px;stroke:currentColor;stroke-width:1.8;fill:none}
+</style>
 
-.flow-card {
-  background: var(--bg);
-  border: 1.5px solid var(--border);
-  border-radius: var(--radius-sm);
-  margin-bottom: 10px;
-  overflow: hidden;
-  transition: border-color 0.2s;
-}
-.flow-card:last-child { margin-bottom: 0; }
-
-.flow-card-header {
-  padding: 10px 14px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: white;
-  border-bottom: 1px solid var(--border);
-}
-.flow-step-badge {
-  background: var(--accent);
-  color: white;
-  font-size: 0.72rem;
-  font-weight: 700;
-  padding: 3px 10px;
-  border-radius: 100px;
-  font-family: 'Cabinet Grotesk', sans-serif;
-}
-.flow-delete-btn {
-  background: none;
-  border: none;
-  color: var(--text3);
-  cursor: pointer;
-  font-size: 15px;
-  padding: 2px 6px;
-  border-radius: 6px;
-  transition: background 0.15s, color 0.15s;
-}
-.flow-delete-btn:hover { background: var(--danger-light); color: var(--danger); }
-
-.flow-card-body { padding: 12px 14px; }
-
-.flow-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-.flow-row:last-child { margin-bottom: 0; }
-
-.flow-label {
-  font-size: 0.7rem;
-  font-weight: 600;
-  color: var(--text2);
-  white-space: nowrap;
-  margin-top: 2px;
-  width: 68px;
-  flex-shrink: 0;
-}
-.flow-value {
-  font-size: 0.82rem;
-  color: var(--text);
-  line-height: 1.5;
-}
-.flow-chip {
-  display: inline-block;
-  background: var(--accent-light);
-  color: var(--accent);
-  font-size: 0.72rem;
-  padding: 2px 9px;
-  border-radius: 100px;
-  margin: 2px 2px 2px 0;
-}
-.flow-next-tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  background: var(--warn-light);
-  color: var(--warn);
-  font-size: 0.74rem;
-  font-weight: 600;
-  padding: 3px 10px;
-  border-radius: 100px;
-}
-
-/* ─── ADD BUTTON ─── */
-.add-btn {
-  width: 100%;
-  padding: 12px;
-  background: none;
-  border: 1.5px dashed var(--border);
-  border-radius: var(--radius-sm);
-  color: var(--text2);
-  font-family: 'DM Sans', sans-serif;
-  font-size: 0.84rem;
-  font-weight: 500;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  margin-top: 12px;
-  transition: border-color 0.2s, color 0.2s, background 0.2s;
-}
-.add-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
-
-/* ─── FAQ CARDS ─── */
-.faq-card {
-  background: var(--bg);
-  border: 1.5px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 12px 14px;
-  margin-bottom: 8px;
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 10px;
-}
-.faq-card:last-child { margin-bottom: 0; }
-.faq-q {
-  font-weight: 500;
-  font-size: 0.83rem;
-  margin-bottom: 3px;
-}
-.faq-a {
-  font-size: 0.78rem;
-  color: var(--text2);
-  line-height: 1.45;
-}
-
-/* ─── MODAL OVERLAY ─── */
-.overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.4);
-  backdrop-filter: blur(4px);
-  z-index: 100;
-  display: flex;
-  align-items: flex-end;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.25s;
-}
-.overlay.show { opacity: 1; pointer-events: all; }
-
-.modal {
-  background: var(--surface);
-  border-radius: 22px 22px 0 0;
-  padding: 24px 20px 40px;
-  width: 100%;
-  max-width: 640px;
-  margin: 0 auto;
-  transform: translateY(30px);
-  transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
-  max-height: 90vh;
-  overflow-y: auto;
-}
-.overlay.show .modal { transform: translateY(0); }
-
-.modal-handle {
-  width: 36px; height: 4px;
-  background: var(--border);
-  border-radius: 100px;
-  margin: 0 auto 20px;
-}
-.modal-title {
-  font-family: 'Cabinet Grotesk', sans-serif;
-  font-weight: 800;
-  font-size: 1.2rem;
-  margin-bottom: 4px;
-}
-.modal-sub {
-  font-size: 0.83rem;
-  color: var(--text2);
-  margin-bottom: 20px;
-  line-height: 1.4;
-}
-.modal-actions {
-  display: flex;
-  gap: 10px;
-  margin-top: 20px;
-}
-.btn-cancel {
-  flex: 1;
-  padding: 13px;
-  background: var(--bg);
-  border: 1.5px solid var(--border);
-  border-radius: var(--radius-sm);
-  font-family: 'DM Sans', sans-serif;
-  font-size: 0.88rem;
-  font-weight: 500;
-  cursor: pointer;
-  color: var(--text2);
-}
-.btn-confirm {
-  flex: 2;
-  padding: 13px;
-  background: var(--accent);
-  border: none;
-  border-radius: var(--radius-sm);
-  font-family: 'DM Sans', sans-serif;
-  font-size: 0.88rem;
-  font-weight: 600;
-  cursor: pointer;
-  color: white;
-}
-.btn-confirm:active { opacity: 0.85; }
-
-/* ─── STEP SELECTOR ─── */
-.step-row {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-top: 6px;
-}
-.step-chip {
-  width: 44px; height: 44px;
-  border-radius: 10px;
-  background: var(--bg);
-  border: 1.5px solid var(--border);
-  display: flex; align-items: center; justify-content: center;
-  font-family: 'Cabinet Grotesk', sans-serif;
-  font-weight: 700;
-  font-size: 0.9rem;
-  cursor: pointer;
-  transition: all 0.15s;
-  color: var(--text2);
-}
-.step-chip.sel {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: white;
-}
-
-/* ─── BOTTOM NAV ─── */
-.bottom-nav {
-  position: fixed;
-  bottom: 0; left: 0; right: 0;
-  background: white;
-  border-top: 1px solid var(--border);
-  display: flex;
-  justify-content: space-around;
-  align-items: center;
-  padding: 10px 0 14px;
-  z-index: 50;
-}
-.nav-item {
-  display: flex; flex-direction: column;
-  align-items: center;
-  gap: 3px;
-  text-decoration: none;
-  color: var(--text3);
-  font-size: 0.68rem;
-  padding: 0 18px;
-  transition: color 0.2s;
-}
-.nav-item.active { color: var(--accent); }
-.nav-icon { font-size: 20px; }
-
-/* ─── LOADING SPINNER ─── */
-.spin {
-  display: inline-block;
-  width: 14px; height: 14px;
-  border: 2px solid rgba(255,255,255,0.4);
-  border-top-color: white;
-  border-radius: 50%;
-  animation: spin 0.7s linear infinite;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
-
-/* ─── ESCALATION ─── */
-.esc-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-.esc-chip {
-  display: flex; align-items: center; gap: 5px;
-  background: var(--danger-light);
-  color: var(--danger);
-  font-size: 0.78rem;
-  font-weight: 500;
-  padding: 4px 10px;
-  border-radius: 100px;
-  cursor: pointer;
-}
-.esc-chip:hover { opacity: 0.7; }
-.esc-chip span { font-size: 11px; }
-```
-
-  </style>
 </head>
 <body>
 
-<!-- HEADER -->
-
-<header class="app-header">
-  <div class="app-header-inner">
-    <div class="app-logo">
-      <div class="app-logo-icon">🤖</div>
-      <div class="app-logo-text">Aten<span>dente</span></div>
+<header class="hd">
+  <div class="hd-in">
+    <div class="brand">
+      <div class="brand-ico">
+        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12c0 1.85.5 3.58 1.37 5.07L2 22l5.09-1.34A9.93 9.93 0 0012 22c5.52 0 10-4.48 10-10S17.52 2 12 2z"/></svg>
+      </div>
+      <span class="brand-name">Zap<em>Bot</em></span>
     </div>
-    <button class="save-btn" id="saveBtn" onclick="saveTraining()">
-      <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17,21 17,13 7,13 7,21"/><polyline points="7,3 7,8 15,8"/></svg>
-      Salvar
+    <button class="btn-save" id="saveBtn" onclick="saveTraining()">
+      <span class="ld"></span>
+      <span class="lbl">Salvar alterações</span>
     </button>
   </div>
 </header>
 
-<!-- MAIN -->
+<div class="wrap">
 
-<main class="main">
-  <div class="page-title">
-    <h1>Treinar Atendente 🧠</h1>
-    <p>Ensine seu atendente virtual como ele deve se comportar em cada etapa da conversa.</p>
+  <div class="hero">
+    <h1>Treinamento do Atendente</h1>
+    <p>Configure como seu atendente virtual responde. Não precisa saber programar — é como escrever um roteiro de atendimento.</p>
   </div>
 
-  <!-- STATUS DO BOT -->
+  <!-- STATUS -->
 
-  <div class="section open" id="sec-status">
-    <div class="bot-status-row">
-      <div class="bot-status-info">
-        <strong>🟢 Atendente ativo</strong>
-        <p>Desligado: todas as mensagens vão<br>direto para atendimento humano.</p>
+  <div class="card open">
+    <div class="st-row">
+      <div class="st-l">
+        <div class="dot on" id="sDot"></div>
+        <div class="st-t">
+          <strong id="sTitle">Atendente ativo</strong>
+          <span id="sDesc">Respondendo automaticamente no WhatsApp</span>
+        </div>
       </div>
-      <div class="pill-toggle on" id="botToggle" onclick="this.classList.toggle('on'); updateToggleLabel()"></div>
+      <div class="tog on" id="botTog" onclick="toggleBot()"></div>
     </div>
   </div>
 
-  <!-- IDENTIDADE -->
+  <!-- PERFIL -->
 
-  <div class="section" id="sec-identity">
-    <div class="section-header" onclick="toggleSection('sec-identity')">
-      <div class="section-header-left">
-        <div class="section-icon green">🪪</div>
-        <div>
-          <div class="section-title">Identidade</div>
-          <div class="section-sub">Nome do bot e da empresa</div>
-        </div>
+  <div class="card" id="c-id">
+    <div class="sh" onclick="tog('c-id')">
+      <div class="sh-l">
+        <div class="sh-ico i1">🪪</div>
+        <div><div class="sh-title">Perfil do atendente</div><div class="sh-sub">Nome e empresa</div></div>
       </div>
-      <span class="section-chevron">▾</span>
+      <span class="sh-arr">▾</span>
     </div>
-    <div class="section-body">
-      <div class="section-body-inner">
-        <div class="field">
-          <label>Nome do atendente</label>
-          <input type="text" id="botName" placeholder="Ex: TecBot, Sofia, Carlos…">
-        </div>
-        <div class="field">
-          <label>Nome da empresa</label>
-          <input type="text" id="companyName" placeholder="Ex: Assistência Técnica Express">
-          <div class="field-hint">Use {company_name} nas respostas para inserir automaticamente.</div>
-        </div>
+    <div class="cb"><div class="cp">
+      <div class="fld">
+        <label class="fld-lbl">Nome do atendente</label>
+        <input type="text" id="botName" placeholder="Ex: Sofia, Carlos, TecBot…">
+        <div class="fld-hint">Este nome aparece quando o atendente se apresenta ao cliente.</div>
       </div>
-    </div>
+      <div class="fld">
+        <label class="fld-lbl">Nome da empresa</label>
+        <input type="text" id="companyName" placeholder="Ex: Assistência Técnica Express">
+        <div class="fld-hint">Use <b>{empresa}</b> em qualquer resposta para inserir este nome automaticamente.</div>
+      </div>
+    </div></div>
   </div>
 
   <!-- FLUXO -->
 
-  <div class="section open" id="sec-flow">
-    <div class="section-header" onclick="toggleSection('sec-flow')">
-      <div class="section-header-left">
-        <div class="section-icon orange">🔀</div>
-        <div>
-          <div class="section-title">Fluxo de Conversa</div>
-          <div class="section-sub">Ensine como o atendente deve responder</div>
+  <div class="card open" id="c-flow">
+    <div class="sh" onclick="tog('c-flow')">
+      <div class="sh-l">
+        <div class="sh-ico i2">💬</div>
+        <div><div class="sh-title">Roteiro de conversa</div><div class="sh-sub">O que o atendente responde em cada etapa</div></div>
+      </div>
+      <span class="sh-arr">▾</span>
+    </div>
+    <div class="cb"><div class="cp">
+      <div class="info">
+        <div class="info-t">💡 Como funciona o roteiro</div>
+        <div class="info-b">
+          Pense em <b>etapas</b> como momentos da conversa:<br><br>
+          <b>Etapa 1</b> → Cliente diz "oi" → Atendente pergunta o equipamento<br>
+          <b>Etapa 2</b> → Cliente diz "celular" → Atendente pergunta o problema<br>
+          <b>Etapa 3</b> → Cliente descreve o problema → Atendente dá o orçamento<br><br>
+          Você define o que o atendente responde e para qual etapa a conversa avança.
         </div>
       </div>
-      <span class="section-chevron">▾</span>
-    </div>
-    <div class="section-body">
-      <div class="section-body-inner">
-        <div style="background:var(--accent-light); border-radius:var(--radius-sm); padding:12px 14px; margin-bottom:16px;">
-          <div style="font-size:0.78rem; color:var(--accent); font-weight:600; margin-bottom:4px;">💡 Como funciona</div>
-          <div style="font-size:0.77rem; color:var(--accent); line-height:1.55; opacity:0.85;">
-            A conversa começa na <strong>Etapa 1</strong>. Para cada coisa que o cliente pode dizer,
-            você define o que o atendente responde e para qual etapa a conversa avança.
-          </div>
-        </div>
-        <div id="flowList"></div>
-        <button class="add-btn" onclick="openFlowModal()">
-          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          Ensinar nova resposta
-        </button>
-      </div>
-    </div>
+      <div id="flowList"></div>
+      <button class="add-btn" onclick="openFlowModal()">
+        <svg style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Adicionar nova regra de resposta
+      </button>
+    </div></div>
   </div>
 
   <!-- FAQ -->
 
-  <div class="section" id="sec-faq">
-    <div class="section-header" onclick="toggleSection('sec-faq')">
-      <div class="section-header-left">
-        <div class="section-icon blue">❓</div>
-        <div>
-          <div class="section-title">Perguntas Frequentes</div>
-          <div class="section-sub">Funciona em qualquer etapa</div>
-        </div>
+  <div class="card" id="c-faq">
+    <div class="sh" onclick="tog('c-faq')">
+      <div class="sh-l">
+        <div class="sh-ico i3">❓</div>
+        <div><div class="sh-title">Dúvidas frequentes</div><div class="sh-sub">Respondidas em qualquer etapa da conversa</div></div>
       </div>
-      <span class="section-chevron">▾</span>
+      <span class="sh-arr">▾</span>
     </div>
-    <div class="section-body">
-      <div class="section-body-inner">
-        <div id="faqList"></div>
-        <button class="add-btn" onclick="openFaqModal()">
-          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          Adicionar pergunta frequente
-        </button>
-      </div>
-    </div>
+    <div class="cb"><div class="cp">
+      <div class="fld-hint" style="margin-bottom:14px">Se o cliente perguntar sobre estes temas <b>em qualquer momento</b>, o atendente responde sem sair do roteiro.</div>
+      <div id="faqList"></div>
+      <button class="add-btn" onclick="openFaqModal()">
+        <svg style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Adicionar dúvida frequente
+      </button>
+    </div></div>
   </div>
 
-  <!-- ESCALAMENTO -->
+  <!-- ESC -->
 
-  <div class="section" id="sec-esc">
-    <div class="section-header" onclick="toggleSection('sec-esc')">
-      <div class="section-header-left">
-        <div class="section-icon warn">🚨</div>
-        <div>
-          <div class="section-title">Transferir para Humano</div>
-          <div class="section-sub">Palavras que acionam atendente real</div>
-        </div>
+  <div class="card" id="c-esc">
+    <div class="sh" onclick="tog('c-esc')">
+      <div class="sh-l">
+        <div class="sh-ico i4">🧑‍💼</div>
+        <div><div class="sh-title">Chamar atendente humano</div><div class="sh-sub">Palavras que transferem a conversa</div></div>
       </div>
-      <span class="section-chevron">▾</span>
+      <span class="sh-arr">▾</span>
     </div>
-    <div class="section-body">
-      <div class="section-body-inner">
-        <div class="field-hint" style="margin-bottom:10px;">
-          Qualquer dessas palavras, em qualquer etapa, transfere imediatamente para um humano.
-          Clique em uma para remover.
-        </div>
-        <div class="esc-chips" id="escChips"></div>
-        <div style="display:flex;gap:8px;margin-top:12px;">
-          <input type="text" id="escInput" placeholder="Nova palavra…" style="flex:1;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;font-size:0.85rem;background:var(--bg);">
-          <button onclick="addEscWord()" style="padding:10px 16px;background:var(--danger);color:white;border:none;border-radius:var(--radius-sm);font-family:'DM Sans',sans-serif;font-weight:600;font-size:0.82rem;cursor:pointer;">+ Adicionar</button>
-        </div>
+    <div class="cb"><div class="cp">
+      <div class="fld-hint" style="margin-bottom:14px">Se o cliente digitar qualquer uma destas palavras, a conversa é transferida imediatamente para um atendente humano. <b>Toque em uma palavra para removê-la.</b></div>
+      <div class="esc-wrap" id="escWrap"></div>
+      <div class="esc-row">
+        <input type="text" id="escInput" placeholder="Nova palavra de transferência…">
+        <button class="esc-add" onclick="addEsc()">+ Adicionar</button>
       </div>
-    </div>
+    </div></div>
   </div>
 
-</main>
+</div>
 
-<!-- FLOW MODAL -->
+<!-- MODAL FLUXO -->
 
-<div class="overlay" id="flowOverlay">
+<div class="ov" id="ov-flow">
   <div class="modal">
-    <div class="modal-handle"></div>
-    <div class="modal-title">Nova resposta</div>
-    <div class="modal-sub">Ensine o que o atendente deve dizer quando o cliente estiver em uma etapa específica.</div>
-
-```
-<div class="field">
-  <label>Em qual etapa o cliente está?</label>
-  <div class="step-row" id="stepSelector">
-    <div class="step-chip" onclick="selStep(this,1)">1</div>
-    <div class="step-chip" onclick="selStep(this,2)">2</div>
-    <div class="step-chip" onclick="selStep(this,3)">3</div>
-    <div class="step-chip" onclick="selStep(this,4)">4</div>
-    <div class="step-chip" onclick="selStep(this,5)">5</div>
-    <div class="step-chip" onclick="selStep(this,6)">6</div>
-    <div class="step-chip" onclick="selStep(this,7)">7</div>
-    <div class="step-chip" onclick="selStep(this,8)">8</div>
-  </div>
-  <div class="field-hint">Etapa 1 = início da conversa.</div>
-</div>
-
-<div class="field">
-  <label>O que o cliente pode dizer nesta etapa?</label>
-  <input type="text" id="fCondition" placeholder="Ex: celular, telefone, iphone, samsung">
-  <div class="field-hint">Separe por vírgula. O atendente reconhece qualquer variação.</div>
-</div>
-
-<div class="field">
-  <label>O que o atendente responde?</label>
-  <textarea id="fResponse" placeholder="Ex: Ótimo! Qual o problema do celular?&#10;🔲 Tela quebrada&#10;🔋 Não liga&#10;💧 Caiu na água"></textarea>
-  <div class="field-hint">Use {company_name} para inserir o nome da empresa.</div>
-</div>
-
-<div class="field">
-  <label>Para qual etapa avança depois?</label>
-  <div class="step-row" id="nextStepSelector">
-    <div class="step-chip" onclick="selNextStep(this,1)">1</div>
-    <div class="step-chip" onclick="selNextStep(this,2)">2</div>
-    <div class="step-chip" onclick="selNextStep(this,3)">3</div>
-    <div class="step-chip" onclick="selNextStep(this,4)">4</div>
-    <div class="step-chip" onclick="selNextStep(this,5)">5</div>
-    <div class="step-chip" onclick="selNextStep(this,6)">6</div>
-    <div class="step-chip" onclick="selNextStep(this,7)">7</div>
-    <div class="step-chip" onclick="selNextStep(this,8)">8</div>
-  </div>
-  <div class="field-hint">Etapa 1 = reinicia a conversa.</div>
-</div>
-
-<div class="modal-actions">
-  <button class="btn-cancel" onclick="closeModal('flowOverlay')">Cancelar</button>
-  <button class="btn-confirm" onclick="saveFlowStep()">✅ Salvar resposta</button>
-</div>
-```
-
+    <div class="modal-grip"></div>
+    <div class="modal-head">
+      <div class="modal-title">Nova regra de resposta</div>
+      <div class="modal-sub">Defina o que o atendente responde quando o cliente estiver em um ponto específico da conversa.</div>
+    </div>
+    <div class="modal-body">
+      <div class="fld">
+        <div class="slbl">Passo 1 — Em qual etapa o cliente está?</div>
+        <div class="sgrid" id="sg-c">
+          <div class="sp" onclick="pickSt(this,1,'c')">1</div><div class="sp" onclick="pickSt(this,2,'c')">2</div><div class="sp" onclick="pickSt(this,3,'c')">3</div><div class="sp" onclick="pickSt(this,4,'c')">4</div><div class="sp" onclick="pickSt(this,5,'c')">5</div><div class="sp" onclick="pickSt(this,6,'c')">6</div><div class="sp" onclick="pickSt(this,7,'c')">7</div><div class="sp" onclick="pickSt(this,8,'c')">8</div>
+        </div>
+        <div class="fld-hint">Etapa <b>1</b> = início da conversa.</div>
+      </div>
+      <div class="fld">
+        <label class="fld-lbl">Passo 2 — O que o cliente pode dizer nesta etapa?</label>
+        <input type="text" id="f-cond" placeholder="Ex: celular, telefone, iphone, samsung, motorola">
+        <div class="fld-hint">Separe com vírgulas. Coloque todas as formas que o cliente pode escrever.</div>
+      </div>
+      <div class="fld">
+        <label class="fld-lbl">Passo 3 — O que o atendente responde?</label>
+        <textarea id="f-resp" placeholder="Ex: Entendido! Qual o problema do celular?&#10;&#10;🔲 Tela quebrada&#10;🔋 Não liga&#10;💧 Caiu na água&#10;&#10;Digite o problema:"></textarea>
+        <div class="fld-hint">Use emojis para deixar mais amigável. Use <b>{empresa}</b> para inserir o nome da empresa.</div>
+      </div>
+      <div class="fld">
+        <div class="slbl">Passo 4 — Para qual etapa avança depois?</div>
+        <div class="sgrid" id="sg-n">
+          <div class="sp" onclick="pickSt(this,1,'n')">1</div><div class="sp" onclick="pickSt(this,2,'n')">2</div><div class="sp" onclick="pickSt(this,3,'n')">3</div><div class="sp" onclick="pickSt(this,4,'n')">4</div><div class="sp" onclick="pickSt(this,5,'n')">5</div><div class="sp" onclick="pickSt(this,6,'n')">6</div><div class="sp" onclick="pickSt(this,7,'n')">7</div><div class="sp" onclick="pickSt(this,8,'n')">8</div>
+        </div>
+        <div class="fld-hint">Etapa <b>1</b> = volta ao início da conversa.</div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-c" onclick="closeOv('ov-flow')">Cancelar</button>
+      <button class="btn-ok" onclick="saveFlow()">Salvar regra</button>
+    </div>
   </div>
 </div>
 
-<!-- FAQ MODAL -->
+<!-- MODAL FAQ -->
 
-<div class="overlay" id="faqOverlay">
+<div class="ov" id="ov-faq">
   <div class="modal">
-    <div class="modal-handle"></div>
-    <div class="modal-title">Pergunta frequente</div>
-    <div class="modal-sub">O atendente responde isso em qualquer etapa, sem interromper o fluxo.</div>
-
-```
-<div class="field">
-  <label>O que o cliente pergunta?</label>
-  <input type="text" id="faqQ" placeholder="Ex: qual o prazo de entrega?">
-</div>
-<div class="field">
-  <label>O que o atendente responde?</label>
-  <textarea id="faqA" placeholder="Ex: O prazo de entrega é de 1 a 3 dias úteis após a confirmação do serviço."></textarea>
-</div>
-
-<div class="modal-actions">
-  <button class="btn-cancel" onclick="closeModal('faqOverlay')">Cancelar</button>
-  <button class="btn-confirm" onclick="saveFaq()">✅ Salvar</button>
-</div>
-```
-
+    <div class="modal-grip"></div>
+    <div class="modal-head">
+      <div class="modal-title">Nova dúvida frequente</div>
+      <div class="modal-sub">O atendente responde isso em qualquer momento, sem sair do roteiro.</div>
+    </div>
+    <div class="modal-body">
+      <div class="fld">
+        <label class="fld-lbl">O que o cliente pergunta?</label>
+        <input type="text" id="faq-q" placeholder="Ex: qual o prazo de entrega?">
+      </div>
+      <div class="fld">
+        <label class="fld-lbl">O que o atendente responde?</label>
+        <textarea id="faq-a" placeholder="Ex: O prazo de entrega é de 1 a 3 dias úteis após a confirmação do serviço. 😊"></textarea>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn-c" onclick="closeOv('ov-faq')">Cancelar</button>
+      <button class="btn-ok" onclick="saveFaq()">Salvar dúvida</button>
+    </div>
   </div>
 </div>
-
-<!-- TOAST -->
 
 <div class="toast" id="toast"></div>
 
-<!-- BOTTOM NAV -->
-
-<nav class="bottom-nav">
-  <a href="painel.html" class="nav-item">
-    <span class="nav-icon">💬</span>
-    <span>Conversas</span>
+<nav class="nav">
+  <a href="painel.html">
+    <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+    Conversas
   </a>
-  <a href="treinar.html" class="nav-item active">
-    <span class="nav-icon">🧠</span>
-    <span>Treinar</span>
+  <a href="treinar.html" class="on">
+    <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+    Treinamento
   </a>
 </nav>
 
 <script>
-  const SUPABASE_URL = 'https://fwcljognwdutsagppxcq.supabase.co';
-  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ3Y2xqb2dud2R1dHNhZ3BweGNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4OTY4MjMsImV4cCI6MjA5MDQ3MjgyM30.6n8MejPbWRZlJnfZylrsK37_jwFha3FE7Xbj_Sn8VcE';
-  const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const SB_URL='https://fwcljognwdutsagppxcq.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ3Y2xqb2dud2R1dHNhZ3BweGNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4OTY4MjMsImV4cCI6MjA5MDQ3MjgyM30.6n8MejPbWRZlJnfZylrsK37_jwFha3FE7Xbj_Sn8VcE';
+const db=supabase.createClient(SB_URL,SB_KEY);
+let training=null,flows=[],faqs=[],escs=[],cStep=1,nStep=2;
 
-  let currentTraining = null;
-  let flowData = [];
-  let faqData = [];
-  let escWords = [];
-  let selStepVal = 1;
-  let selNextStepVal = 2;
+const DF=[
+  {step:1,condition:'oi, olá, ola, hey, bom dia, boa tarde, boa noite',response:'Olá! Seja bem-vindo à {empresa}! 😊\n\nQual equipamento você precisa de assistência?\n\n📱 Celular\n💻 Notebook\n🎮 Videogame\n📟 Tablet\n\nDigite o equipamento:',next_step:2},
+  {step:2,condition:'celular, telefone, smartphone, iphone, samsung, motorola, xiaomi',response:'Ótimo! Qual é o problema do seu celular?\n\n🔲 Tela quebrada\n🔋 Não liga / não carrega\n💧 Caiu na água\n🐢 Lento ou travando\n\nDigite o problema:',next_step:3},
+  {step:2,condition:'notebook, computador, pc, laptop, dell, hp, lenovo',response:'Entendido! Qual é o problema do notebook?\n\n🔲 Tela quebrada\n🔋 Não liga\n💧 Caiu na água\n🐢 Lento ou travando\n\nDigite o problema:',next_step:3},
+  {step:3,condition:'tela, quebrada, trincada, rachada, estilhaçada',response:'Tela quebrada! 💔\n\nO orçamento varia de R$150 a R$600 dependendo do modelo.\n\nQual o modelo do aparelho? (Ex: iPhone 11, Samsung A32)',next_step:4},
+  {step:3,condition:'não liga, nao liga, não carrega, nao carrega, bateria',response:'Problema de energia! 🔋\n\nPode ser bateria, placa ou conector. Orçamento entre R$80 e R$250.\n\nQuer agendar uma avaliação gratuita?',next_step:4},
+  {step:4,condition:'sim, quero, pode ser, ok, claro, agendar',response:'Perfeito! 📅\n\nMe informe:\n1️⃣ Seu nome completo\n2️⃣ Melhor dia e horário\n3️⃣ Endereço (opcional)\n\nOu diga "atendente" para falar com uma pessoa!',next_step:5},
+  {step:5,condition:'segunda, terça, quarta, quinta, sexta, sábado, sabado',response:'Anotado! ✅\n\nUm atendente confirmará seu agendamento em até 30 minutos.\n\nObrigado por entrar em contato com a {empresa}! 🙏',next_step:1}
+];
 
-  const defaultFlow = [
-    { step:1, condition:'oi, ola, hey, bom dia, boa tarde, boa noite', response:'Olá! Bem-vindo à {company_name}! 😊\n\nQual equipamento precisa de assistência?\n📱 Celular\n💻 Notebook\n🎮 Videogame\n📟 Tablet\n\nDigite o equipamento:', next_step:2 },
-    { step:2, condition:'celular, telefone, smartphone, iphone, samsung', response:'Perfeito! Qual o problema do celular?\n🔲 Tela quebrada\n🔋 Não liga/não carrega\n💧 Caiu na água\n🐢 Lento/travando\n\nDigite o problema:', next_step:3 },
-    { step:2, condition:'notebook, computador, pc, laptop', response:'Entendido! Qual o problema do notebook?\n🔲 Tela quebrada\n🔋 Não liga\n💧 Caiu na água\n🐢 Lento/travando\n\nDigite o problema:', next_step:3 },
-    { step:3, condition:'tela, quebrada, trincada, rachada', response:'Tela quebrada! 💔\n\nO orçamento varia de R$150 a R$600 dependendo do modelo.\n\nQual o modelo do aparelho?\n(Ex: iPhone 11, Samsung A32)', next_step:4 },
-    { step:3, condition:'não liga, não carrega, bateria', response:'Problema de energia! 🔋\n\nPode ser bateria, placa ou conector. Orçamento entre R$80 e R$250.\n\nQuer agendar avaliação gratuita?', next_step:4 },
-    { step:4, condition:'sim, quero, agendar, ok, pode ser', response:'Ótimo! 📅\n\nPreciso de:\n1️⃣ Seu nome completo\n2️⃣ Dia e horário ideal\n3️⃣ Endereço (opcional)\n\nOu diga "atendente" para falar com uma pessoa!', next_step:5 },
-    { step:5, condition:'segunda, terça, quarta, quinta, sexta, sábado', response:'Anotado! ✅\n\nUm atendente confirmará seu agendamento em até 30 minutos. Obrigado! 🙏', next_step:1 }
-  ];
+async function load(){
+  const{data,error}=await db.from('bot_training').select('*').order('created_at',{ascending:false}).limit(1).maybeSingle();
+  if(error){toast('Erro ao carregar','err');return}
+  if(!data){await createDef();return}
+  training=data;flows=data.flow_data||DF;faqs=data.faq_data||[];escs=data.escalation_keywords||['atendente','humano','cancelar'];
+  document.getElementById('botName').value=data.bot_name||'';
+  document.getElementById('companyName').value=data.company_name||'';
+  setTog(data.active!==false);render();
+}
+async function createDef(){
+  const{data,error}=await db.from('bot_training').insert({bot_name:'TecBot',company_name:'Assistência Técnica',flow_data:DF,faq_data:[],escalation_keywords:['atendente','humano','pessoa','reclamação','cancelar','chefe'],active:true}).select().single();
+  if(error){toast('Erro ao criar','err');return}
+  training=data;flows=DF;escs=training.escalation_keywords;setTog(true);render();
+}
 
-  // ─── INIT ───
-  async function loadTraining() {
-    const { data, error } = await supabaseClient
-      .from('bot_training').select('*')
-      .order('created_at', { ascending: false }).limit(1).maybeSingle();
+function render(){renderFlows();renderFaqs();renderEsc()}
 
-    if (error) { showToast('Erro ao carregar', 'error'); return; }
+function renderFlows(){
+  const el=document.getElementById('flowList');
+  if(!flows.length){el.innerHTML=`<div class="rc-empty"><span>📋</span>Nenhuma regra criada ainda.<br>Clique em "+ Adicionar" para começar.</div>`;return}
+  el.innerHTML=flows.map((f,i)=>`
+    <div class="rc">
+      <div class="rc-top">
+        <div class="rc-badge"><svg style="width:10px;height:10px;fill:none;stroke:currentColor;stroke-width:2.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Etapa ${f.step}</div>
+        <button class="rc-del" onclick="delFlow(${i})">✕ Remover</button>
+      </div>
+      <div class="rc-body">
+        <div class="rc-row"><span class="rc-lbl">Cliente diz</span><div class="rc-chips">${f.condition.split(',').map(c=>`<span class="chip">${c.trim()}</span>`).join('')}</div></div>
+        <div class="rc-row"><span class="rc-lbl">Atendente responde</span><span class="rc-val" style="white-space:pre-line">${f.response}</span></div>
+        <div class="rc-row"><span class="rc-lbl">Avança para</span><span class="rc-arrow">→ Etapa ${f.next_step}</span></div>
+      </div>
+    </div>`).join('');
+}
 
-    if (!data) { await createDefault(); return; }
+function renderFaqs(){
+  const el=document.getElementById('faqList');
+  if(!faqs.length){el.innerHTML=`<div style="text-align:center;color:var(--ink4);font-size:.82rem;padding:16px 0">Nenhuma dúvida frequente cadastrada ainda.</div>`;return}
+  el.innerHTML=faqs.map((f,i)=>`
+    <div class="faq-item">
+      <div style="flex:1"><div class="faq-q">${f.question}</div><div class="faq-a">${f.answer}</div></div>
+      <button class="faq-del" onclick="delFaq(${i})">✕</button>
+    </div>`).join('');
+}
 
-    currentTraining = data;
-    flowData = data.flow_data || defaultFlow;
-    faqData  = data.faq_data  || [];
-    escWords = data.escalation_keywords || ['atendente','humano','reclamação','cancelar'];
+function renderEsc(){
+  document.getElementById('escWrap').innerHTML=escs.map((w,i)=>`<div class="ew" onclick="delEsc(${i})">${w} <b>✕</b></div>`).join('');
+}
 
-    document.getElementById('botName').value    = data.bot_name     || '';
-    document.getElementById('companyName').value = data.company_name || '';
+function toggleBot(){
+  const t=document.getElementById('botTog');t.classList.toggle('on');
+  setTog(t.classList.contains('on'));
+  toast(t.classList.contains('on')?'Atendente ativado ao salvar':'Atendente desligado ao salvar');
+}
+function setTog(on){
+  const t=document.getElementById('botTog'),d=document.getElementById('sDot'),tt=document.getElementById('sTitle'),ts=document.getElementById('sDesc');
+  on?t.classList.add('on'):t.classList.remove('on');
+  on?d.classList.add('on'):d.classList.remove('on');
+  tt.textContent=on?'Atendente ativo':'Atendente desligado';
+  ts.textContent=on?'Respondendo automaticamente no WhatsApp':'Todas as mensagens vão para atendimento humano';
+}
 
-    const toggle = document.getElementById('botToggle');
-    data.active ? toggle.classList.add('on') : toggle.classList.remove('on');
+function tog(id){document.getElementById(id).classList.toggle('open')}
 
-    renderAll();
-  }
+let cS=1,nS=2;
+function openFlowModal(){
+  cS=1;nS=2;
+  document.getElementById('f-cond').value='';document.getElementById('f-resp').value='';
+  setSel('sg-c',1);setSel('sg-n',2);openOv('ov-flow');
+}
+function pickSt(el,n,t){if(t==='c'){cS=n;setSel('sg-c',n)}else{nS=n;setSel('sg-n',n)}}
+function setSel(gid,n){document.querySelectorAll(`#${gid} .sp`).forEach(s=>s.classList.toggle('sel',+s.textContent===n))}
+function saveFlow(){
+  const c=document.getElementById('f-cond').value.trim(),r=document.getElementById('f-resp').value.trim();
+  if(!c||!r){toast('Preencha os campos 2 e 3','err');return}
+  flows.push({step:cS,condition:c,response:r,next_step:nS});
+  flows.sort((a,b)=>a.step-b.step);renderFlows();closeOv('ov-flow');
+  toast('Regra adicionada — clique em Salvar');
+}
+function delFlow(i){flows.splice(i,1);renderFlows();toast('Regra removida')}
 
-  async function createDefault() {
-    const { data, error } = await supabaseClient.from('bot_training').insert({
-      bot_name: 'TecBot', company_name: 'Assistência Técnica',
-      flow_data: defaultFlow, faq_data: [],
-      escalation_keywords: ['atendente','humano','reclamação','cancelar','chefe'],
-      active: true
-    }).select().single();
-    if (error) { showToast('Erro ao criar padrão', 'error'); return; }
-    currentTraining = data; flowData = defaultFlow;
-    escWords = currentTraining.escalation_keywords || [];
-    renderAll();
-  }
+function openFaqModal(){document.getElementById('faq-q').value='';document.getElementById('faq-a').value='';openOv('ov-faq')}
+function saveFaq(){
+  const q=document.getElementById('faq-q').value.trim(),a=document.getElementById('faq-a').value.trim();
+  if(!q||!a){toast('Preencha pergunta e resposta','err');return}
+  faqs.push({question:q,answer:a});renderFaqs();closeOv('ov-faq');
+  toast('Dúvida adicionada — clique em Salvar');
+}
+function delFaq(i){faqs.splice(i,1);renderFaqs()}
 
-  // ─── RENDER ───
-  function renderAll() { renderFlow(); renderFaq(); renderEsc(); }
+function addEsc(){
+  const el=document.getElementById('escInput'),w=el.value.trim().toLowerCase();
+  if(!w)return;if(!escs.includes(w)){escs.push(w);renderEsc()}el.value='';
+}
+document.getElementById('escInput').addEventListener('keydown',e=>{if(e.key==='Enter')addEsc()});
+function delEsc(i){escs.splice(i,1);renderEsc()}
 
-  function renderFlow() {
-    const el = document.getElementById('flowList');
-    if (!flowData.length) {
-      el.innerHTML = `<div class="flow-empty"><div class="flow-empty-icon">💭</div>Nenhuma resposta ensinada ainda.</div>`; return;
-    }
-    el.innerHTML = flowData.map((f, i) => {
-      const chips = f.condition.split(',').map(c => `<span class="flow-chip">${c.trim()}</span>`).join('');
-      return `
-        <div class="flow-card">
-          <div class="flow-card-header">
-            <span class="flow-step-badge">Etapa ${f.step}</span>
-            <button class="flow-delete-btn" onclick="removeFlow(${i})">✕</button>
-          </div>
-          <div class="flow-card-body">
-            <div class="flow-row">
-              <span class="flow-label">Cliente diz</span>
-              <div class="flow-value">${chips}</div>
-            </div>
-            <div class="flow-row">
-              <span class="flow-label">Bot fala</span>
-              <div class="flow-value" style="white-space:pre-line;font-size:0.8rem;color:var(--text2)">${f.response}</div>
-            </div>
-            <div class="flow-row">
-              <span class="flow-label">Avança para</span>
-              <span class="flow-next-tag">→ Etapa ${f.next_step}</span>
-            </div>
-          </div>
-        </div>`;
-    }).join('');
-  }
+function openOv(id){document.getElementById(id).classList.add('show')}
+function closeOv(id){document.getElementById(id).classList.remove('show')}
+document.querySelectorAll('.ov').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('show')}));
 
-  function renderFaq() {
-    const el = document.getElementById('faqList');
-    if (!faqData.length) {
-      el.innerHTML = `<div style="text-align:center;color:var(--text3);font-size:0.83rem;padding:16px 0">Nenhuma pergunta frequente cadastrada.</div>`; return;
-    }
-    el.innerHTML = faqData.map((f, i) => `
-      <div class="faq-card">
-        <div style="flex:1">
-          <div class="faq-q">❓ ${f.question}</div>
-          <div class="faq-a">${f.answer}</div>
-        </div>
-        <button onclick="removeFaq(${i})" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:15px;padding:2px;">✕</button>
-      </div>`).join('');
-  }
+async function saveTraining(){
+  const btn=document.getElementById('saveBtn');
+  btn.classList.add('loading');btn.disabled=true;
+  const p={bot_name:document.getElementById('botName').value,company_name:document.getElementById('companyName').value,flow_data:flows,faq_data:faqs,escalation_keywords:escs,active:document.getElementById('botTog').classList.contains('on'),updated_at:new Date().toISOString()};
+  let res;
+  if(training?.id){res=await db.from('bot_training').update(p).eq('id',training.id)}
+  else{res=await db.from('bot_training').insert(p).select().single();if(res.data)training=res.data}
+  btn.classList.remove('loading');btn.disabled=false;
+  res.error?toast('Erro: '+res.error.message,'err'):toast('Salvo com sucesso!','ok');
+}
 
-  function renderEsc() {
-    const el = document.getElementById('escChips');
-    el.innerHTML = escWords.map((w, i) => `
-      <div class="esc-chip" onclick="removeEsc(${i})">
-        ${w} <span>✕</span>
-      </div>`).join('');
-  }
+let _t;
+function toast(msg,type=''){
+  const el=document.getElementById('toast');el.textContent=msg;el.className='toast show'+(type?' '+type:'');
+  clearTimeout(_t);_t=setTimeout(()=>el.className='toast',3000);
+}
 
-  // ─── SECTIONS ───
-  function toggleSection(id) {
-    document.getElementById(id).classList.toggle('open');
-  }
-
-  function updateToggleLabel() {
-    const on = document.getElementById('botToggle').classList.contains('on');
-    showToast(on ? 'Atendente será ativado ao salvar' : 'Atendente será desligado ao salvar');
-  }
-
-  // ─── FLOW MODAL ───
-  let tempStep = null, tempNextStep = null;
-
-  function openFlowModal() {
-    tempStep = 1; tempNextStep = 2;
-    selStepVal = 1; selNextStepVal = 2;
-    document.getElementById('fCondition').value = '';
-    document.getElementById('fResponse').value = '';
-    // reset chips
-    document.querySelectorAll('#stepSelector .step-chip').forEach(c => {
-      c.classList.toggle('sel', c.textContent.trim() === '1');
-    });
-    document.querySelectorAll('#nextStepSelector .step-chip').forEach(c => {
-      c.classList.toggle('sel', c.textContent.trim() === '2');
-    });
-    document.getElementById('flowOverlay').classList.add('show');
-  }
-
-  function selStep(el, n) {
-    selStepVal = n;
-    document.querySelectorAll('#stepSelector .step-chip').forEach(c => c.classList.remove('sel'));
-    el.classList.add('sel');
-  }
-  function selNextStep(el, n) {
-    selNextStepVal = n;
-    document.querySelectorAll('#nextStepSelector .step-chip').forEach(c => c.classList.remove('sel'));
-    el.classList.add('sel');
-  }
-
-  function saveFlowStep() {
-    const cond = document.getElementById('fCondition').value.trim();
-    const resp = document.getElementById('fResponse').value.trim();
-    if (!cond || !resp) { showToast('Preencha todos os campos', 'error'); return; }
-    flowData.push({ step: selStepVal, condition: cond, response: resp, next_step: selNextStepVal });
-    flowData.sort((a, b) => a.step - b.step);
-    renderFlow();
-    closeModal('flowOverlay');
-    showToast('Resposta salva! Clique em Salvar para aplicar.');
-  }
-
-  function removeFlow(i) {
-    flowData.splice(i, 1);
-    renderFlow();
-    showToast('Removida. Salve para aplicar.');
-  }
-
-  // ─── FAQ MODAL ───
-  function openFaqModal() {
-    document.getElementById('faqQ').value = '';
-    document.getElementById('faqA').value = '';
-    document.getElementById('faqOverlay').classList.add('show');
-  }
-
-  function saveFaq() {
-    const q = document.getElementById('faqQ').value.trim();
-    const a = document.getElementById('faqA').value.trim();
-    if (!q || !a) { showToast('Preencha pergunta e resposta', 'error'); return; }
-    faqData.push({ question: q, answer: a });
-    renderFaq();
-    closeModal('faqOverlay');
-    showToast('FAQ adicionada! Clique em Salvar para aplicar.');
-  }
-
-  function removeFaq(i) { faqData.splice(i, 1); renderFaq(); }
-
-  // ─── ESCALAMENTO ───
-  function addEscWord() {
-    const inp = document.getElementById('escInput');
-    const w = inp.value.trim().toLowerCase();
-    if (!w) return;
-    if (!escWords.includes(w)) { escWords.push(w); renderEsc(); }
-    inp.value = '';
-  }
-  document.addEventListener('DOMContentLoaded', () => {
-    document.getElementById('escInput').addEventListener('keydown', e => {
-      if (e.key === 'Enter') addEscWord();
-    });
-  });
-  function removeEsc(i) { escWords.splice(i, 1); renderEsc(); }
-
-  // ─── MODAL ───
-  function closeModal(id) {
-    document.getElementById(id).classList.remove('show');
-  }
-  document.querySelectorAll('.overlay').forEach(o => {
-    o.addEventListener('click', e => { if (e.target === o) o.classList.remove('show'); });
-  });
-
-  // ─── SAVE ───
-  async function saveTraining() {
-    const btn = document.getElementById('saveBtn');
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spin"></span> Salvando…';
-
-    const payload = {
-      bot_name: document.getElementById('botName').value,
-      company_name: document.getElementById('companyName').value,
-      flow_data: flowData,
-      faq_data: faqData,
-      escalation_keywords: escWords,
-      active: document.getElementById('botToggle').classList.contains('on'),
-      updated_at: new Date().toISOString()
-    };
-
-    let res;
-    if (currentTraining?.id) {
-      res = await supabaseClient.from('bot_training').update(payload).eq('id', currentTraining.id);
-    } else {
-      res = await supabaseClient.from('bot_training').insert(payload).select().single();
-      if (res.data) currentTraining = res.data;
-    }
-
-    btn.disabled = false;
-    btn.innerHTML = '<svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17,21 17,13 7,13 7,21"/><polyline points="7,3 7,8 15,8"/></svg> Salvar';
-
-    if (res.error) showToast('Erro: ' + res.error.message, 'error');
-    else showToast('Salvo! Atendente já usa as novas regras.', 'success');
-  }
-
-  // ─── TOAST ───
-  function showToast(msg, type = '') {
-    const t = document.getElementById('toast');
-    t.textContent = msg;
-    t.className = 'toast show ' + type;
-    clearTimeout(window._toastTimer);
-    window._toastTimer = setTimeout(() => t.className = 'toast', 3200);
-  }
-
-  loadTraining();
+load();
 </script>
 
 </body>

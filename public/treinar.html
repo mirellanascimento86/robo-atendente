@@ -1,520 +1,634 @@
 <!DOCTYPE html>
-
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>ZapBot — Treinamento</title>
-<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Inter:wght@400;500&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<style>
-*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-:root{
-  --blue:#0A84FF;--blue-dk:#006FE0;--blue-bg:#EBF4FF;
-  --green:#34C759;--green-bg:#EDFBF1;
-  --red:#FF3B30;--red-bg:#FFF1F0;
-  --orange:#FF9500;--orange-bg:#FFF7EB;
-  --ink:#0D0D0D;--ink2:#3C3C43;--ink3:#6C6C70;--ink4:#AEAEB2;
-  --line:#E5E5EA;--line2:#F2F2F7;
-  --bg:#F2F2F7;--card:#FFFFFF;
-  --r:14px;--r-sm:10px;
-}
-html,body{height:100%;background:var(--bg)}
-body{font-family:'Inter',sans-serif;color:var(--ink);padding-bottom:96px;overscroll-behavior:none}
-
-/* HEADER */
-.hd{position:sticky;top:0;z-index:80;background:rgba(242,242,247,.9);backdrop-filter:saturate(180%) blur(20px);-webkit-backdrop-filter:saturate(180%) blur(20px);border-bottom:1px solid var(–line);padding:0 16px}
-.hd-in{max-width:560px;margin:0 auto;height:56px;display:flex;align-items:center;justify-content:space-between}
-.brand{display:flex;align-items:center;gap:10px}
-.brand-ico{width:32px;height:32px;border-radius:8px;background:var(–ink);display:flex;align-items:center;justify-content:center}
-.brand-ico svg{width:18px;height:18px;fill:white}
-.brand-name{font-family:‘Sora’,sans-serif;font-weight:700;font-size:.95rem}
-.brand-name em{font-style:normal;color:var(–blue)}
-.btn-save{display:flex;align-items:center;gap:6px;background:var(–blue);color:white;border:none;border-radius:20px;padding:8px 18px;font-family:‘Sora’,sans-serif;font-size:.8rem;font-weight:600;cursor:pointer;transition:background .15s,transform .1s;white-space:nowrap}
-.btn-save:active{background:var(–blue-dk);transform:scale(.97)}
-.btn-save:disabled{opacity:.5;pointer-events:none}
-.ld{width:12px;height:12px;border:2px solid rgba(255,255,255,.35);border-top-color:white;border-radius:50%;animation:spin .6s linear infinite;display:none}
-.btn-save.loading .ld{display:block}
-.btn-save.loading .lbl{display:none}
-@keyframes spin{to{transform:rotate(360deg)}}
-
-/* WRAP */
-.wrap{max-width:560px;margin:0 auto;padding:20px 16px}
-.hero{margin-bottom:24px}
-.hero h1{font-family:‘Sora’,sans-serif;font-weight:800;font-size:1.5rem;line-height:1.2;margin-bottom:6px}
-.hero p{font-size:.84rem;color:var(–ink3);line-height:1.55}
-
-/* CARDS */
-.card{background:var(–card);border-radius:var(–r);margin-bottom:12px;overflow:hidden;border:1px solid var(–line)}
-.sh{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;cursor:pointer;user-select:none;transition:background .1s}
-.sh:active{background:var(–line2)}
-.sh-l{display:flex;align-items:center;gap:12px}
-.sh-ico{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
-.i1{background:#EBF4FF}.i2{background:#EDFBF1}.i3{background:#FFF7EB}.i4{background:#FFF1F0}
-.sh-title{font-family:‘Sora’,sans-serif;font-weight:700;font-size:.88rem}
-.sh-sub{font-size:.73rem;color:var(–ink3);margin-top:1px}
-.sh-arr{color:var(–ink4);font-size:.7rem;transition:transform .2s}
-.card.open .sh-arr{transform:rotate(180deg)}
-.cb{display:none;border-top:1px solid var(–line)}
-.card.open .cb{display:block}
-.cp{padding:18px}
-
-/* STATUS */
-.st-row{display:flex;align-items:center;justify-content:space-between;padding:16px 18px}
-.st-l{display:flex;align-items:center;gap:12px}
-.dot{width:8px;height:8px;border-radius:50%;background:var(–green);box-shadow:0 0 0 3px var(–green-bg);flex-shrink:0}
-.dot.off{background:var(–ink4);box-shadow:0 0 0 3px var(–line2)}
-.st-t strong{font-size:.875rem;font-weight:600;display:block;margin-bottom:1px}
-.st-t span{font-size:.75rem;color:var(–ink3)}
-.tog{width:51px;height:31px;border-radius:100px;background:var(–line);cursor:pointer;transition:background .25s;position:relative;flex-shrink:0}
-.tog.on{background:var(–green)}
-.tog::after{content:’’;position:absolute;width:27px;height:27px;border-radius:50%;background:white;top:2px;left:2px;box-shadow:0 2px 6px rgba(0,0,0,.15);transition:left .25s cubic-bezier(.34,1.4,.64,1)}
-.tog.on::after{left:22px}
-
-/* FIELDS */
-.fld{margin-bottom:14px}
-.fld:last-child{margin-bottom:0}
-.fld-lbl{display:block;font-size:.73rem;font-weight:600;color:var(–ink3);margin-bottom:6px;letter-spacing:.02em;text-transform:uppercase}
-.fld input,.fld textarea{width:100%;padding:12px 14px;background:var(–bg);border:1.5px solid var(–line);border-radius:var(–r-sm);font-family:‘Inter’,sans-serif;font-size:.875rem;color:var(–ink);transition:border-color .15s,background .15s;-webkit-appearance:none}
-.fld input::placeholder,.fld textarea::placeholder{color:var(–ink4)}
-.fld input:focus,.fld textarea:focus{outline:none;border-color:var(–blue);background:white}
-.fld textarea{min-height:88px;resize:vertical;line-height:1.5}
-.fld-hint{font-size:.73rem;color:var(–ink3);margin-top:5px;line-height:1.45}
-.fld-hint b{color:var(–blue)}
-
-/* INFO BOX */
-.info{background:var(–blue-bg);border-radius:var(–r-sm);padding:13px 15px;margin-bottom:16px}
-.info-t{font-size:.75rem;font-weight:700;color:var(–blue);margin-bottom:4px}
-.info-b{font-size:.76rem;color:var(–blue);opacity:.85;line-height:1.55}
-.info-b b{opacity:1}
-
-/* STEP SELECTOR */
-.slbl{font-size:.73rem;font-weight:600;color:var(–ink3);margin-bottom:8px;letter-spacing:.02em;text-transform:uppercase}
-.sgrid{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:4px}
-.sp{width:42px;height:42px;border-radius:var(–r-sm);background:var(–bg);border:1.5px solid var(–line);display:flex;align-items:center;justify-content:center;font-family:‘Sora’,sans-serif;font-weight:700;font-size:.9rem;color:var(–ink3);cursor:pointer;transition:all .15s}
-.sp:active{transform:scale(.93)}
-.sp.sel{background:var(–blue);border-color:var(–blue);color:white;box-shadow:0 2px 8px rgba(10,132,255,.3)}
-
-/* RULE CARDS */
-.rc-empty{text-align:center;padding:32px 20px;font-size:.83rem;color:var(–ink4)}
-.rc-empty span{font-size:2rem;display:block;margin-bottom:8px}
-.rc{background:var(–bg);border-radius:var(–r-sm);border:1px solid var(–line);margin-bottom:10px;overflow:hidden}
-.rc:last-child{margin-bottom:0}
-.rc-top{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:white;border-bottom:1px solid var(–line)}
-.rc-badge{display:flex;align-items:center;gap:6px;background:var(–blue-bg);color:var(–blue);border-radius:100px;padding:3px 10px;font-family:‘Sora’,sans-serif;font-size:.7rem;font-weight:700}
-.rc-del{background:none;border:none;cursor:pointer;color:var(–ink4);font-size:.75rem;padding:4px 8px;border-radius:6px;transition:background .15s,color .15s;font-family:‘Inter’,sans-serif}
-.rc-del:hover{background:var(–red-bg);color:var(–red)}
-.rc-body{padding:12px 14px;display:flex;flex-direction:column;gap:8px}
-.rc-row{display:flex;gap:10px;align-items:flex-start}
-.rc-lbl{font-size:.68rem;font-weight:600;color:var(–ink4);text-transform:uppercase;letter-spacing:.04em;width:64px;flex-shrink:0;padding-top:1px;line-height:1.4}
-.rc-val{font-size:.82rem;color:var(–ink2);line-height:1.5;flex:1}
-.rc-chips{display:flex;flex-wrap:wrap;gap:4px}
-.chip{background:white;border:1px solid var(–line);color:var(–ink2);font-size:.72rem;padding:2px 9px;border-radius:100px}
-.rc-arrow{display:inline-flex;align-items:center;gap:5px;background:var(–orange-bg);color:var(–orange);font-size:.72rem;font-weight:600;padding:3px 10px;border-radius:100px;font-family:‘Sora’,sans-serif}
-
-/* ADD BTN */
-.add-btn{width:100%;margin-top:12px;padding:12px;background:none;border:1.5px dashed var(–line);border-radius:var(–r-sm);color:var(–ink3);font-family:‘Inter’,sans-serif;font-size:.83rem;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;transition:border-color .15s,color .15s,background .15s}
-.add-btn:hover,.add-btn:active{border-color:var(–blue);color:var(–blue);background:var(–blue-bg)}
-
-/* FAQ */
-.faq-item{display:flex;align-items:flex-start;gap:10px;padding:12px 14px;background:var(–bg);border-radius:var(–r-sm);border:1px solid var(–line);margin-bottom:8px}
-.faq-item:last-child{margin-bottom:0}
-.faq-q{font-size:.83rem;font-weight:600;margin-bottom:3px}
-.faq-a{font-size:.78rem;color:var(–ink3);line-height:1.45}
-.faq-del{background:none;border:none;cursor:pointer;color:var(–ink4);font-size:14px;padding:2px;flex-shrink:0}
-
-/* ESC */
-.esc-wrap{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:14px;min-height:10px}
-.ew{display:flex;align-items:center;gap:5px;background:var(–red-bg);color:var(–red);font-size:.78rem;font-weight:500;padding:5px 12px;border-radius:100px;cursor:pointer;transition:opacity .15s}
-.ew:hover{opacity:.7}
-.ew b{font-size:.65rem;font-weight:700}
-.esc-row{display:flex;gap:8px}
-.esc-row input{flex:1;padding:10px 14px;background:var(–bg);border:1.5px solid var(–line);border-radius:var(–r-sm);font-family:‘Inter’,sans-serif;font-size:.85rem;color:var(–ink)}
-.esc-row input:focus{outline:none;border-color:var(–red)}
-.esc-add{background:var(–red);color:white;border:none;border-radius:var(–r-sm);padding:10px 16px;font-family:‘Sora’,sans-serif;font-size:.8rem;font-weight:700;cursor:pointer;transition:opacity .15s;white-space:nowrap}
-.esc-add:active{opacity:.8}
-
-/* MODAL */
-.ov{position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.45);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);display:flex;align-items:flex-end;opacity:0;pointer-events:none;transition:opacity .25s}
-.ov.show{opacity:1;pointer-events:all}
-.modal{background:white;border-radius:22px 22px 0 0;width:100%;max-width:560px;margin:0 auto;padding:0 0 40px;max-height:92vh;overflow-y:auto;transform:translateY(40px);transition:transform .3s cubic-bezier(.22,1,.36,1)}
-.ov.show .modal{transform:translateY(0)}
-.modal-grip{width:36px;height:4px;border-radius:100px;background:var(–line);margin:14px auto 0}
-.modal-head{padding:18px 20px 16px;border-bottom:1px solid var(–line)}
-.modal-title{font-family:‘Sora’,sans-serif;font-weight:800;font-size:1.1rem;margin-bottom:3px}
-.modal-sub{font-size:.78rem;color:var(–ink3);line-height:1.45}
-.modal-body{padding:20px}
-.modal-body .fld{margin-bottom:16px}
-.modal-foot{padding:0 20px;display:flex;gap:10px}
-.btn-c{flex:1;padding:13px;background:var(–bg);border:1.5px solid var(–line);border-radius:var(–r-sm);font-family:‘Sora’,sans-serif;font-size:.85rem;font-weight:600;color:var(–ink3);cursor:pointer;transition:background .15s}
-.btn-c:active{background:var(–line)}
-.btn-ok{flex:2;padding:13px;background:var(–blue);border:none;border-radius:var(–r-sm);font-family:‘Sora’,sans-serif;font-size:.85rem;font-weight:700;color:white;cursor:pointer;transition:background .15s,transform .1s}
-.btn-ok:active{background:var(–blue-dk);transform:scale(.98)}
-
-/* TOAST */
-.toast{position:fixed;bottom:108px;left:50%;transform:translateX(-50%) translateY(6px);background:var(–ink);color:white;padding:10px 20px;border-radius:100px;font-size:.8rem;font-weight:500;white-space:nowrap;z-index:200;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s}
-.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-.toast.ok{background:var(–green)}
-.toast.err{background:var(–red)}
-
-/* NAV */
-.nav{position:fixed;bottom:0;left:0;right:0;z-index:80;background:rgba(255,255,255,.92);backdrop-filter:saturate(180%) blur(20px);-webkit-backdrop-filter:saturate(180%) blur(20px);border-top:1px solid var(–line);display:flex;justify-content:space-around;padding:8px 0 14px}
-.nav a{display:flex;flex-direction:column;align-items:center;gap:3px;text-decoration:none;color:var(–ink4);font-size:.65rem;font-weight:500;letter-spacing:.02em;padding:0 20px;transition:color .15s}
-.nav a.on{color:var(–blue)}
-.nav a svg{width:22px;height:22px;stroke:currentColor;stroke-width:1.8;fill:none}
-</style>
-
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>🎓 Painel de Treinamento - Bot</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f0f2f5;
+            padding: 10px;
+            max-width: 600px;
+            margin: 0 auto;
+            padding-bottom: 120px;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        .header h1 { font-size: 1.3rem; margin-bottom: 5px; }
+        .header p { font-size: 0.85rem; opacity: 0.9; }
+        
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 15px;
+            margin-bottom: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        .card-title {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.95rem;
+        }
+        
+        .form-group { margin-bottom: 12px; }
+        .form-group label {
+            display: block;
+            font-size: 0.8rem;
+            color: #666;
+            margin-bottom: 4px;
+            font-weight: 500;
+        }
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            transition: border-color 0.3s;
+            font-family: inherit;
+        }
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        .form-group textarea {
+            min-height: 60px;
+            resize: vertical;
+        }
+        
+        .btn {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 5px;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .btn-success { background: #10b981; color: white; }
+        .btn-danger { background: #ef4444; color: white; }
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 0.75rem;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            margin-top: 8px;
+            margin-right: 5px;
+        }
+        
+        .status {
+            padding: 12px;
+            border-radius: 10px;
+            text-align: center;
+            font-size: 0.9rem;
+            margin-top: 10px;
+            display: none;
+            font-weight: 500;
+        }
+        .status.show { display: block; }
+        .status.success { background: #d1fae5; color: #065f46; }
+        .status.error { background: #fee2e2; color: #991b1b; }
+        .status.info { background: #dbeafe; color: #1e40af; }
+        
+        /* FLUXO DE CONVERSA */
+        .flow-item {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-left: 4px solid #667eea;
+        }
+        .flow-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .flow-step {
+            background: #667eea;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        .flow-condition {
+            background: #e0e7ff;
+            color: #4338ca;
+            padding: 8px 12px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            font-size: 0.85rem;
+        }
+        .flow-condition strong { color: #3730a3; }
+        .flow-response {
+            background: #d1fae5;
+            color: #065f46;
+            padding: 10px 12px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            font-size: 0.85rem;
+            white-space: pre-wrap;
+        }
+        .flow-next {
+            background: #fef3c7;
+            color: #92400e;
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            display: inline-block;
+        }
+        
+        .add-flow {
+            background: #f0f0f0;
+            border: 2px dashed #ccc;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            margin-top: 10px;
+            color: #666;
+            font-weight: 500;
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-top: 3px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            vertical-align: middle;
+            margin-right: 8px;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        .nav-bottom {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            display: flex;
+            justify-content: space-around;
+            padding: 10px;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+            max-width: 600px;
+            margin: 0 auto;
+            z-index: 100;
+        }
+        .nav-item {
+            text-align: center;
+            color: #999;
+            text-decoration: none;
+            font-size: 0.7rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+            padding: 5px 15px;
+        }
+        .nav-item.active { color: #667eea; }
+        
+        .section-badge {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            margin-left: 8px;
+        }
+        
+        .hint {
+            font-size: 0.75rem;
+            color: #888;
+            margin-top: 3px;
+            line-height: 1.3;
+        }
+        
+        .toggle {
+            width: 50px;
+            height: 28px;
+            background: #ccc;
+            border-radius: 14px;
+            position: relative;
+            cursor: pointer;
+            transition: 0.3s;
+            flex-shrink: 0;
+        }
+        .toggle.active { background: #10b981; }
+        .toggle::after {
+            content: '';
+            position: absolute;
+            width: 24px;
+            height: 24px;
+            background: white;
+            border-radius: 50%;
+            top: 2px;
+            left: 2px;
+            transition: 0.3s;
+        }
+        .toggle.active::after { left: 24px; }
+        
+        .switch {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 5px 0;
+        }
+    </style>
 </head>
 <body>
-
-<header class="hd">
-  <div class="hd-in">
-    <div class="brand">
-      <div class="brand-ico">
-        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12c0 1.85.5 3.58 1.37 5.07L2 22l5.09-1.34A9.93 9.93 0 0012 22c5.52 0 10-4.48 10-10S17.52 2 12 2z"/></svg>
-      </div>
-      <span class="brand-name">Zap<em>Bot</em></span>
+    <div class="header">
+        <h1>🎓 Painel de Treinamento</h1>
+        <p>Edite o fluxo de conversa do seu bot</p>
     </div>
-    <button class="btn-save" id="saveBtn" onclick="saveTraining()">
-      <span class="ld"></span>
-      <span class="lbl">Salvar alterações</span>
+
+    <!-- Status do Bot -->
+    <div class="card">
+        <div class="switch">
+            <div>
+                <div style="font-weight:600; color:#333;">🤖 Bot Ativo</div>
+                <div class="hint">Desligado = todas as mensagens vao para intervencao humana</div>
+            </div>
+            <div class="toggle active" id="botToggle" onclick="toggleBot()"></div>
+        </div>
+    </div>
+
+    <!-- Identidade -->
+    <div class="card">
+        <div class="card-title">🤖 Identidade do Bot</div>
+        <div class="form-group">
+            <label>Nome do Bot</label>
+            <input type="text" id="botName" placeholder="Ex: TecBot">
+        </div>
+        <div class="form-group">
+            <label>Nome da Empresa</label>
+            <input type="text" id="companyName" placeholder="Ex: Assistencia Tecnica Express">
+        </div>
+    </div>
+
+    <!-- FLUXO DE CONVERSA -->
+    <div class="card">
+        <div class="card-title">🔄 Fluxo de Conversa <span class="section-badge">Novo!</span></div>
+        <div class="hint" style="margin-bottom:15px;">
+            <strong>Como funciona:</strong><br>
+            1. O bot começa na <strong>Etapa 1</strong> (saudacao)<br>
+            2. Se o cliente responder X, vai para <strong>Etapa Y</strong><br>
+            3. Voce cria regras para cada etapa<br>
+            <br>
+            <strong>Exemplo pratico:</strong><br>
+            • Etapa 1: Cliente diz "Oi" → Bot pergunta equipamento → Vai para Etapa 2<br>
+            • Etapa 2: Cliente diz "Celular" → Bot pergunta problema → Vai para Etapa 3<br>
+            • Etapa 3: Cliente diz "Tela" → Bot da preco → Vai para Etapa 4 (agendar)
+        </div>
+        
+        <div id="flowList"></div>
+        <div class="add-flow" onclick="addFlowStep()">
+            + Adicionar nova regra de fluxo
+        </div>
+    </div>
+
+    <!-- FAQ Inteligente (funciona em QUALQUER etapa) -->
+    <div class="card">
+        <div class="card-title">❓ Perguntas Frequentes (FAQ) <span class="section-badge">Global</span></div>
+        <div class="hint" style="margin-bottom:10px;">Funciona em QUALQUER etapa da conversa</div>
+        <div id="faqList"></div>
+        <div class="add-flow" onclick="addNewFaq()">
+            + Adicionar FAQ
+        </div>
+    </div>
+
+    <!-- Palavras de Escalonamento -->
+    <div class="card">
+        <div class="card-title">🚨 Transferir para Humano</div>
+        <div class="hint">Em qualquer etapa, se o cliente digitar estas palavras, transfere para humano</div>
+        <div class="form-group">
+            <label>Palavras (separadas por virgula)</label>
+            <input type="text" id="escalationWords" placeholder="atendente, humano, pessoa, reclamacao, cancelar">
+        </div>
+    </div>
+
+    <!-- Botoes -->
+    <button class="btn btn-primary" onclick="saveTraining()" id="saveBtn">
+        💾 Salvar Tudo
     </button>
-  </div>
-</header>
+    <div class="status" id="statusMsg"></div>
 
-<div class="wrap">
-
-  <div class="hero">
-    <h1>Treinamento do Atendente</h1>
-    <p>Configure como seu atendente virtual responde. Não precisa saber programar — é como escrever um roteiro de atendimento.</p>
-  </div>
-
-  <!-- STATUS -->
-
-  <div class="card open">
-    <div class="st-row">
-      <div class="st-l">
-        <div class="dot on" id="sDot"></div>
-        <div class="st-t">
-          <strong id="sTitle">Atendente ativo</strong>
-          <span id="sDesc">Respondendo automaticamente no WhatsApp</span>
-        </div>
-      </div>
-      <div class="tog on" id="botTog" onclick="toggleBot()"></div>
+    <!-- Navegacao -->
+    <div class="nav-bottom">
+        <a href="painel.html" class="nav-item">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="24" height="24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path></svg>
+            <div>Intervencao</div>
+        </a>
+        <a href="treinar.html" class="nav-item active">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="24" height="24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+            <div>Treinamento</div>
+        </a>
     </div>
-  </div>
 
-  <!-- PERFIL -->
+    <script>
+        const SUPABASE_URL = 'https://fwcljognwdutsagppxcq.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ3Y2xqb2dud2R1dHNhZ3BweGNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4OTY4MjMsImV4cCI6MjA5MDQ3MjgyM30.6n8MejPbWRZlJnfZylrsK37_jwFha3FE7Xbj_Sn8VcE';
+        
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        let currentTraining = null;
+        let flowData = [];
+        let faqData = [];
 
-  <div class="card" id="c-id">
-    <div class="sh" onclick="tog('c-id')">
-      <div class="sh-l">
-        <div class="sh-ico i1">🪪</div>
-        <div><div class="sh-title">Perfil do atendente</div><div class="sh-sub">Nome e empresa</div></div>
-      </div>
-      <span class="sh-arr">▾</span>
-    </div>
-    <div class="cb"><div class="cp">
-      <div class="fld">
-        <label class="fld-lbl">Nome do atendente</label>
-        <input type="text" id="botName" placeholder="Ex: Sofia, Carlos, TecBot…">
-        <div class="fld-hint">Este nome aparece quando o atendente se apresenta ao cliente.</div>
-      </div>
-      <div class="fld">
-        <label class="fld-lbl">Nome da empresa</label>
-        <input type="text" id="companyName" placeholder="Ex: Assistência Técnica Express">
-        <div class="fld-hint">Use <b>{empresa}</b> em qualquer resposta para inserir este nome automaticamente.</div>
-      </div>
-    </div></div>
-  </div>
+        // Estrutura padrao de fluxo (para comecar)
+        const defaultFlow = [
+            {
+                step: 1,
+                condition: 'oi, ola, oi, hey, bom dia, boa tarde, boa noite',
+                response: 'Ola! Bem-vindo a {company_name}! 😊\n\nQual equipamento voce precisa de assistencia?\n📱 Celular\n💻 Notebook\n🎮 Videogame\n📟 Tablet\n\nDigite o equipamento:',
+                next_step: 2
+            },
+            {
+                step: 2,
+                condition: 'celular, telefone, smartphone, iphone, samsung, motorola, xiaomi',
+                response: 'Perfeito! Qual o problema do seu celular?\n🔲 Tela quebrada\n🔋 Nao liga/nao carrega\n💧 Molhou\n🐢 Lento/travando\n\nDigite o problema:',
+                next_step: 3
+            },
+            {
+                step: 2,
+                condition: 'notebook, computador, pc, laptop, dell, hp, lenovo',
+                response: 'Entendido! Qual o problema do notebook?\n🔲 Tela quebrada\n🔋 Nao liga\n💧 Molhou\n🐢 Lento/travando\n\nDigite o problema:',
+                next_step: 3
+            },
+            {
+                step: 3,
+                condition: 'tela, quebrada, trincada, rachada, estilhacada',
+                response: 'Tela quebrada! 💔\n\nO orcamento varia de R$150 a R$600 dependendo do modelo.\n\nPara dar o valor exato, qual o modelo do aparelho?\n(Ex: iPhone 11, Samsung A32, etc)',
+                next_step: 4
+            },
+            {
+                step: 3,
+                condition: 'nao liga, nao carrega, bateria, carregador',
+                response: 'Problema de energia! 🔋\n\nPode ser bateria, placa de carga ou conector. O orcamento fica entre R$80 e R$250.\n\nVoce quer agendar uma avaliacao gratuita?',
+                next_step: 4
+            },
+            {
+                step: 4,
+                condition: 'sim, quero, agendar, marcar, pode ser, ok',
+                response: 'Otimo! 📅\n\nPara agendar preciso saber:\n1️⃣ Seu nome completo\n2️⃣ Melhor dia e horario\n3️⃣ Endereco para delivery (opcional)\n\nOu digite "atendente" para falar com uma pessoa!',
+                next_step: 5
+            },
+            {
+                step: 4,
+                condition: 'nao, nao quero, depois, talvez',
+                response: 'Sem problema! 😊\n\nSe precisar de mais informacoes, estou aqui. Ou digite "atendente" para falar com uma pessoa!',
+                next_step: 1
+            },
+            {
+                step: 5,
+                condition: 'segunda, terca, quarta, quinta, sexta, sabado, domingo',
+                response: 'Anotado! ✅\n\nUm atendente confirmara seu agendamento em ate 30 minutos.\n\nVoce recebera uma mensagem de confirmacao.\n\nAgradecemos o contato! 🙏',
+                next_step: 1
+            }
+        ];
 
-  <!-- FLUXO -->
+        async function loadTraining() {
+            showStatus('🔄 Carregando...', 'info');
+            
+            const { data, error } = await supabaseClient
+                .from('bot_training')
+                .select('*')
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .maybeSingle();
 
-  <div class="card open" id="c-flow">
-    <div class="sh" onclick="tog('c-flow')">
-      <div class="sh-l">
-        <div class="sh-ico i2">💬</div>
-        <div><div class="sh-title">Roteiro de conversa</div><div class="sh-sub">O que o atendente responde em cada etapa</div></div>
-      </div>
-      <span class="sh-arr">▾</span>
-    </div>
-    <div class="cb"><div class="cp">
-      <div class="info">
-        <div class="info-t">💡 Como funciona o roteiro</div>
-        <div class="info-b">
-          Pense em <b>etapas</b> como momentos da conversa:<br><br>
-          <b>Etapa 1</b> → Cliente diz "oi" → Atendente pergunta o equipamento<br>
-          <b>Etapa 2</b> → Cliente diz "celular" → Atendente pergunta o problema<br>
-          <b>Etapa 3</b> → Cliente descreve o problema → Atendente dá o orçamento<br><br>
-          Você define o que o atendente responde e para qual etapa a conversa avança.
-        </div>
-      </div>
-      <div id="flowList"></div>
-      <button class="add-btn" onclick="openFlowModal()">
-        <svg style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        Adicionar nova regra de resposta
-      </button>
-    </div></div>
-  </div>
+            if (error) {
+                showStatus('❌ Erro: ' + error.message, 'error');
+                return;
+            }
 
-  <!-- FAQ -->
+            if (!data) {
+                // Criar padrao
+                await createDefaultTraining();
+                return;
+            }
 
-  <div class="card" id="c-faq">
-    <div class="sh" onclick="tog('c-faq')">
-      <div class="sh-l">
-        <div class="sh-ico i3">❓</div>
-        <div><div class="sh-title">Dúvidas frequentes</div><div class="sh-sub">Respondidas em qualquer etapa da conversa</div></div>
-      </div>
-      <span class="sh-arr">▾</span>
-    </div>
-    <div class="cb"><div class="cp">
-      <div class="fld-hint" style="margin-bottom:14px">Se o cliente perguntar sobre estes temas <b>em qualquer momento</b>, o atendente responde sem sair do roteiro.</div>
-      <div id="faqList"></div>
-      <button class="add-btn" onclick="openFaqModal()">
-        <svg style="width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        Adicionar dúvida frequente
-      </button>
-    </div></div>
-  </div>
+            currentTraining = data;
+            flowData = data.flow_data || defaultFlow;
+            faqData = data.faq_data || [];
+            
+            document.getElementById('botName').value = data.bot_name || '';
+            document.getElementById('companyName').value = data.company_name || '';
+            document.getElementById('escalationWords').value = (data.escalation_keywords || []).join(', ');
+            
+            const toggle = document.getElementById('botToggle');
+            if (data.active) toggle.classList.add('active');
+            else toggle.classList.remove('active');
 
-  <!-- ESC -->
+            renderFlowList();
+            renderFaqList();
+            showStatus('✅ Configuracoes carregadas!', 'success');
+        }
 
-  <div class="card" id="c-esc">
-    <div class="sh" onclick="tog('c-esc')">
-      <div class="sh-l">
-        <div class="sh-ico i4">🧑‍💼</div>
-        <div><div class="sh-title">Chamar atendente humano</div><div class="sh-sub">Palavras que transferem a conversa</div></div>
-      </div>
-      <span class="sh-arr">▾</span>
-    </div>
-    <div class="cb"><div class="cp">
-      <div class="fld-hint" style="margin-bottom:14px">Se o cliente digitar qualquer uma destas palavras, a conversa é transferida imediatamente para um atendente humano. <b>Toque em uma palavra para removê-la.</b></div>
-      <div class="esc-wrap" id="escWrap"></div>
-      <div class="esc-row">
-        <input type="text" id="escInput" placeholder="Nova palavra de transferência…">
-        <button class="esc-add" onclick="addEsc()">+ Adicionar</button>
-      </div>
-    </div></div>
-  </div>
+        async function createDefaultTraining() {
+            const { data, error } = await supabaseClient
+                .from('bot_training')
+                .insert({
+                    bot_name: 'TecBot',
+                    company_name: 'Assistencia Tecnica',
+                    flow_data: defaultFlow,
+                    faq_data: [],
+                    escalation_keywords: ['atendente', 'humano', 'pessoa', 'reclamacao', 'cancelar', 'chefe', 'gerente'],
+                    active: true
+                })
+                .select()
+                .single();
 
-</div>
+            if (error) {
+                showStatus('❌ Erro ao criar padrao: ' + error.message, 'error');
+                return;
+            }
 
-<!-- MODAL FLUXO -->
+            currentTraining = data;
+            flowData = defaultFlow;
+            loadTraining();
+        }
 
-<div class="ov" id="ov-flow">
-  <div class="modal">
-    <div class="modal-grip"></div>
-    <div class="modal-head">
-      <div class="modal-title">Nova regra de resposta</div>
-      <div class="modal-sub">Defina o que o atendente responde quando o cliente estiver em um ponto específico da conversa.</div>
-    </div>
-    <div class="modal-body">
-      <div class="fld">
-        <div class="slbl">Passo 1 — Em qual etapa o cliente está?</div>
-        <div class="sgrid" id="sg-c">
-          <div class="sp" onclick="pickSt(this,1,'c')">1</div><div class="sp" onclick="pickSt(this,2,'c')">2</div><div class="sp" onclick="pickSt(this,3,'c')">3</div><div class="sp" onclick="pickSt(this,4,'c')">4</div><div class="sp" onclick="pickSt(this,5,'c')">5</div><div class="sp" onclick="pickSt(this,6,'c')">6</div><div class="sp" onclick="pickSt(this,7,'c')">7</div><div class="sp" onclick="pickSt(this,8,'c')">8</div>
-        </div>
-        <div class="fld-hint">Etapa <b>1</b> = início da conversa.</div>
-      </div>
-      <div class="fld">
-        <label class="fld-lbl">Passo 2 — O que o cliente pode dizer nesta etapa?</label>
-        <input type="text" id="f-cond" placeholder="Ex: celular, telefone, iphone, samsung, motorola">
-        <div class="fld-hint">Separe com vírgulas. Coloque todas as formas que o cliente pode escrever.</div>
-      </div>
-      <div class="fld">
-        <label class="fld-lbl">Passo 3 — O que o atendente responde?</label>
-        <textarea id="f-resp" placeholder="Ex: Entendido! Qual o problema do celular?&#10;&#10;🔲 Tela quebrada&#10;🔋 Não liga&#10;💧 Caiu na água&#10;&#10;Digite o problema:"></textarea>
-        <div class="fld-hint">Use emojis para deixar mais amigável. Use <b>{empresa}</b> para inserir o nome da empresa.</div>
-      </div>
-      <div class="fld">
-        <div class="slbl">Passo 4 — Para qual etapa avança depois?</div>
-        <div class="sgrid" id="sg-n">
-          <div class="sp" onclick="pickSt(this,1,'n')">1</div><div class="sp" onclick="pickSt(this,2,'n')">2</div><div class="sp" onclick="pickSt(this,3,'n')">3</div><div class="sp" onclick="pickSt(this,4,'n')">4</div><div class="sp" onclick="pickSt(this,5,'n')">5</div><div class="sp" onclick="pickSt(this,6,'n')">6</div><div class="sp" onclick="pickSt(this,7,'n')">7</div><div class="sp" onclick="pickSt(this,8,'n')">8</div>
-        </div>
-        <div class="fld-hint">Etapa <b>1</b> = volta ao início da conversa.</div>
-      </div>
-    </div>
-    <div class="modal-foot">
-      <button class="btn-c" onclick="closeOv('ov-flow')">Cancelar</button>
-      <button class="btn-ok" onclick="saveFlow()">Salvar regra</button>
-    </div>
-  </div>
-</div>
+        function renderFlowList() {
+            const container = document.getElementById('flowList');
+            if (flowData.length === 0) {
+                container.innerHTML = '<div style="text-align:center; color:#999; padding:20px;">Nenhuma regra de fluxo cadastrada</div>';
+                return;
+            }
+            
+            container.innerHTML = flowData.map((flow, index) => `
+                <div class="flow-item">
+                    <div class="flow-header">
+                        <span class="flow-step">Etapa ${flow.step}</span>
+                        <button class="btn-small btn-danger" onclick="removeFlow(${index})">🗑️</button>
+                    </div>
+                    <div class="flow-condition">
+                        <strong>Se cliente disser:</strong><br>
+                        ${flow.condition}
+                    </div>
+                    <div class="flow-response">
+                        <strong>Bot responde:</strong><br>
+                        ${flow.response.replace(/\n/g, '<br>')}
+                    </div>
+                    <div class="flow-next">
+                        ➡️ Vai para Etapa ${flow.next_step}
+                    </div>
+                </div>
+            `).join('');
+        }
 
-<!-- MODAL FAQ -->
+        function addFlowStep() {
+            const step = prompt('📍 Em qual ETAPA esta o cliente?\n(Ex: 1 = inicio, 2 = depois da saudacao)');
+            if (!step || isNaN(step)) return;
+            
+            const condition = prompt('📝 O que o CLIENTE pode dizer nesta etapa?\n(Separe por virgula)\nEx: celular, telefone, smartphone');
+            if (!condition) return;
+            
+            const response = prompt('💬 O que o BOT deve responder?\n(Use {company_name} para inserir nome da empresa)');
+            if (!response) return;
+            
+            const nextStep = prompt('➡️ Para qual ETAPA vai depois desta resposta?\n(1 = volta ao inicio, 99 = finaliza)');
+            if (!nextStep || isNaN(nextStep)) return;
+            
+            flowData.push({
+                step: parseInt(step),
+                condition: condition,
+                response: response,
+                next_step: parseInt(nextStep)
+            });
+            
+            // Ordenar por etapa
+            flowData.sort((a, b) => a.step - b.step);
+            
+            renderFlowList();
+            showStatus('✅ Regra adicionada! Salve para aplicar.', 'info');
+        }
 
-<div class="ov" id="ov-faq">
-  <div class="modal">
-    <div class="modal-grip"></div>
-    <div class="modal-head">
-      <div class="modal-title">Nova dúvida frequente</div>
-      <div class="modal-sub">O atendente responde isso em qualquer momento, sem sair do roteiro.</div>
-    </div>
-    <div class="modal-body">
-      <div class="fld">
-        <label class="fld-lbl">O que o cliente pergunta?</label>
-        <input type="text" id="faq-q" placeholder="Ex: qual o prazo de entrega?">
-      </div>
-      <div class="fld">
-        <label class="fld-lbl">O que o atendente responde?</label>
-        <textarea id="faq-a" placeholder="Ex: O prazo de entrega é de 1 a 3 dias úteis após a confirmação do serviço. 😊"></textarea>
-      </div>
-    </div>
-    <div class="modal-foot">
-      <button class="btn-c" onclick="closeOv('ov-faq')">Cancelar</button>
-      <button class="btn-ok" onclick="saveFaq()">Salvar dúvida</button>
-    </div>
-  </div>
-</div>
+        function removeFlow(index) {
+            if (confirm('Remover esta regra?')) {
+                flowData.splice(index, 1);
+                renderFlowList();
+                showStatus('✅ Removida! Salve para aplicar.', 'info');
+            }
+        }
 
-<div class="toast" id="toast"></div>
+        function renderFaqList() {
+            const container = document.getElementById('faqList');
+            if (faqData.length === 0) {
+                container.innerHTML = '<div style="text-align:center; color:#999; padding:15px;">Nenhuma FAQ</div>';
+                return;
+            }
+            container.innerHTML = faqData.map((faq, index) => `
+                <div style="background:#f0f0f0; padding:10px; border-radius:8px; margin-bottom:8px;">
+                    <div style="font-weight:600; font-size:0.85rem;">❓ ${faq.question}</div>
+                    <div style="color:#666; font-size:0.8rem;">💬 ${faq.answer}</div>
+                    <button class="btn-small btn-danger" onclick="removeFaq(${index})">🗑️</button>
+                </div>
+            `).join('');
+        }
 
-<nav class="nav">
-  <a href="painel.html">
-    <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
-    Conversas
-  </a>
-  <a href="treinar.html" class="on">
-    <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-    Treinamento
-  </a>
-</nav>
+        function addNewFaq() {
+            const q = prompt('Pergunta do cliente:');
+            if (!q) return;
+            const a = prompt('Resposta do bot:');
+            if (!a) return;
+            faqData.push({ question: q, answer: a });
+            renderFaqList();
+            showStatus('✅ FAQ adicionada!', 'info');
+        }
 
-<script>
-const SB_URL='https://fwcljognwdutsagppxcq.supabase.co';
-const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ3Y2xqb2dud2R1dHNhZ3BweGNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4OTY4MjMsImV4cCI6MjA5MDQ3MjgyM30.6n8MejPbWRZlJnfZylrsK37_jwFha3FE7Xbj_Sn8VcE';
-const db=supabase.createClient(SB_URL,SB_KEY);
-let training=null,flows=[],faqs=[],escs=[],cStep=1,nStep=2;
+        function removeFaq(index) {
+            faqData.splice(index, 1);
+            renderFaqList();
+        }
 
-const DF=[
-  {step:1,condition:'oi, olá, ola, hey, bom dia, boa tarde, boa noite',response:'Olá! Seja bem-vindo à {empresa}! 😊\n\nQual equipamento você precisa de assistência?\n\n📱 Celular\n💻 Notebook\n🎮 Videogame\n📟 Tablet\n\nDigite o equipamento:',next_step:2},
-  {step:2,condition:'celular, telefone, smartphone, iphone, samsung, motorola, xiaomi',response:'Ótimo! Qual é o problema do seu celular?\n\n🔲 Tela quebrada\n🔋 Não liga / não carrega\n💧 Caiu na água\n🐢 Lento ou travando\n\nDigite o problema:',next_step:3},
-  {step:2,condition:'notebook, computador, pc, laptop, dell, hp, lenovo',response:'Entendido! Qual é o problema do notebook?\n\n🔲 Tela quebrada\n🔋 Não liga\n💧 Caiu na água\n🐢 Lento ou travando\n\nDigite o problema:',next_step:3},
-  {step:3,condition:'tela, quebrada, trincada, rachada, estilhaçada',response:'Tela quebrada! 💔\n\nO orçamento varia de R$150 a R$600 dependendo do modelo.\n\nQual o modelo do aparelho? (Ex: iPhone 11, Samsung A32)',next_step:4},
-  {step:3,condition:'não liga, nao liga, não carrega, nao carrega, bateria',response:'Problema de energia! 🔋\n\nPode ser bateria, placa ou conector. Orçamento entre R$80 e R$250.\n\nQuer agendar uma avaliação gratuita?',next_step:4},
-  {step:4,condition:'sim, quero, pode ser, ok, claro, agendar',response:'Perfeito! 📅\n\nMe informe:\n1️⃣ Seu nome completo\n2️⃣ Melhor dia e horário\n3️⃣ Endereço (opcional)\n\nOu diga "atendente" para falar com uma pessoa!',next_step:5},
-  {step:5,condition:'segunda, terça, quarta, quinta, sexta, sábado, sabado',response:'Anotado! ✅\n\nUm atendente confirmará seu agendamento em até 30 minutos.\n\nObrigado por entrar em contato com a {empresa}! 🙏',next_step:1}
-];
+        function toggleBot() {
+            const toggle = document.getElementById('botToggle');
+            toggle.classList.toggle('active');
+            const isActive = toggle.classList.contains('active');
+            showStatus(isActive ? '🟢 Bot ATIVADO ao salvar' : '🔴 Bot DESLIGADO ao salvar', 'info');
+        }
 
-async function load(){
-  const{data,error}=await db.from('bot_training').select('*').order('created_at',{ascending:false}).limit(1).maybeSingle();
-  if(error){toast('Erro ao carregar','err');return}
-  if(!data){await createDef();return}
-  training=data;flows=data.flow_data||DF;faqs=data.faq_data||[];escs=data.escalation_keywords||['atendente','humano','cancelar'];
-  document.getElementById('botName').value=data.bot_name||'';
-  document.getElementById('companyName').value=data.company_name||'';
-  setTog(data.active!==false);render();
-}
-async function createDef(){
-  const{data,error}=await db.from('bot_training').insert({bot_name:'TecBot',company_name:'Assistência Técnica',flow_data:DF,faq_data:[],escalation_keywords:['atendente','humano','pessoa','reclamação','cancelar','chefe'],active:true}).select().single();
-  if(error){toast('Erro ao criar','err');return}
-  training=data;flows=DF;escs=training.escalation_keywords;setTog(true);render();
-}
+        async function saveTraining() {
+            const btn = document.getElementById('saveBtn');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<span class="loading"></span> Salvando...';
+            btn.disabled = true;
 
-function render(){renderFlows();renderFaqs();renderEsc()}
+            const escalationWords = document.getElementById('escalationWords').value
+                .split(',')
+                .map(w => w.trim().toLowerCase())
+                .filter(w => w);
 
-function renderFlows(){
-  const el=document.getElementById('flowList');
-  if(!flows.length){el.innerHTML=`<div class="rc-empty"><span>📋</span>Nenhuma regra criada ainda.<br>Clique em "+ Adicionar" para começar.</div>`;return}
-  el.innerHTML=flows.map((f,i)=>`
-    <div class="rc">
-      <div class="rc-top">
-        <div class="rc-badge"><svg style="width:10px;height:10px;fill:none;stroke:currentColor;stroke-width:2.5" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Etapa ${f.step}</div>
-        <button class="rc-del" onclick="delFlow(${i})">✕ Remover</button>
-      </div>
-      <div class="rc-body">
-        <div class="rc-row"><span class="rc-lbl">Cliente diz</span><div class="rc-chips">${f.condition.split(',').map(c=>`<span class="chip">${c.trim()}</span>`).join('')}</div></div>
-        <div class="rc-row"><span class="rc-lbl">Atendente responde</span><span class="rc-val" style="white-space:pre-line">${f.response}</span></div>
-        <div class="rc-row"><span class="rc-lbl">Avança para</span><span class="rc-arrow">→ Etapa ${f.next_step}</span></div>
-      </div>
-    </div>`).join('');
-}
+            const data = {
+                bot_name: document.getElementById('botName').value,
+                company_name: document.getElementById('companyName').value,
+                flow_data: flowData,
+                faq_data: faqData,
+                escalation_keywords: escalationWords,
+                active: document.getElementById('botToggle').classList.contains('active'),
+                updated_at: new Date().toISOString()
+            };
 
-function renderFaqs(){
-  const el=document.getElementById('faqList');
-  if(!faqs.length){el.innerHTML=`<div style="text-align:center;color:var(--ink4);font-size:.82rem;padding:16px 0">Nenhuma dúvida frequente cadastrada ainda.</div>`;return}
-  el.innerHTML=faqs.map((f,i)=>`
-    <div class="faq-item">
-      <div style="flex:1"><div class="faq-q">${f.question}</div><div class="faq-a">${f.answer}</div></div>
-      <button class="faq-del" onclick="delFaq(${i})">✕</button>
-    </div>`).join('');
-}
+            let result;
+            if (currentTraining?.id) {
+                result = await supabaseClient
+                    .from('bot_training')
+                    .update(data)
+                    .eq('id', currentTraining.id);
+            } else {
+                result = await supabaseClient
+                    .from('bot_training')
+                    .insert(data)
+                    .select()
+                    .single();
+            }
 
-function renderEsc(){
-  document.getElementById('escWrap').innerHTML=escs.map((w,i)=>`<div class="ew" onclick="delEsc(${i})">${w} <b>✕</b></div>`).join('');
-}
+            btn.innerHTML = originalText;
+            btn.disabled = false;
 
-function toggleBot(){
-  const t=document.getElementById('botTog');t.classList.toggle('on');
-  setTog(t.classList.contains('on'));
-  toast(t.classList.contains('on')?'Atendente ativado ao salvar':'Atendente desligado ao salvar');
-}
-function setTog(on){
-  const t=document.getElementById('botTog'),d=document.getElementById('sDot'),tt=document.getElementById('sTitle'),ts=document.getElementById('sDesc');
-  on?t.classList.add('on'):t.classList.remove('on');
-  on?d.classList.add('on'):d.classList.remove('on');
-  tt.textContent=on?'Atendente ativo':'Atendente desligado';
-  ts.textContent=on?'Respondendo automaticamente no WhatsApp':'Todas as mensagens vão para atendimento humano';
-}
+            if (result.error) {
+                showStatus('❌ Erro: ' + result.error.message, 'error');
+            } else {
+                showStatus('✅ Fluxo salvo! O bot ja esta usando as novas regras.', 'success');
+                currentTraining = { ...currentTraining, ...data };
+            }
+        }
 
-function tog(id){document.getElementById(id).classList.toggle('open')}
+        function showStatus(msg, type) {
+            const status = document.getElementById('statusMsg');
+            status.textContent = msg;
+            status.className = 'status show ' + type;
+            if (type !== 'info') setTimeout(() => status.className = 'status', 4000);
+        }
 
-let cS=1,nS=2;
-function openFlowModal(){
-  cS=1;nS=2;
-  document.getElementById('f-cond').value='';document.getElementById('f-resp').value='';
-  setSel('sg-c',1);setSel('sg-n',2);openOv('ov-flow');
-}
-function pickSt(el,n,t){if(t==='c'){cS=n;setSel('sg-c',n)}else{nS=n;setSel('sg-n',n)}}
-function setSel(gid,n){document.querySelectorAll(`#${gid} .sp`).forEach(s=>s.classList.toggle('sel',+s.textContent===n))}
-function saveFlow(){
-  const c=document.getElementById('f-cond').value.trim(),r=document.getElementById('f-resp').value.trim();
-  if(!c||!r){toast('Preencha os campos 2 e 3','err');return}
-  flows.push({step:cS,condition:c,response:r,next_step:nS});
-  flows.sort((a,b)=>a.step-b.step);renderFlows();closeOv('ov-flow');
-  toast('Regra adicionada — clique em Salvar');
-}
-function delFlow(i){flows.splice(i,1);renderFlows();toast('Regra removida')}
-
-function openFaqModal(){document.getElementById('faq-q').value='';document.getElementById('faq-a').value='';openOv('ov-faq')}
-function saveFaq(){
-  const q=document.getElementById('faq-q').value.trim(),a=document.getElementById('faq-a').value.trim();
-  if(!q||!a){toast('Preencha pergunta e resposta','err');return}
-  faqs.push({question:q,answer:a});renderFaqs();closeOv('ov-faq');
-  toast('Dúvida adicionada — clique em Salvar');
-}
-function delFaq(i){faqs.splice(i,1);renderFaqs()}
-
-function addEsc(){
-  const el=document.getElementById('escInput'),w=el.value.trim().toLowerCase();
-  if(!w)return;if(!escs.includes(w)){escs.push(w);renderEsc()}el.value='';
-}
-document.getElementById('escInput').addEventListener('keydown',e=>{if(e.key==='Enter')addEsc()});
-function delEsc(i){escs.splice(i,1);renderEsc()}
-
-function openOv(id){document.getElementById(id).classList.add('show')}
-function closeOv(id){document.getElementById(id).classList.remove('show')}
-document.querySelectorAll('.ov').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)o.classList.remove('show')}));
-
-async function saveTraining(){
-  const btn=document.getElementById('saveBtn');
-  btn.classList.add('loading');btn.disabled=true;
-  const p={bot_name:document.getElementById('botName').value,company_name:document.getElementById('companyName').value,flow_data:flows,faq_data:faqs,escalation_keywords:escs,active:document.getElementById('botTog').classList.contains('on'),updated_at:new Date().toISOString()};
-  let res;
-  if(training?.id){res=await db.from('bot_training').update(p).eq('id',training.id)}
-  else{res=await db.from('bot_training').insert(p).select().single();if(res.data)training=res.data}
-  btn.classList.remove('loading');btn.disabled=false;
-  res.error?toast('Erro: '+res.error.message,'err'):toast('Salvo com sucesso!','ok');
-}
-
-let _t;
-function toast(msg,type=''){
-  const el=document.getElementById('toast');el.textContent=msg;el.className='toast show'+(type?' '+type:'');
-  clearTimeout(_t);_t=setTimeout(()=>el.className='toast',3000);
-}
-
-load();
-</script>
-
+        loadTraining();
+    </script>
 </body>
 </html>

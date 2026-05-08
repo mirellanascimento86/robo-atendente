@@ -342,6 +342,11 @@ body{
 .status-bar .bar .dot.ok{background:#2d6a4f;}
 .status-bar .bar .dot.warn{background:#b8965a;}
 .status-bar .bar .dot.err{background:#c0392b;}
+.status-bar .bar .sync-btn{
+  margin-left:auto;background:none;border:none;
+  color:var(--gold);font-size:11px;cursor:pointer;
+  text-decoration:underline;
+}
 </style>
 </head>
 <body>
@@ -361,6 +366,7 @@ body{
   <div class="bar" id="statusBar">
     <div class="dot warn" id="statusDot"></div>
     <span id="statusText">Verificando conexão…</span>
+    <button class="sync-btn" id="syncBtn" onclick="forceSync()" style="display:none;">↻ Sincronizar</button>
   </div>
 </div>
 
@@ -528,7 +534,6 @@ body{
 <script>
 /* ════════════════════════════════════════════════════════════════════════
    SUPABASE CLIENT - CORREÇÃO PRINCIPAL
-   O CDN do Supabase expõe window.supabase como objeto { createClient }
    ════════════════════════════════════════════════════════════════════════ */
 const SUPABASE_URL = 'https://fwcljognwdutsagppxcq.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ3Y2xqb2dud2R1dHNhZ3BweGNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4OTY4MjMsImV4cCI6MjA5MDQ3MjgyM30.6n8MejPbWRZlJnfZylrsK37_jwFha3FE7Xbj_Sn8VcE';
@@ -538,15 +543,18 @@ let training   = null;
 let faqData    = [];
 let escalation = ['atendente','humano','pessoa','reclamação','cancelar','chefe','gerente'];
 let isReady    = false;
-let useLocal   = false; // true = modo offline (Supabase falhou)
+let useLocal   = false;
+let pendingSync = false; // true = tem alterações locais não sincronizadas
 
 /* ── STATUS BAR ───────────────────────────────────────────────────────── */
-function setStatus(type, text) {
+function setStatus(type, text, showSync = false) {
   const dot = document.getElementById('statusDot');
   const txt = document.getElementById('statusText');
+  const syncBtn = document.getElementById('syncBtn');
   if (!dot || !txt) return;
   dot.className = 'dot ' + type;
   txt.textContent = text;
+  if (syncBtn) syncBtn.style.display = showSync ? 'block' : 'none';
 }
 
 /* ── INIT SUPABASE ────────────────────────────────────────────────────── */
@@ -554,7 +562,7 @@ function initSupabase() {
   try {
     if (typeof window.supabase === 'undefined') {
       console.warn('⚠️ Supabase CDN não carregou');
-      setStatus('warn','CDN do Supabase não carregou — usando modo offline');
+      setStatus('warn','CDN não carregou — usando modo offline', false);
       return false;
     }
     
@@ -562,7 +570,7 @@ function initSupabase() {
     
     if (typeof createClient !== 'function') {
       console.error('createClient não é função:', window.supabase);
-      setStatus('err','Erro na inicialização do Supabase');
+      setStatus('err','Erro na inicialização');
       return false;
     }
     
@@ -588,7 +596,6 @@ function initSupabase() {
 async function load() {
   showToast('Carregando…','info',99999);
   
-  // Aguardar CDN carregar (max 5s)
   let attempts = 0;
   while (!window.supabase && attempts < 50) {
     await new Promise(r => setTimeout(r, 100));
@@ -601,9 +608,7 @@ async function load() {
     return;
   }
   
-  // Tentar buscar do Supabase com tratamento de erro robusto
   try {
-    // Primeiro, verificar se a tabela existe e quais colunas tem
     const { data: testData, error: testError } = await db
       .from('bot_training')
       .select('*')
@@ -611,11 +616,9 @@ async function load() {
     
     if (testError) {
       console.warn('⚠️ Erro na tabela bot_training:', testError);
-      // Se erro de schema cache, forçar reload e tentar novamente
       if (testError.code === 'PGRST204' || testError.message?.includes('schema cache')) {
         console.log('Tentando recarregar schema cache...');
         await new Promise(r => setTimeout(r, 2000));
-        // Tentar novamente
         const { data: retryData, error: retryError } = await db
           .from('bot_training')
           .select('*')
@@ -630,8 +633,9 @@ async function load() {
     }
   } catch(e) {
     console.error('❌ Erro Supabase:', e);
-    setStatus('warn','Supabase indisponível — modo offline ativado');
+    setStatus('warn','Supabase indisponível — modo offline', true);
     useLocal = true;
+    pendingSync = true;
     loadFromLocal();
   }
 }
@@ -646,8 +650,7 @@ function processData(data) {
   faqData = data.faq_data || [];
   escalation = data.escalation_keywords || escalation;
   
-  // Mapear campos com fallback para nomes alternativos
-  document.getElementById('botName').value       = data.bot_name || data.name || data.botname || '';
+  document.getElementById('botName').value       = data.bot_name || data.name || '';
   document.getElementById('companyName').value   = data.company_name || data.company || '';
   document.getElementById('greeting').value      = data.greeting_message || data.greeting || '';
   document.getElementById('personality').value   = data.personality || data.behavior || '';
@@ -669,13 +672,51 @@ function processData(data) {
   renderFaq();
   isReady = true;
   useLocal = false;
-  setStatus('ok','Conectado ao Supabase ✓');
+  pendingSync = false;
+  setStatus('ok','Sincronizado com Supabase ✓', false);
   showToast('Configurações carregadas ✓','success');
+  
+  // Salvar no localStorage como cache
+  localStorage.setItem('bot_training_cache', JSON.stringify(data));
 }
 
-/* ── LOCALSTORAGE (FALLBACK OFFLINE) ──────────────────────────────────── */
+/* ── LOCALSTORAGE (FALLBACK + CACHE) ──────────────────────────────────── */
 function loadFromLocal() {
   try {
+    // Primeiro tentar cache do Supabase
+    const cache = localStorage.getItem('bot_training_cache');
+    if (cache && !useLocal) {
+      const data = JSON.parse(cache);
+      training = data;
+      faqData = data.faq_data || [];
+      escalation = data.escalation_keywords || escalation;
+      
+      document.getElementById('botName').value       = data.bot_name || '';
+      document.getElementById('companyName').value   = data.company_name || '';
+      document.getElementById('greeting').value      = data.greeting_message || '';
+      document.getElementById('personality').value   = data.personality || '';
+      document.getElementById('services').value      = data.services || '';
+      document.getElementById('businessHours').value = data.business_hours || '';
+      document.getElementById('pricing').value       = data.pricing_info || '';
+      document.getElementById('fallback').value      = data.fallback_message || '';
+      
+      const tog = document.getElementById('botToggle');
+      if (data.active !== false) {
+        tog.classList.add('on');
+      } else {
+        tog.classList.remove('on');
+      }
+      updateToggleLabel(data.active !== false);
+      
+      renderTags();
+      renderFaq();
+      setStatus('warn','Offline — mostrando cache', true);
+      showToast('Dados em cache (modo offline)','info');
+      isReady = true;
+      return;
+    }
+    
+    // Se não tiver cache, usar localStorage de edição
     const saved = localStorage.getItem('bot_training_v2');
     if (saved) {
       const data = JSON.parse(saved);
@@ -702,13 +743,14 @@ function loadFromLocal() {
       
       renderTags();
       renderFaq();
-      setStatus('warn','Modo offline — dados do navegador');
+      setStatus('warn','Modo offline — alterações não sincronizadas', true);
       showToast('Dados locais carregados','info');
     } else {
       createDefaultLocal();
     }
     isReady = true;
     useLocal = true;
+    pendingSync = true;
   } catch(e) {
     console.error('Erro localStorage:', e);
     createDefaultLocal();
@@ -754,6 +796,7 @@ async function createDefaultSupabase() {
     if (error) {
       console.warn('Erro ao criar padrão no Supabase:', error);
       useLocal = true;
+      pendingSync = true;
       createDefaultLocal();
       return;
     }
@@ -762,7 +805,43 @@ async function createDefaultSupabase() {
   } catch(e) {
     console.error('Erro createDefault:', e);
     useLocal = true;
+    pendingSync = true;
     createDefaultLocal();
+  }
+}
+
+/* ── FORCE SYNC ───────────────────────────────────────────────────────── */
+async function forceSync() {
+  if (!db) {
+    showToast('Supabase não disponível','error');
+    return;
+  }
+  
+  showToast('Sincronizando…','info',99999);
+  
+  try {
+    // Tentar enviar dados locais para o Supabase
+    const localData = JSON.parse(localStorage.getItem('bot_training_v2') || '{}');
+    
+    if (training?.id) {
+      const res = await db.from('bot_training').update(localData).eq('id', training.id);
+      if (res.error) throw res.error;
+    } else {
+      const res = await db.from('bot_training').insert(localData).select().single();
+      if (res.error) throw res.error;
+      if (res.data) training = res.data;
+    }
+    
+    // Atualizar cache
+    localStorage.setItem('bot_training_cache', JSON.stringify(localData));
+    pendingSync = false;
+    useLocal = false;
+    
+    setStatus('ok','Sincronizado com Supabase ✓', false);
+    showToast('Sincronizado com sucesso ✓','success');
+  } catch(e) {
+    console.error('Erro sync:', e);
+    showToast('Erro ao sincronizar: ' + e.message,'error');
   }
 }
 
@@ -901,7 +980,7 @@ function simulate() {
   out.classList.add('show');
 }
 
-/* ── GENERATE RESPONSE (mesma lógica do webhook) ─────────────────────── */
+/* ── GENERATE RESPONSE ───────────────────────────────────────────────── */
 function genResponse(userMsg, t) {
   const msg = userMsg.toLowerCase().trim();
 
@@ -960,18 +1039,20 @@ async function save() {
     updated_at: new Date().toISOString()
   };
 
-  // SEMPRE salvar no localStorage primeiro (persistência garantida)
+  // SEMPRE salvar no localStorage primeiro
   localStorage.setItem('bot_training_v2', JSON.stringify(payload));
   console.log('💾 Salvo no localStorage');
 
+  // TENTAR sincronizar com Supabase
+  let supabaseSuccess = false;
+  
   try {
-    if (db && !useLocal) {
+    if (db) {
       if (training?.id) {
         const res = await db.from('bot_training').update(payload).eq('id',training.id);
         if (res.error) {
-          // Se erro de coluna, tentar com nomes alternativos
+          // Tentar nomes alternativos
           if (res.error.message?.includes('column') || res.error.code === 'PGRST204') {
-            console.warn('Tentando nomes de coluna alternativos...');
             const altPayload = {
               name: payload.bot_name,
               company: payload.company_name,
@@ -995,28 +1076,36 @@ async function save() {
         } else {
           training = {...training,...payload};
         }
-        setStatus('ok','Salvo no Supabase ✓');
-        showToast('Configurações salvas no servidor ✓','success');
+        supabaseSuccess = true;
       } else {
         const res = await db.from('bot_training').insert(payload).select().single();
         if (res.error) throw res.error;
         if (res.data) training = res.data;
-        setStatus('ok','Criado no Supabase ✓');
-        showToast('Configurações criadas no servidor ✓','success');
+        supabaseSuccess = true;
       }
-    } else {
-      setStatus('warn','Salvo localmente (offline)');
-      showToast('Salvo localmente ✓','success');
     }
   } catch(e) {
-    console.error('Erro ao salvar no Supabase:', e);
-    setStatus('warn','Salvo localmente — Supabase com erro');
-    showToast('Salvo localmente (Supabase: ' + e.message + ')','info');
-    useLocal = true;
-  } finally {
-    btn.innerHTML='Salvar Configurações';
-    btn.disabled=false;
+    console.error('Erro Supabase:', e);
+    supabaseSuccess = false;
   }
+
+  // Atualizar status baseado no resultado
+  if (supabaseSuccess) {
+    useLocal = false;
+    pendingSync = false;
+    // Atualizar cache
+    localStorage.setItem('bot_training_cache', JSON.stringify(payload));
+    setStatus('ok','Salvo no Supabase ✓ — webhook vai usar estas configurações', false);
+    showToast('✓ Configurações salvas e ativas no WhatsApp!','success');
+  } else {
+    useLocal = true;
+    pendingSync = true;
+    setStatus('warn','Salvo localmente — clique ↻ Sincronizar para ativar no WhatsApp', true);
+    showToast('Salvo localmente. Clique "Sincronizar" para ativar no WhatsApp.','info');
+  }
+
+  btn.innerHTML='Salvar Configurações';
+  btn.disabled=false;
 }
 
 /* ── TOAST ────────────────────────────────────────────────────────────── */

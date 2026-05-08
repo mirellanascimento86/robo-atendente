@@ -1,737 +1,1060 @@
 <!DOCTYPE html>
+
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>🎓 Painel de Treinamento - Bot</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #f0f2f5;
-            padding: 10px;
-            max-width: 600px;
-            margin: 0 auto;
-            padding-bottom: 100px;
-        }
-        .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 20px;
-            border-radius: 15px;
-            margin-bottom: 15px;
-            text-align: center;
-        }
-        .header h1 { font-size: 1.3rem; margin-bottom: 5px; }
-        .header p { font-size: 0.85rem; opacity: 0.9; }
-        
-        .card {
-            background: white;
-            border-radius: 15px;
-            padding: 15px;
-            margin-bottom: 12px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-        }
-        .card-title {
-            font-weight: 600;
-            color: #333;
-            margin-bottom: 10px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 0.95rem;
-        }
-        
-        .form-group { margin-bottom: 12px; }
-        .form-group label {
-            display: block;
-            font-size: 0.8rem;
-            color: #666;
-            margin-bottom: 4px;
-            font-weight: 500;
-        }
-        .form-group input,
-        .form-group textarea,
-        .form-group select {
-            width: 100%;
-            padding: 12px;
-            border: 2px solid #e0e0e0;
-            border-radius: 10px;
-            font-size: 0.9rem;
-            transition: border-color 0.3s;
-            font-family: inherit;
-        }
-        .form-group input:focus,
-        .form-group textarea:focus {
-            outline: none;
-            border-color: #667eea;
-        }
-        .form-group textarea {
-            min-height: 80px;
-            resize: vertical;
-        }
-        
-        .btn {
-            width: 100%;
-            padding: 14px;
-            border: none;
-            border-radius: 12px;
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-            margin-top: 5px;
-        }
-        .btn-primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-        }
-        .btn-primary:active { transform: scale(0.98); }
-        .btn-success { background: #10b981; color: white; }
-        .btn-danger { background: #ef4444; color: white; }
-        
-        .status {
-            padding: 12px;
-            border-radius: 10px;
-            text-align: center;
-            font-size: 0.9rem;
-            margin-top: 10px;
-            display: none;
-            font-weight: 500;
-        }
-        .status.show { display: block; }
-        .status.success { background: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
-        .status.error { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
-        .status.info { background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; }
-        
-        .faq-item {
-            background: #f8f9fa;
-            border-radius: 10px;
-            padding: 12px;
-            margin-bottom: 8px;
-            border-left: 3px solid #667eea;
-        }
-        .faq-question { font-weight: 600; color: #333; margin-bottom: 4px; font-size: 0.85rem; }
-        .faq-answer { color: #666; font-size: 0.8rem; line-height: 1.4; }
-        .btn-small {
-            padding: 6px 12px;
-            font-size: 0.75rem;
-            border-radius: 6px;
-            border: none;
-            cursor: pointer;
-            margin-top: 8px;
-            margin-right: 5px;
-        }
-        
-        .add-faq {
-            background: #f0f0f0;
-            border: 2px dashed #ccc;
-            border-radius: 10px;
-            padding: 15px;
-            text-align: center;
-            cursor: pointer;
-            margin-top: 10px;
-            color: #666;
-            font-weight: 500;
-        }
-        .add-faq:active { background: #e0e0e0; }
-        
-        .switch {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 5px 0;
-        }
-        .toggle {
-            width: 50px;
-            height: 28px;
-            background: #ccc;
-            border-radius: 14px;
-            position: relative;
-            cursor: pointer;
-            transition: 0.3s;
-            flex-shrink: 0;
-        }
-        .toggle.active { background: #10b981; }
-        .toggle::after {
-            content: '';
-            position: absolute;
-            width: 24px;
-            height: 24px;
-            background: white;
-            border-radius: 50%;
-            top: 2px;
-            left: 2px;
-            transition: 0.3s;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-        }
-        .toggle.active::after { left: 24px; }
-        
-        .preview-box {
-            background: #f0fdf4;
-            border-radius: 10px;
-            padding: 15px;
-            margin-top: 10px;
-            border: 1px solid #86efac;
-        }
-        .preview-box h4 { color: #15803d; margin-bottom: 8px; font-size: 0.85rem; }
-        .preview-text { color: #166534; font-size: 0.85rem; line-height: 1.5; white-space: pre-wrap; }
-        
-        .loading {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 3px solid rgba(255,255,255,0.3);
-            border-top: 3px solid white;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            vertical-align: middle;
-            margin-right: 8px;
-        }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        
-        .nav-bottom {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background: white;
-            display: flex;
-            justify-content: space-around;
-            padding: 10px;
-            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
-            max-width: 600px;
-            margin: 0 auto;
-            z-index: 100;
-        }
-        .nav-item {
-            text-align: center;
-            color: #999;
-            text-decoration: none;
-            font-size: 0.7rem;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 2px;
-            padding: 5px 15px;
-        }
-        .nav-item.active { color: #667eea; }
-        .nav-item svg { width: 24px; height: 24px; }
-        
-        .section-badge {
-            display: inline-block;
-            background: #667eea;
-            color: white;
-            padding: 2px 8px;
-            border-radius: 12px;
-            font-size: 0.7rem;
-            margin-left: 8px;
-        }
-        
-        .hint {
-            font-size: 0.75rem;
-            color: #888;
-            margin-top: 3px;
-            line-height: 1.3;
-        }
-        
-        .realtime-indicator {
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-            font-size: 0.75rem;
-            color: #10b981;
-            margin-top: 5px;
-        }
-        .pulse {
-            width: 8px;
-            height: 8px;
-            background: #10b981;
-            border-radius: 50%;
-            animation: pulse 2s infinite;
-        }
-        @keyframes pulse {
-            0% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.5; transform: scale(1.2); }
-            100% { opacity: 1; transform: scale(1); }
-        }
-        
-        .escalation-tags {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 5px;
-            margin-top: 5px;
-        }
-        .escalation-tag {
-            background: #fee2e2;
-            color: #991b1b;
-            padding: 4px 10px;
-            border-radius: 12px;
-            font-size: 0.75rem;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-        }
-        .escalation-tag button {
-            background: none;
-            border: none;
-            color: #991b1b;
-            cursor: pointer;
-            font-weight: bold;
-        }
-        .add-tag-input {
-            display: flex;
-            gap: 5px;
-            margin-top: 5px;
-        }
-        .add-tag-input input {
-            flex: 1;
-            padding: 8px 12px;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            font-size: 0.85rem;
-        }
-        .add-tag-input button {
-            padding: 8px 15px;
-            background: #667eea;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 0.85rem;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>AI Training Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root {
+    --ink: #0e0e0e;
+    --cream: #faf8f4;
+    --gold: #b8965a;
+    --gold-light: #d4b07a;
+    --gold-pale: #f0e6d3;
+    --smoke: #6b6560;
+    --line: rgba(184,150,90,.18);
+    --card: #ffffff;
+    --field: #f7f5f1;
+    --field-focus: #fff;
+    --radius: 4px;
+    --shadow: 0 2px 24px rgba(0,0,0,.06);
+}
+
+- { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+font-family: ‘DM Sans’, sans-serif;
+background: var(–cream);
+color: var(–ink);
+min-height: 100vh;
+padding-bottom: 120px;
+overflow-x: hidden;
+}
+
+/* ── NOISE TEXTURE ── */
+body::before {
+content:’’;
+position:fixed;
+inset:0;
+background-image:url(“data:image/svg+xml,%3Csvg xmlns=‘http://www.w3.org/2000/svg’ width=‘300’ height=‘300’%3E%3Cfilter id=‘n’%3E%3CfeTurbulence type=‘fractalNoise’ baseFrequency=’.75’ numOctaves=‘4’ stitchTiles=‘stitch’/%3E%3C/filter%3E%3Crect width=‘300’ height=‘300’ filter=‘url(%23n)’ opacity=’.025’/%3E%3C/svg%3E”);
+pointer-events:none;
+z-index:0;
+}
+
+/* ── HERO HEADER ── */
+.hero {
+background: var(–ink);
+padding: 52px 24px 40px;
+position: relative;
+overflow: hidden;
+}
+.hero::after {
+content: ‘’;
+position: absolute;
+bottom: 0; left: 0; right: 0;
+height: 1px;
+background: linear-gradient(90deg, transparent, var(–gold), transparent);
+}
+.hero-inner {
+max-width: 560px;
+margin: 0 auto;
+position: relative;
+z-index: 1;
+}
+.hero-eyebrow {
+font-family: ‘DM Sans’, sans-serif;
+font-size: 10px;
+letter-spacing: 4px;
+text-transform: uppercase;
+color: var(–gold);
+margin-bottom: 14px;
+display: flex;
+align-items: center;
+gap: 10px;
+}
+.hero-eyebrow::before {
+content: ‘’;
+display: block;
+width: 28px;
+height: 1px;
+background: var(–gold);
+}
+.hero h1 {
+font-family: ‘Cormorant Garamond’, serif;
+font-size: 2.6rem;
+font-weight: 300;
+color: #fff;
+line-height: 1.15;
+letter-spacing: -.5px;
+margin-bottom: 10px;
+}
+.hero h1 em {
+color: var(–gold-light);
+font-style: italic;
+font-weight: 300;
+}
+.hero-sub {
+font-size: 13px;
+color: rgba(255,255,255,.45);
+font-weight: 300;
+letter-spacing: .3px;
+}
+
+/* ── LIVE BADGE ── */
+.live-badge {
+display: inline-flex;
+align-items: center;
+gap: 6px;
+background: rgba(184,150,90,.12);
+border: 1px solid rgba(184,150,90,.3);
+color: var(–gold-light);
+padding: 5px 12px;
+border-radius: 20px;
+font-size: 11px;
+letter-spacing: 1.5px;
+text-transform: uppercase;
+margin-top: 16px;
+}
+.live-dot {
+width: 6px; height: 6px;
+background: var(–gold-light);
+border-radius: 50%;
+animation: pulse 2s ease-in-out infinite;
+}
+@keyframes pulse {
+0%,100% { opacity:1; transform:scale(1); }
+50%      { opacity:.4; transform:scale(1.3); }
+}
+
+/* ── STATUS TOGGLE CARD ── */
+.status-card {
+max-width: 560px;
+margin: 24px auto 0;
+padding: 0 16px;
+}
+.status-inner {
+background: var(–card);
+border-radius: var(–radius);
+padding: 18px 20px;
+display: flex;
+align-items: center;
+justify-content: space-between;
+box-shadow: var(–shadow);
+border: 1px solid rgba(0,0,0,.05);
+}
+.status-label { font-size: 13px; font-weight: 500; }
+.status-hint  { font-size: 11px; color: var(–smoke); margin-top: 2px; }
+.toggle-wrap  { display: flex; align-items: center; gap: 10px; }
+.toggle-text  { font-size: 11px; color: var(–smoke); font-weight: 500; }
+.tog {
+width: 44px; height: 24px;
+background: #d8d3cd;
+border-radius: 12px;
+position: relative;
+cursor: pointer;
+transition: background .3s;
+flex-shrink: 0;
+}
+.tog.on { background: var(–gold); }
+.tog::after {
+content: ‘’;
+position: absolute;
+width: 20px; height: 20px;
+background: #fff;
+border-radius: 50%;
+top: 2px; left: 2px;
+transition: left .3s;
+box-shadow: 0 1px 4px rgba(0,0,0,.2);
+}
+.tog.on::after { left: 22px; }
+
+/* ── CONTENT AREA ── */
+.content {
+max-width: 560px;
+margin: 0 auto;
+padding: 24px 16px 0;
+position: relative;
+z-index: 1;
+}
+
+/* ── SECTION ── */
+.section {
+margin-bottom: 20px;
+background: var(–card);
+border-radius: var(–radius);
+box-shadow: var(–shadow);
+border: 1px solid rgba(0,0,0,.04);
+overflow: hidden;
+transition: box-shadow .2s;
+}
+.section:focus-within { box-shadow: 0 4px 32px rgba(184,150,90,.12); }
+.section-head {
+padding: 18px 20px 14px;
+border-bottom: 1px solid var(–line);
+display: flex;
+align-items: center;
+justify-content: space-between;
+}
+.section-title {
+font-family: ‘Cormorant Garamond’, serif;
+font-size: 1.1rem;
+font-weight: 400;
+letter-spacing: .3px;
+display: flex;
+align-items: center;
+gap: 10px;
+}
+.section-title .icon {
+width: 26px; height: 26px;
+border-radius: 50%;
+background: var(–gold-pale);
+display: flex;
+align-items: center;
+justify-content: center;
+font-size: 13px;
+}
+.section-badge {
+font-size: 9px;
+letter-spacing: 2px;
+text-transform: uppercase;
+color: var(–gold);
+background: var(–gold-pale);
+padding: 3px 8px;
+border-radius: 10px;
+font-weight: 500;
+}
+.section-body { padding: 18px 20px; }
+
+/* ── FORM FIELDS ── */
+.field { margin-bottom: 16px; }
+.field:last-child { margin-bottom: 0; }
+.field label {
+display: block;
+font-size: 10.5px;
+letter-spacing: 1.5px;
+text-transform: uppercase;
+color: var(–smoke);
+font-weight: 500;
+margin-bottom: 7px;
+}
+.field input,
+.field textarea {
+width: 100%;
+padding: 12px 14px;
+background: var(–field);
+border: 1.5px solid transparent;
+border-radius: var(–radius);
+font-size: 14px;
+color: var(–ink);
+font-family: ‘DM Sans’, sans-serif;
+transition: all .2s;
+outline: none;
+resize: vertical;
+}
+.field input:focus,
+.field textarea:focus {
+background: var(–field-focus);
+border-color: var(–gold);
+box-shadow: 0 0 0 3px rgba(184,150,90,.08);
+}
+.field textarea { min-height: 78px; line-height: 1.55; }
+.field-hint {
+font-size: 11px;
+color: #a09890;
+margin-top: 5px;
+line-height: 1.4;
+}
+
+/* ── ESCALATION TAGS ── */
+.tags-wrap {
+display: flex;
+flex-wrap: wrap;
+gap: 6px;
+margin-bottom: 12px;
+}
+.tag-pill {
+display: inline-flex;
+align-items: center;
+gap: 5px;
+background: #fff0f0;
+border: 1px solid #ffd6d6;
+color: #c0392b;
+padding: 5px 11px;
+border-radius: 20px;
+font-size: 12px;
+font-weight: 500;
+}
+.tag-pill button {
+background: none; border: none;
+color: #c0392b; cursor: pointer;
+font-size: 14px; line-height: 1;
+padding: 0; margin-left: 1px;
+transition: opacity .15s;
+}
+.tag-pill button:hover { opacity: .6; }
+.tag-add {
+display: flex;
+gap: 8px;
+}
+.tag-add input {
+flex: 1;
+padding: 10px 13px;
+background: var(–field);
+border: 1.5px solid transparent;
+border-radius: var(–radius);
+font-size: 13.5px;
+font-family: ‘DM Sans’, sans-serif;
+outline: none;
+transition: all .2s;
+}
+.tag-add input:focus {
+background: #fff;
+border-color: var(–gold);
+box-shadow: 0 0 0 3px rgba(184,150,90,.08);
+}
+.tag-add button {
+padding: 10px 16px;
+background: var(–ink);
+color: #fff;
+border: none;
+border-radius: var(–radius);
+font-size: 13px;
+font-family: ‘DM Sans’, sans-serif;
+font-weight: 500;
+cursor: pointer;
+transition: background .2s;
+white-space: nowrap;
+}
+.tag-add button:hover { background: var(–gold); }
+
+/* ── FAQ ── */
+.faq-item {
+background: var(–field);
+border-radius: var(–radius);
+padding: 14px 16px;
+margin-bottom: 8px;
+border-left: 2px solid var(–gold);
+position: relative;
+}
+.faq-q { font-size: 13px; font-weight: 500; color: var(–ink); margin-bottom: 5px; }
+.faq-a { font-size: 12.5px; color: var(–smoke); line-height: 1.5; }
+.faq-del {
+position: absolute;
+top: 10px; right: 12px;
+background: none; border: none;
+font-size: 16px; color: #c0392b;
+cursor: pointer; opacity: .5;
+transition: opacity .15s;
+}
+.faq-del:hover { opacity: 1; }
+.faq-add {
+width: 100%;
+padding: 13px;
+background: none;
+border: 1.5px dashed var(–line);
+border-radius: var(–radius);
+color: var(–smoke);
+font-family: ‘DM Sans’, sans-serif;
+font-size: 13.5px;
+cursor: pointer;
+transition: all .2s;
+margin-top: 4px;
+display: flex;
+align-items: center;
+justify-content: center;
+gap: 6px;
+}
+.faq-add:hover {
+border-color: var(–gold);
+color: var(–gold);
+background: var(–gold-pale);
+}
+.faq-empty {
+text-align: center;
+color: var(–smoke);
+font-size: 13px;
+padding: 20px 0;
+font-style: italic;
+}
+
+/* ── PREVIEW ── */
+.preview-section {
+background: var(–card);
+border-radius: var(–radius);
+overflow: hidden;
+box-shadow: var(–shadow);
+border: 1px solid rgba(0,0,0,.04);
+margin-bottom: 20px;
+}
+.preview-output {
+background: linear-gradient(135deg, #f8f4ed, #f3ede2);
+border-top: 1px solid var(–line);
+padding: 18px 20px;
+display: none;
+}
+.preview-output.show { display: block; }
+.preview-label {
+font-size: 10px;
+letter-spacing: 2px;
+text-transform: uppercase;
+color: var(–gold);
+font-weight: 500;
+margin-bottom: 10px;
+display: flex;
+align-items: center;
+gap: 6px;
+}
+.preview-label::after {
+content: ‘’;
+flex: 1;
+height: 1px;
+background: var(–line);
+}
+.preview-text {
+font-size: 13.5px;
+color: var(–ink);
+line-height: 1.65;
+white-space: pre-wrap;
+font-family: ‘DM Sans’, sans-serif;
+}
+
+/* ── SAVE BUTTON ── */
+.save-wrap {
+max-width: 560px;
+margin: 0 auto;
+padding: 0 16px 16px;
+position: relative;
+z-index: 1;
+}
+.save-btn {
+width: 100%;
+padding: 16px;
+background: var(–ink);
+color: #fff;
+border: none;
+border-radius: var(–radius);
+font-family: ‘DM Sans’, sans-serif;
+font-size: 14px;
+font-weight: 500;
+letter-spacing: 1px;
+text-transform: uppercase;
+cursor: pointer;
+transition: all .25s;
+position: relative;
+overflow: hidden;
+}
+.save-btn::after {
+content: ‘’;
+position: absolute;
+inset: 0;
+background: linear-gradient(90deg, transparent 0%, rgba(184,150,90,.15) 50%, transparent 100%);
+transform: translateX(-100%);
+transition: transform .5s;
+}
+.save-btn:hover { background: #1a1a1a; }
+.save-btn:hover::after { transform: translateX(100%); }
+.save-btn:active { transform: scale(.99); }
+.save-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+/* ── TOAST ── */
+.toast {
+position: fixed;
+bottom: 90px; left: 50%;
+transform: translateX(-50%) translateY(20px);
+background: var(–ink);
+color: #fff;
+padding: 12px 22px;
+border-radius: 30px;
+font-size: 13px;
+font-weight: 500;
+opacity: 0;
+pointer-events: none;
+transition: all .35s cubic-bezier(.34,1.56,.64,1);
+z-index: 999;
+white-space: nowrap;
+box-shadow: 0 8px 32px rgba(0,0,0,.2);
+}
+.toast.show {
+opacity: 1;
+transform: translateX(-50%) translateY(0);
+}
+.toast.success { background: #2d6a4f; }
+.toast.error   { background: #b5211e; }
+.toast.info    { background: var(–gold); color: var(–ink); }
+
+/* ── BOTTOM NAV ── */
+.nav-bar {
+position: fixed;
+bottom: 0; left: 0; right: 0;
+background: #fff;
+border-top: 1px solid rgba(0,0,0,.07);
+display: flex;
+justify-content: center;
+gap: 0;
+z-index: 100;
+box-shadow: 0 -4px 24px rgba(0,0,0,.06);
+}
+.nav-item {
+text-decoration: none;
+display: flex;
+flex-direction: column;
+align-items: center;
+gap: 3px;
+padding: 10px 40px;
+color: #aaa;
+font-size: 10px;
+letter-spacing: 1px;
+text-transform: uppercase;
+font-weight: 500;
+transition: color .2s;
+border-top: 2px solid transparent;
+}
+.nav-item.active {
+color: var(–gold);
+border-top-color: var(–gold);
+}
+.nav-item svg { width: 22px; height: 22px; }
+
+/* ── DIVIDER ── */
+.divider {
+height: 1px;
+background: var(–line);
+margin: 2px 0 16px;
+}
+
+/* ── LOADING SPINNER ── */
+.spinner {
+display: inline-block;
+width: 14px; height: 14px;
+border: 2px solid rgba(255,255,255,.3);
+border-top-color: #fff;
+border-radius: 50%;
+animation: spin .8s linear infinite;
+vertical-align: middle;
+margin-right: 6px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── MODAL ── */
+.modal-overlay {
+position: fixed;
+inset: 0;
+background: rgba(0,0,0,.55);
+z-index: 500;
+display: none;
+align-items: flex-end;
+justify-content: center;
+backdrop-filter: blur(2px);
+}
+.modal-overlay.open { display: flex; }
+.modal {
+background: var(–card);
+border-radius: 12px 12px 0 0;
+padding: 24px 20px 32px;
+width: 100%;
+max-width: 560px;
+animation: slideUp .3s cubic-bezier(.34,1.2,.64,1);
+}
+@keyframes slideUp { from{transform:translateY(60px);opacity:0} to{transform:none;opacity:1} }
+.modal h3 {
+font-family: ‘Cormorant Garamond’, serif;
+font-size: 1.3rem;
+font-weight: 400;
+margin-bottom: 16px;
+}
+.modal .field { margin-bottom: 14px; }
+.modal-actions { display: flex; gap: 10px; margin-top: 4px; }
+.modal-actions button {
+flex: 1;
+padding: 13px;
+border: none;
+border-radius: var(–radius);
+font-family: ‘DM Sans’, sans-serif;
+font-size: 14px;
+font-weight: 500;
+cursor: pointer;
+transition: all .2s;
+}
+.modal-cancel  { background: var(–field); color: var(–smoke); }
+.modal-confirm { background: var(–ink); color: #fff; }
+.modal-confirm:hover { background: var(–gold); }
+</style>
+
 </head>
 <body>
-    <div class="header">
-        <h1>🎓 Painel de Treinamento</h1>
-        <p>Edite a personalidade do seu bot em tempo real</p>
-    </div>
 
-    <!-- Status do Bot -->
-    <div class="card">
-        <div class="switch">
-            <div>
-                <div style="font-weight:600; color:#333;">🤖 Bot Ativo</div>
-                <div class="hint">Desligado = todas as mensagens vao para intervencao humana</div>
-                <div class="realtime-indicator">
-                    <div class="pulse"></div>
-                    <span>Atualizacoes em tempo real ativas</span>
-                </div>
-            </div>
-            <div class="toggle active" id="botToggle" onclick="toggleBot()"></div>
+<!-- ── HERO ── -->
+
+<div class="hero">
+    <div class="hero-inner">
+        <div class="hero-eyebrow">AI Training Studio</div>
+        <h1>Shape your<br><em>Intelligence</em></h1>
+        <div class="hero-sub">Configure a personalidade e o comportamento do seu assistente em tempo real</div>
+        <div class="live-badge"><div class="live-dot"></div> Live Sync</div>
+    </div>
+</div>
+
+<!-- ── STATUS TOGGLE ── -->
+
+<div class="status-card">
+    <div class="status-inner">
+        <div>
+            <div class="status-label">Assistente Ativo</div>
+            <div class="status-hint" id="toggleHint">Todas as mensagens processadas pelo bot</div>
+        </div>
+        <div class="toggle-wrap">
+            <span class="toggle-text" id="toggleLabel">ON</span>
+            <div class="tog on" id="botToggle" onclick="toggleBot()"></div>
         </div>
     </div>
+</div>
 
-    <!-- Identidade do Bot -->
-    <div class="card">
-        <div class="card-title">🤖 Identidade do Bot <span class="section-badge">Obrigatorio</span></div>
-        <div class="form-group">
-            <label>Nome do Bot</label>
-            <input type="text" id="botName" placeholder="Ex: TecBot">
+<!-- ── CONTENT ── -->
+
+<div class="content">
+
+```
+<!-- IDENTITY -->
+<div class="section">
+    <div class="section-head">
+        <div class="section-title">
+            <div class="icon">✦</div>
+            Identidade
         </div>
-        <div class="form-group">
+        <span class="section-badge">Obrigatório</span>
+    </div>
+    <div class="section-body">
+        <div class="field">
+            <label>Nome do Assistente</label>
+            <input type="text" id="botName" placeholder="Ex: ARIA, NOVA, TecBot…">
+        </div>
+        <div class="field">
             <label>Nome da Empresa</label>
-            <input type="text" id="companyName" placeholder="Ex: Assistencia Tecnica Express">
+            <input type="text" id="companyName" placeholder="Ex: Assistência Express Premium">
         </div>
-        <div class="form-group">
-            <label>Mensagem de Saudacao <span class="hint">Primeira mensagem que o bot envia quando o cliente diz "Oi"</span></label>
-            <textarea id="greeting" placeholder="Ola! Sou o assistente virtual..."></textarea>
-        </div>
-    </div>
-
-    <!-- Personalidade -->
-    <div class="card">
-        <div class="card-title">🧠 Personalidade & Comportamento</div>
-        <div class="form-group">
-            <label>Instrucoes de Personalidade <span class="hint">Como o bot deve se comportar? Ex: "Seja cordial, use emojis, seja direto..."</span></label>
-            <textarea id="personality" placeholder="Descreva a personalidade do bot..."></textarea>
-        </div>
-        <div class="form-group">
-            <label>Servicos Oferecidos <span class="hint">Lista de servicos que o bot pode mencionar</span></label>
-            <textarea id="services" placeholder="Conserto de celulares, notebooks..."></textarea>
-        </div>
-        <div class="form-group">
-            <label>Horario de Funcionamento</label>
-            <textarea id="businessHours" placeholder="Segunda a Sexta: 9h as 18h..."></textarea>
-        </div>
-        <div class="form-group">
-            <label>Informacoes de Precos <span class="hint">O que o bot diz quando perguntam de valores</span></label>
-            <textarea id="pricing" placeholder="Orcamento gratuito..."></textarea>
-        </div>
-        <div class="form-group">
-            <label>Mensagem quando nao entende (Fallback) <span class="hint">Quando o bot nao sabe responder</span></label>
-            <textarea id="fallback" placeholder="Desculpe, nao entendi..."></textarea>
+        <div class="field">
+            <label>Saudação Inicial</label>
+            <textarea id="greeting" placeholder="Primeira mensagem enviada quando o cliente inicia a conversa…"></textarea>
+            <div class="field-hint">Esta mensagem é enviada automaticamente ao primeiro contato do cliente.</div>
         </div>
     </div>
+</div>
 
-    <!-- Palavras de Escalonamento -->
-    <div class="card">
-        <div class="card-title">🚨 Palavras que Transferem para Humano <span class="section-badge">Automatico</span></div>
-        <div class="hint" style="margin-bottom:10px;">Quando o cliente digitar alguma dessas palavras, o bot transfere automaticamente para um atendente humano.</div>
-        <div class="escalation-tags" id="escalationTags"></div>
-        <div class="add-tag-input">
-            <input type="text" id="newTagInput" placeholder="Digite uma palavra..." onkeypress="if(event.key==='Enter') addEscalationTag()">
-            <button onclick="addEscalationTag()">+ Adicionar</button>
+<!-- PERSONALITY -->
+<div class="section">
+    <div class="section-head">
+        <div class="section-title">
+            <div class="icon">◈</div>
+            Personalidade
         </div>
     </div>
+    <div class="section-body">
+        <div class="field">
+            <label>Instruções de Comportamento</label>
+            <textarea id="personality" placeholder="Descreva como o assistente deve se comportar: tom, estilo, empatia, formalidade…"></textarea>
+            <div class="field-hint">Ex: "Seja elegante e objetivo. Use linguagem sofisticada. Evite gírias. Demonstre expertise."</div>
+        </div>
+        <div class="divider"></div>
+        <div class="field">
+            <label>Serviços Disponíveis</label>
+            <textarea id="services" placeholder="Liste os serviços que o assistente pode mencionar e apresentar…"></textarea>
+        </div>
+        <div class="field">
+            <label>Horário de Funcionamento</label>
+            <textarea id="businessHours" placeholder="Segunda a Sexta: 9h às 18h | Sábado: 9h às 13h"></textarea>
+        </div>
+        <div class="field">
+            <label>Política de Preços</label>
+            <textarea id="pricing" placeholder="O que o assistente responde sobre valores e orçamentos…"></textarea>
+        </div>
+        <div class="field">
+            <label>Mensagem Padrão (Fallback)</label>
+            <textarea id="fallback" placeholder="Quando o assistente não entende a solicitação…"></textarea>
+        </div>
+    </div>
+</div>
 
-    <!-- FAQ Inteligente -->
-    <div class="card">
-        <div class="card-title">❓ Perguntas Frequentes (FAQ) <span class="section-badge">Inteligente</span></div>
-        <div class="hint" style="margin-bottom:10px;">O bot procura palavras-chave nas perguntas do cliente e responde automaticamente</div>
+<!-- ESCALATION -->
+<div class="section">
+    <div class="section-head">
+        <div class="section-title">
+            <div class="icon">⚡</div>
+            Transferência Humana
+        </div>
+        <span class="section-badge">Auto</span>
+    </div>
+    <div class="section-body">
+        <div class="field-hint" style="margin-bottom:12px;">
+            Quando o cliente usar uma dessas palavras, a conversa é transferida automaticamente para um atendente humano.
+        </div>
+        <div class="tags-wrap" id="escalationTags"></div>
+        <div class="tag-add">
+            <input type="text" id="newTagInput" placeholder="Adicionar palavra-chave…"
+                   onkeypress="if(event.key==='Enter')addTag()">
+            <button onclick="addTag()">+ Adicionar</button>
+        </div>
+    </div>
+</div>
+
+<!-- FAQ -->
+<div class="section">
+    <div class="section-head">
+        <div class="section-title">
+            <div class="icon">❋</div>
+            Base de Conhecimento
+        </div>
+        <span class="section-badge">Inteligente</span>
+    </div>
+    <div class="section-body">
+        <div class="field-hint" style="margin-bottom:14px;">
+            O assistente reconhece palavras-chave das perguntas e responde automaticamente com o conteúdo cadastrado.
+        </div>
         <div id="faqList"></div>
-        <div class="add-faq" onclick="addNewFaq()">
-            + Adicionar nova pergunta/resposta
+        <button class="faq-add" onclick="openFaqModal()">
+            <span>＋</span> Adicionar Pergunta & Resposta
+        </button>
+    </div>
+</div>
+
+<!-- PREVIEW -->
+<div class="preview-section section">
+    <div class="section-head">
+        <div class="section-title">
+            <div class="icon">◎</div>
+            Simulador de Resposta
         </div>
     </div>
-
-    <!-- Preview -->
-    <div class="card">
-        <div class="card-title">👁️ Testar Resposta do Bot</div>
-        <div class="form-group">
-            <label>Simule uma pergunta do cliente:</label>
-            <input type="text" id="testQuestion" placeholder="Ex: Quanto custa trocar a tela?" onkeyup="previewResponse()">
-        </div>
-        <div class="preview-box" id="previewBox" style="display:none;">
-            <h4>✅ Resposta que o bot enviaria:</h4>
-            <div class="preview-text" id="previewText"></div>
+    <div class="section-body">
+        <div class="field" style="margin-bottom:0">
+            <label>Simule uma mensagem do cliente</label>
+            <input type="text" id="testQ" placeholder="Ex: Quanto custa trocar a tela do iPhone?"
+                   oninput="simulateResponse()">
         </div>
     </div>
-
-    <!-- Botoes -->
-    <button class="btn btn-primary" onclick="saveTraining()" id="saveBtn">
-        💾 Salvar Alteracoes no Bot
-    </button>
-    <div class="status" id="statusMsg"></div>
-
-    <!-- Navegacao -->
-    <div class="nav-bottom">
-        <a href="painel.html" class="nav-item">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path></svg>
-            <div>Intervencao</div>
-        </a>
-        <a href="treinar.html" class="nav-item active">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
-            <div>Treinamento</div>
-        </a>
+    <div class="preview-output" id="previewOut">
+        <div class="preview-label">Resposta do Assistente</div>
+        <div class="preview-text" id="previewText"></div>
     </div>
+</div>
+```
 
-    <script>
-        // ✅ SUPABASE
-        const SUPABASE_URL = 'https://fwcljognwdutsagppxcq.supabase.co';
-        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ3Y2xqb2dud2R1dHNhZ3BweGNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4OTY4MjMsImV4cCI6MjA5MDQ3MjgyM30.6n8MejPbWRZlJnfZylrsK37_jwFha3FE7Xbj_Sn8VcE';
-        
-        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-        let currentTraining = null;
-        let faqData = [];
-        let escalationKeywords = ['atendente', 'humano', 'pessoa', 'reclamacao', 'problema grave', 'cancelar', 'chefe', 'gerente'];
+</div><!-- end .content -->
 
-        // Carregar dados ao abrir
-        async function loadTraining() {
-            showStatus('🔄 Carregando configuracoes...', 'info');
-            
-            try {
-                const { data, error } = await supabaseClient
-                    .from('bot_training')
-                    .select('*')
-                    .order('created_at', { ascending: false })
-                    .limit(1)
-                    .maybeSingle();
+<!-- ── SAVE BUTTON ── -->
 
-                if (error) {
-                    showStatus('❌ Erro ao carregar: ' + error.message, 'error');
-                    console.error(error);
-                    return;
-                }
+<div class="save-wrap">
+    <button class="save-btn" id="saveBtn" onclick="save()">Salvar Configurações</button>
+</div>
 
-                // Se nao existe, criar padrao
-                if (!data) {
-                    await createDefaultTraining();
-                    return;
-                }
+<!-- ── BOTTOM NAV ── -->
 
-                currentTraining = data;
-                faqData = data.faq_data || [];
-                escalationKeywords = data.escalation_keywords || escalationKeywords;
+<nav class="nav-bar">
+    <a href="painel.html" class="nav-item">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
+        </svg>
+        Intervenção
+    </a>
+    <a href="treinar.html" class="nav-item active">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+        </svg>
+        Treinamento
+    </a>
+</nav>
 
-                // Preencher campos
-                document.getElementById('botName').value = data.bot_name || '';
-                document.getElementById('companyName').value = data.company_name || '';
-                document.getElementById('greeting').value = data.greeting_message || '';
-                document.getElementById('personality').value = data.personality || '';
-                document.getElementById('services').value = data.services || '';
-                document.getElementById('businessHours').value = data.business_hours || '';
-                document.getElementById('pricing').value = data.pricing_info || '';
-                document.getElementById('fallback').value = data.fallback_message || '';
-                
-                // Toggle
-                const toggle = document.getElementById('botToggle');
-                if (data.active) toggle.classList.add('active');
-                else toggle.classList.remove('active');
+<!-- ── FAQ MODAL ── -->
 
-                renderFaqList();
-                renderEscalationTags();
-                showStatus('✅ Configuracoes carregadas!', 'success');
-            } catch (err) {
-                showStatus('❌ Erro inesperado: ' + err.message, 'error');
-                console.error(err);
-            }
+<div class="modal-overlay" id="faqModal">
+    <div class="modal">
+        <h3>Nova Pergunta & Resposta</h3>
+        <div class="field">
+            <label>Pergunta do Cliente</label>
+            <input type="text" id="modalQ" placeholder="Ex: Quanto custa trocar a tela?">
+        </div>
+        <div class="field">
+            <label>Resposta do Assistente</label>
+            <textarea id="modalA" placeholder="Ex: O valor varia de R$150 a R$400 conforme o modelo…" style="min-height:90px;"></textarea>
+        </div>
+        <div class="modal-actions">
+            <button class="modal-cancel" onclick="closeFaqModal()">Cancelar</button>
+            <button class="modal-confirm" onclick="saveFaq()">Salvar</button>
+        </div>
+    </div>
+</div>
+
+<!-- ── TOAST ── -->
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── SUPABASE ──────────────────────────────────────────────────────────────────
+const SUPABASE_URL = 'https://fwcljognwdutsagppxcq.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ3Y2xqb2dud2R1dHNhZ3BweGNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4OTY4MjMsImV4cCI6MjA5MDQ3MjgyM30.6n8MejPbWRZlJnfZylrsK37_jwFha3FE7Xbj_Sn8VcE';
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let training   = null;
+let faqData    = [];
+let escalation = ['atendente','humano','pessoa','reclamação','cancelar','chefe','gerente'];
+
+// ── LOAD ──────────────────────────────────────────────────────────────────────
+async function load() {
+    toast('Carregando configurações…', 'info', 99999);
+
+    try {
+        const { data, error } = await db
+            .from('bot_training')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+        if (error) throw error;
+        if (!data) { await createDefault(); return; }
+
+        training   = data;
+        faqData    = data.faq_data || [];
+        escalation = data.escalation_keywords || escalation;
+
+        document.getElementById('botName').value      = data.bot_name || '';
+        document.getElementById('companyName').value  = data.company_name || '';
+        document.getElementById('greeting').value     = data.greeting_message || '';
+        document.getElementById('personality').value  = data.personality || '';
+        document.getElementById('services').value     = data.services || '';
+        document.getElementById('businessHours').value= data.business_hours || '';
+        document.getElementById('pricing').value      = data.pricing_info || '';
+        document.getElementById('fallback').value     = data.fallback_message || '';
+
+        const tog = document.getElementById('botToggle');
+        if (data.active) tog.classList.add('on'); else tog.classList.remove('on');
+        updateToggleLabel(data.active);
+
+        renderTags();
+        renderFaq();
+        toast('Configurações carregadas', 'success');
+
+    } catch(e) {
+        toast('Erro ao carregar: ' + e.message, 'error');
+    }
+}
+
+async function createDefault() {
+    const d = {
+        bot_name: 'Assistente',
+        company_name: 'Minha Empresa',
+        greeting_message: 'Olá! Seja bem-vindo. Como posso ajudá-lo hoje? ✨',
+        personality: 'Seja elegante, cordial e objetivo. Use linguagem profissional com toques de calor humano.',
+        services: 'Conserto de celulares, notebooks, tablets e acessórios.',
+        business_hours: 'Segunda a Sexta: 9h às 18h | Sábado: 9h às 13h',
+        pricing_info: 'Realizamos orçamento gratuito e sem compromisso!',
+        fallback_message: 'Peço desculpas, não compreendi sua solicitação. Como posso ajudar?',
+        faq_data: [], escalation_keywords: escalation, active: true
+    };
+    const { data, error } = await db.from('bot_training').insert(d).select().single();
+    if (!error) { training = data; }
+    load();
+}
+
+// ── TOGGLE ────────────────────────────────────────────────────────────────────
+function toggleBot() {
+    const tog = document.getElementById('botToggle');
+    tog.classList.toggle('on');
+    const on = tog.classList.contains('on');
+    updateToggleLabel(on);
+    toast(on ? 'Bot será ativado ao salvar' : 'Bot será desativado ao salvar', 'info');
+}
+function updateToggleLabel(on) {
+    document.getElementById('toggleLabel').textContent = on ? 'ON' : 'OFF';
+    document.getElementById('toggleHint').textContent = on
+        ? 'Todas as mensagens processadas pelo assistente'
+        : 'Todos os contatos são direcionados ao atendimento humano';
+}
+
+// ── TAGS ──────────────────────────────────────────────────────────────────────
+function renderTags() {
+    const el = document.getElementById('escalationTags');
+    el.innerHTML = escalation.map((t,i) => `
+        <div class="tag-pill">
+            ${t}
+            <button onclick="removeTag(${i})" aria-label="remover">×</button>
+        </div>`).join('');
+}
+function addTag() {
+    const inp = document.getElementById('newTagInput');
+    const v   = inp.value.trim().toLowerCase();
+    if (!v) return;
+    if (escalation.includes(v)) { toast('Palavra já existe', 'info'); return; }
+    escalation.push(v);
+    inp.value = '';
+    renderTags();
+    toast('Palavra adicionada — salve para aplicar', 'info');
+}
+function removeTag(i) {
+    escalation.splice(i, 1);
+    renderTags();
+    toast('Palavra removida — salve para aplicar', 'info');
+}
+
+// ── FAQ ───────────────────────────────────────────────────────────────────────
+function renderFaq() {
+    const el = document.getElementById('faqList');
+    if (!faqData.length) {
+        el.innerHTML = '<div class="faq-empty">Nenhuma entrada cadastrada ainda</div>';
+        return;
+    }
+    el.innerHTML = faqData.map((f,i) => `
+        <div class="faq-item">
+            <div class="faq-q">❓ ${esc(f.question)}</div>
+            <div class="faq-a">${esc(f.answer)}</div>
+            <button class="faq-del" onclick="removeFaq(${i})" title="Remover">🗑</button>
+        </div>`).join('');
+}
+function removeFaq(i) {
+    faqData.splice(i, 1);
+    renderFaq();
+    toast('Entrada removida — salve para aplicar', 'info');
+}
+function openFaqModal() {
+    document.getElementById('modalQ').value = '';
+    document.getElementById('modalA').value = '';
+    document.getElementById('faqModal').classList.add('open');
+    setTimeout(() => document.getElementById('modalQ').focus(), 100);
+}
+function closeFaqModal() {
+    document.getElementById('faqModal').classList.remove('open');
+}
+function saveFaq() {
+    const q = document.getElementById('modalQ').value.trim();
+    const a = document.getElementById('modalA').value.trim();
+    if (!q || !a) { toast('Preencha pergunta e resposta', 'error'); return; }
+    faqData.push({ question: q, answer: a });
+    renderFaq();
+    closeFaqModal();
+    toast('Entrada adicionada — salve para aplicar', 'info');
+}
+// Close modal on overlay click
+document.getElementById('faqModal').addEventListener('click', function(e) {
+    if (e.target === this) closeFaqModal();
+});
+
+// ── SIMULATE RESPONSE ─────────────────────────────────────────────────────────
+function simulateResponse() {
+    const q   = document.getElementById('testQ').value.trim();
+    const out = document.getElementById('previewOut');
+    const txt = document.getElementById('previewText');
+    if (!q) { out.classList.remove('show'); return; }
+    if (!training) { txt.textContent = '⚠️ Carregue as configurações primeiro.'; out.classList.add('show'); return; }
+
+    const msg = q.toLowerCase();
+    const t   = training;
+    let res   = null;
+
+    const greetings = ['oi','olá','ola','bom dia','boa tarde','boa noite','hey','hi','hello'];
+    if (greetings.some(g => msg.includes(g))) { res = t.greeting_message; }
+
+    if (!res) {
+        const faq = faqData.length ? faqData : (t.faq_data || []);
+        for (const item of faq) {
+            const words = item.question.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+            const hits  = words.filter(w => msg.includes(w)).length;
+            if (hits >= 2 || msg.includes(item.question.toLowerCase())) { res = item.answer; break; }
         }
+    }
 
-        async function createDefaultTraining() {
-            const defaultData = {
-                bot_name: 'TecBot',
-                company_name: 'Minha Empresa',
-                greeting_message: 'Ola! Sou o assistente virtual. Como posso ajudar voce hoje? 😊',
-                personality: 'Seja cordial, direto e profissional. Use emojis com moderacao.',
-                services: 'Conserto de celulares, notebooks, tablets e videogames.',
-                business_hours: 'Segunda a Sexta: 9h as 18h | Sabado: 9h as 13h',
-                pricing_info: 'Fazemos orcamento gratuito! Os valores variam conforme o defeito e o modelo do aparelho.',
-                fallback_message: 'Desculpe, nao entendi bem. Posso te ajudar com orcamentos, horarios, servicos e agendamentos.',
-                faq_data: [],
-                escalation_keywords: escalationKeywords,
-                active: true
-            };
+    if (!res) {
+        if (/preço|valor|custa|quanto|cobrar/.test(msg))
+            res = (t.pricing_info||'') + '\n\nPosso agendar um orçamento gratuito! Qual equipamento?';
+        else if (/horário|horario|aberto|funciona|atende/.test(msg))
+            res = '⏰ ' + (t.business_hours||'') + '\n\nEstamos prontos para atendê-lo! 😊';
+        else if (/serviço|servico|conserta|reparo|troca/.test(msg))
+            res = '🔧 ' + (t.services||'') + '\n\nQual serviço você precisa?';
+        else if (/garantia/.test(msg))
+            res = '✅ Todos os serviços possuem garantia de 30 a 90 dias conforme o reparo.';
+        else if (/prazo|demora|tempo/.test(msg))
+            res = '⏱️ O prazo varia conforme o defeito. Fazemos diagnóstico em até 24h!';
+        else if (/agendar|marcar/.test(msg))
+            res = '📅 Para agendar precisamos saber:\n1️⃣ Qual equipamento?\n2️⃣ Qual o problema?\n3️⃣ Dia e horário?';
+    }
 
-            try {
-                const { data, error } = await supabaseClient
-                    .from('bot_training')
-                    .insert(defaultData)
-                    .select()
-                    .single();
+    const esc2 = escalation.length ? escalation : (t.escalation_keywords||[]);
+    if (!res && esc2.some(w => msg.includes(w.toLowerCase())))
+        res = '👨‍💼 Transferindo para um atendente. Aguarde um momento… ⏳';
 
-                if (error) {
-                    showStatus('❌ Erro ao criar padrao: ' + error.message, 'error');
-                    console.error(error);
-                    return;
-                }
+    if (!res)
+        res = (t.fallback_message||'Não compreendi.') +
+              '\n\nPosso ajudar com:\n• 💰 Preços e orçamentos\n• ⏰ Horários\n• 🔧 Serviços\n• 📅 Agendamentos';
 
-                currentTraining = data;
-                loadTraining();
-            } catch (err) {
-                showStatus('❌ Erro: ' + err.message, 'error');
-            }
+    txt.textContent = res;
+    out.classList.add('show');
+}
+
+// ── SAVE ──────────────────────────────────────────────────────────────────────
+async function save() {
+    const btn = document.getElementById('saveBtn');
+    btn.innerHTML = '<span class="spinner"></span> Salvando…';
+    btn.disabled  = true;
+
+    const active = document.getElementById('botToggle').classList.contains('on');
+    const payload = {
+        bot_name:           document.getElementById('botName').value,
+        company_name:       document.getElementById('companyName').value,
+        greeting_message:   document.getElementById('greeting').value,
+        personality:        document.getElementById('personality').value,
+        services:           document.getElementById('services').value,
+        business_hours:     document.getElementById('businessHours').value,
+        pricing_info:       document.getElementById('pricing').value,
+        fallback_message:   document.getElementById('fallback').value,
+        faq_data:           faqData,
+        escalation_keywords:escalation,
+        active,
+        updated_at: new Date().toISOString()
+    };
+
+    try {
+        let res;
+        if (training?.id) {
+            res = await db.from('bot_training').update(payload).eq('id', training.id);
+        } else {
+            res = await db.from('bot_training').insert(payload).select().single();
+            if (res.data) training = res.data;
         }
+        if (res.error) throw res.error;
+        if (training) training = { ...training, ...payload };
+        toast('Configurações salvas com sucesso', 'success');
+    } catch(e) {
+        toast('Erro ao salvar: ' + e.message, 'error');
+    } finally {
+        btn.innerHTML = 'Salvar Configurações';
+        btn.disabled  = false;
+    }
+}
 
-        function renderEscalationTags() {
-            const container = document.getElementById('escalationTags');
-            container.innerHTML = escalationKeywords.map((tag, index) => `
-                <div class="escalation-tag">
-                    ${tag}
-                    <button onclick="removeEscalationTag(${index})">×</button>
-                </div>
-            `).join('');
-        }
+// ── TOAST ─────────────────────────────────────────────────────────────────────
+let toastTimer;
+function toast(msg, type = 'info', duration = 3500) {
+    clearTimeout(toastTimer);
+    const el = document.getElementById('toast');
+    el.textContent  = msg;
+    el.className    = `toast show ${type}`;
+    if (duration < 99999) {
+        toastTimer = setTimeout(() => el.classList.remove('show'), duration);
+    }
+}
 
-        function addEscalationTag() {
-            const input = document.getElementById('newTagInput');
-            const tag = input.value.trim().toLowerCase();
-            if (!tag) return;
-            if (escalationKeywords.includes(tag)) {
-                showStatus('⚠️ Palavra ja existe!', 'info');
-                return;
-            }
-            escalationKeywords.push(tag);
-            input.value = '';
-            renderEscalationTags();
-            showStatus('✅ Palavra adicionada! Salve para aplicar.', 'info');
-        }
+// ── HELPERS ───────────────────────────────────────────────────────────────────
+function esc(t) {
+    const d = document.createElement('div');
+    d.textContent = t || '';
+    return d.innerHTML;
+}
 
-        function removeEscalationTag(index) {
-            escalationKeywords.splice(index, 1);
-            renderEscalationTags();
-            showStatus('✅ Palavra removida! Salve para aplicar.', 'info');
-        }
+// ── INIT ──────────────────────────────────────────────────────────────────────
+load();
+</script>
 
-        function renderFaqList() {
-            const container = document.getElementById('faqList');
-            if (faqData.length === 0) {
-                container.innerHTML = '<div style="text-align:center; color:#999; padding:20px;">Nenhuma FAQ cadastrada ainda</div>';
-                return;
-            }
-            
-            container.innerHTML = faqData.map((faq, index) => `
-                <div class="faq-item">
-                    <div class="faq-question">❓ ${faq.question}</div>
-                    <div class="faq-answer">💬 ${faq.answer}</div>
-                    <button class="btn-small btn-danger" onclick="removeFaq(${index})">🗑️ Remover</button>
-                </div>
-            `).join('');
-        }
-
-        function addNewFaq() {
-            const question = prompt('📝 Digite a PERGUNTA que o cliente faz:\nEx: Quanto custa trocar a tela?');
-            if (!question || question.trim() === '') return;
-            
-            const answer = prompt('💬 Digite a RESPOSTA que o bot deve dar:\nEx: A troca de tela custa entre R$150 e R$400 dependendo do modelo.');
-            if (!answer || answer.trim() === '') return;
-            
-            faqData.push({ question: question.trim(), answer: answer.trim() });
-            renderFaqList();
-            showStatus('✅ FAQ adicionada! Nao esqueca de salvar.', 'info');
-        }
-
-        function removeFaq(index) {
-            if (confirm('🗑️ Remover esta pergunta?')) {
-                faqData.splice(index, 1);
-                renderFaqList();
-                showStatus('✅ FAQ removida! Salve para aplicar.', 'info');
-            }
-        }
-
-        function toggleBot() {
-            const toggle = document.getElementById('botToggle');
-            toggle.classList.toggle('active');
-            const isActive = toggle.classList.contains('active');
-            showStatus(isActive ? '🟢 Bot sera ATIVADO ao salvar' : '🔴 Bot sera DESLIGADO ao salvar', 'info');
-        }
-
-        function previewResponse() {
-            const question = document.getElementById('testQuestion').value.toLowerCase().trim();
-            const previewBox = document.getElementById('previewBox');
-            const previewText = document.getElementById('previewText');
-            
-            if (!question) {
-                previewBox.style.display = 'none';
-                return;
-            }
-
-            if (!currentTraining) {
-                previewText.textContent = '⚠️ Carregue as configuracoes primeiro';
-                previewBox.style.display = 'block';
-                return;
-            }
-
-            let response = null;
-            const msg = question;
-            const training = currentTraining;
-
-            // 1. Saudacoes
-            const greetings = ['oi', 'ola', 'ola', 'bom dia', 'boa tarde', 'boa noite', 'hey', 'hi', 'hello', 'eai', 'eae'];
-            if (greetings.some(g => msg.includes(g))) {
-                response = training.greeting_message;
-            }
-
-            // 2. FAQ
-            if (!response) {
-                const faq = training.faq_data || [];
-                for (const item of faq) {
-                    const questionWords = item.question.toLowerCase().split(' ').filter(w => w.length > 2);
-                    const matchCount = questionWords.filter(word => msg.includes(word)).length;
-                    if (matchCount >= 2 || msg.includes(item.question.toLowerCase())) {
-                        response = item.answer;
-                        break;
-                    }
-                }
-            }
-
-            // 3. Palavras-chave
-            if (!response) {
-                if (msg.includes('preco') || msg.includes('valor') || msg.includes('custa') || msg.includes('quanto'))
-                    response = training.pricing_info + '\n\nPosso agendar um orcamento gratuito para voce! Qual equipamento precisa de assistencia?';
-                else if (msg.includes('horario') || msg.includes('hora') || msg.includes('aberto') || msg.includes('funciona') || msg.includes('atende'))
-                    response = '⏰ ' + training.business_hours + '\n\nEstamos prontos para te atender! 😊';
-                else if (msg.includes('servico') || msg.includes('faz') || msg.includes('conserta') || msg.includes('concerta') || msg.includes('arruma') || msg.includes('troca'))
-                    response = '🔧 ' + training.services + '\n\nQual desses servicos voce precisa? Posso te passar mais detalhes!';
-                else if (msg.includes('local') || msg.includes('endereco') || msg.includes('onde') || msg.includes('fica'))
-                    response = '📍 Nossa assistencia fica em local de facil acesso! Voce pode buscar no Google Maps por "' + training.company_name + '".';
-                else if (msg.includes('garantia') || msg.includes('garante'))
-                    response = '✅ Todos os nossos servicos possuem garantia! O prazo varia conforme o tipo de reparo (geralmente 30 a 90 dias).';
-                else if (msg.includes('prazo') || msg.includes('tempo') || msg.includes('demora') || msg.includes('rapido'))
-                    response = '⏱️ O prazo depende do defeito e da disponibilidade de pecas.\n\nFazemos orcamento em ate 24h! Qual equipamento voce tem?';
-                else if (msg.includes('agendar') || msg.includes('marcar') || msg.includes('quando') || msg.includes('posso ir'))
-                    response = '📅 Perfeito! Para agendar, preciso saber:\n1️⃣ Qual equipamento?\n2️⃣ Qual o problema/defeito?\n3️⃣ Qual dia e horario prefere?\n\nOu digite "atendente" para falar com uma pessoa!';
-            }
-
-            // 4. Escalonamento
-            if (!response) {
-                const escalationWords = training.escalation_keywords || ['atendente', 'humano', 'pessoa', 'reclamacao', 'problema grave', 'cancelar', 'chefe', 'gerente'];
-                if (escalationWords.some(word => msg.includes(word))) {
-                    response = '👨‍💼 Entendido! Vou transferir voce para um atendente humano agora mesmo. Por favor, aguarde um momento... ⏳';
-                }
-            }
-
-            // 5. Fallback
-            if (!response) {
-                response = training.fallback_message + '\n\nPosso te ajudar com:\n• 💰 Precos e orcamentos\n• ⏰ Horarios de funcionamento\n• 🔧 Nossos servicos\n• 📅 Agendamentos\n• 📍 Localizacao\n\nOu digite "atendente" para falar com uma pessoa!';
-            }
-
-            previewText.textContent = response;
-            previewBox.style.display = 'block';
-        }
-
-        async function saveTraining() {
-            const btn = document.getElementById('saveBtn');
-            const originalText = btn.innerHTML;
-            btn.innerHTML = '<span class="loading"></span> Salvando...';
-            btn.disabled = true;
-
-            const active = document.getElementById('botToggle').classList.contains('active');
-
-            const data = {
-                bot_name: document.getElementById('botName').value,
-                company_name: document.getElementById('companyName').value,
-                greeting_message: document.getElementById('greeting').value,
-                personality: document.getElementById('personality').value,
-                services: document.getElementById('services').value,
-                business_hours: document.getElementById('businessHours').value,
-                pricing_info: document.getElementById('pricing').value,
-                fallback_message: document.getElementById('fallback').value,
-                faq_data: faqData,
-                escalation_keywords: escalationKeywords,
-                active: active,
-                updated_at: new Date().toISOString()
-            };
-
-            try {
-                let result;
-                if (currentTraining?.id) {
-                    result = await supabaseClient
-                        .from('bot_training')
-                        .update(data)
-                        .eq('id', currentTraining.id);
-                } else {
-                    result = await supabaseClient
-                        .from('bot_training')
-                        .insert(data)
-                        .select()
-                        .single();
-                    if (result.data) currentTraining = result.data;
-                }
-
-                btn.innerHTML = originalText;
-                btn.disabled = false;
-
-                if (result.error) {
-                    showStatus('❌ Erro ao salvar: ' + result.error.message, 'error');
-                    console.error(result.error);
-                } else {
-                    showStatus('✅ Bot atualizado com sucesso!', 'success');
-                    if (currentTraining) {
-                        currentTraining = { ...currentTraining, ...data };
-                    }
-                }
-            } catch (err) {
-                btn.innerHTML = originalText;
-                btn.disabled = false;
-                showStatus('❌ Erro inesperado: ' + err.message, 'error');
-                console.error(err);
-            }
-        }
-
-        function showStatus(msg, type) {
-            const status = document.getElementById('statusMsg');
-            status.textContent = msg;
-            status.className = 'status show ' + type;
-            if (type !== 'info') {
-                setTimeout(() => status.className = 'status', 4000);
-            }
-        }
-
-        // Carregar ao iniciar
-        loadTraining();
-    </script>
 </body>
 </html>

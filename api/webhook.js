@@ -175,6 +175,7 @@ export default async function handler(req, res) {
             const value = changes?.value;
             const message = value?.messages?.[0];
 
+            // Ignorar status updates (delivered, read, sent) e mensagens não-texto
             if (!message || message.type !== 'text') {
                 return res.status(200).send('OK');
             }
@@ -217,8 +218,8 @@ export default async function handler(req, res) {
                 return res.status(200).send('Modo humano ativo');
             }
 
-            // 5. Gerar resposta do bot
-            const botResponse = generateResponse(text, training);
+            // 5. Gerar resposta do bot (agora passando 'from' também!)
+            const botResponse = generateResponse(text, training, from);
 
             // 6. Enviar resposta pelo WhatsApp
             if (WHATSAPP_TOKEN && WHATSAPP_PHONE_ID) {
@@ -248,7 +249,7 @@ export default async function handler(req, res) {
 // ==========================================
 // GERAR RESPOSTA DO BOT
 // ==========================================
-function generateResponse(userMessage, training) {
+function generateResponse(userMessage, training, phoneNumber) {  // ← ADICIONADO phoneNumber!
     const msg = userMessage.toLowerCase().trim();
     
     // 1. Saudações
@@ -296,14 +297,14 @@ function generateResponse(userMessage, training) {
         return '📅 Perfeito! Para agendar, preciso saber:\n1️⃣ Qual equipamento?\n2️⃣ Qual o problema/defeito?\n3️⃣ Qual dia e horario prefere?\n\nOu se preferir, posso transferir voce para um atendente humano agora mesmo! 👨‍💼';
     }
 
-    // 4. Escalonamento para humano
+    // 4. Escalonamento para humano - CORRIGIDO!
     const escalationWords = training.escalation_keywords || ['atendente', 'humano', 'pessoa', 'reclamacao', 'problema grave', 'cancelar', 'chefe', 'gerente', 'supervisor'];
     if (escalationWords.some(word => msg.includes(word))) {
-        // Transferir para humano
+        // Transferir para humano - AGORA COM phoneNumber (não 'from'!)
         supabase
             .from('conversations')
             .update({ status: 'human', updated_at: new Date().toISOString() })
-            .eq('phone_number', from)
+            .eq('phone_number', phoneNumber)  // ← CORRIGIDO: usa phoneNumber em vez de 'from'
             .then(() => console.log('🔄 Conversa transferida para humano'))
             .catch(err => console.error('Erro ao transferir:', err));
         

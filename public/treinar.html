@@ -324,6 +324,24 @@ body{
   vertical-align:middle;margin-right:6px;
 }
 @keyframes spinA{to{transform:rotate(360deg)}}
+
+/* ── STATUS BAR ──────────────────────────── */
+.status-bar{
+  max-width:560px;margin:0 auto;padding:0 14px;
+}
+.status-bar .bar{
+  background:#fff;border-radius:var(--r);
+  padding:10px 14px;margin:10px 0 0;
+  display:flex;align-items:center;gap:8px;
+  box-shadow:var(--sh);border:1px solid rgba(0,0,0,.05);
+  font-size:11.5px;color:var(--smoke);
+}
+.status-bar .bar .dot{
+  width:8px;height:8px;border-radius:50%;
+}
+.status-bar .bar .dot.ok{background:#2d6a4f;}
+.status-bar .bar .dot.warn{background:#b8965a;}
+.status-bar .bar .dot.err{background:#c0392b;}
 </style>
 </head>
 <body>
@@ -335,6 +353,14 @@ body{
     <h1>Shape your<br><em>Intelligence</em></h1>
     <p class="hero-sub">Configure a personalidade do seu assistente em tempo real</p>
     <div class="live-badge"><div class="live-dot"></div>Live Sync</div>
+  </div>
+</div>
+
+<!-- STATUS -->
+<div class="status-bar">
+  <div class="bar" id="statusBar">
+    <div class="dot warn" id="statusDot"></div>
+    <span id="statusText">Verificando conexão…</span>
   </div>
 </div>
 
@@ -502,8 +528,7 @@ body{
 <script>
 /* ════════════════════════════════════════════════════════════════════════
    SUPABASE CLIENT - CORREÇÃO PRINCIPAL
-   O CDN do Supabase expõe um objeto global "supabase" com { createClient }
-   Precisamos extrair createClient antes de usar.
+   O CDN do Supabase expõe window.supabase como objeto { createClient }
    ════════════════════════════════════════════════════════════════════════ */
 const SUPABASE_URL = 'https://fwcljognwdutsagppxcq.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ3Y2xqb2dud2R1dHNhZ3BweGNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4OTY4MjMsImV4cCI6MjA5MDQ3MjgyM30.6n8MejPbWRZlJnfZylrsK37_jwFha3FE7Xbj_Sn8VcE';
@@ -513,21 +538,31 @@ let training   = null;
 let faqData    = [];
 let escalation = ['atendente','humano','pessoa','reclamação','cancelar','chefe','gerente'];
 let isReady    = false;
+let useLocal   = false; // true = modo offline (Supabase falhou)
+
+/* ── STATUS BAR ───────────────────────────────────────────────────────── */
+function setStatus(type, text) {
+  const dot = document.getElementById('statusDot');
+  const txt = document.getElementById('statusText');
+  if (!dot || !txt) return;
+  dot.className = 'dot ' + type;
+  txt.textContent = text;
+}
 
 /* ── INIT SUPABASE ────────────────────────────────────────────────────── */
 function initSupabase() {
   try {
     if (typeof window.supabase === 'undefined') {
-      console.error('Supabase CDN não carregou! Verifique a conexão.');
-      showToast('Erro: Supabase não carregou. Recarregue a página.','error',6000);
+      console.warn('⚠️ Supabase CDN não carregou');
+      setStatus('warn','CDN do Supabase não carregou — usando modo offline');
       return false;
     }
     
     const { createClient } = window.supabase;
     
     if (typeof createClient !== 'function') {
-      console.error('createClient não é uma função:', window.supabase);
-      showToast('Erro: createClient não disponível','error',6000);
+      console.error('createClient não é função:', window.supabase);
+      setStatus('err','Erro na inicialização do Supabase');
       return false;
     }
     
@@ -537,16 +572,14 @@ function initSupabase() {
         persistSession: false,
         detectSessionInUrl: false
       },
-      db: {
-        schema: 'public'
-      }
+      db: { schema: 'public' }
     });
     
-    console.log('✅ Supabase inicializado com sucesso');
+    console.log('✅ Supabase inicializado');
     return true;
   } catch (e) {
-    console.error('Erro ao inicializar Supabase:', e);
-    showToast('Erro crítico: ' + e.message,'error',6000);
+    console.error('Erro Supabase:', e);
+    setStatus('err','Erro: ' + e.message);
     return false;
   }
 }
@@ -555,6 +588,7 @@ function initSupabase() {
 async function load() {
   showToast('Carregando…','info',99999);
   
+  // Aguardar CDN carregar (max 5s)
   let attempts = 0;
   while (!window.supabase && attempts < 50) {
     await new Promise(r => setTimeout(r, 100));
@@ -562,58 +596,87 @@ async function load() {
   }
   
   if (!initSupabase()) {
+    useLocal = true;
     loadFromLocal();
     return;
   }
   
+  // Tentar buscar do Supabase com tratamento de erro robusto
   try {
-    const { data, error } = await db
-      .from('bot_training').select('*')
-      .order('created_at',{ascending:false}).limit(1).maybeSingle();
-      
-    if (error) throw error;
+    // Primeiro, verificar se a tabela existe e quais colunas tem
+    const { data: testData, error: testError } = await db
+      .from('bot_training')
+      .select('*')
+      .limit(1);
     
-    if (!data) { 
-      await createDefault(); 
-      return; 
-    }
-
-    training   = data;
-    faqData    = data.faq_data || [];
-    escalation = data.escalation_keywords || escalation;
-
-    document.getElementById('botName').value       = data.bot_name || '';
-    document.getElementById('companyName').value   = data.company_name || '';
-    document.getElementById('greeting').value      = data.greeting_message || '';
-    document.getElementById('personality').value   = data.personality || '';
-    document.getElementById('services').value      = data.services || '';
-    document.getElementById('businessHours').value = data.business_hours || '';
-    document.getElementById('pricing').value       = data.pricing_info || '';
-    document.getElementById('fallback').value      = data.fallback_message || '';
-
-    const tog = document.getElementById('botToggle');
-    if (data.active) {
-      tog.classList.add('on');
+    if (testError) {
+      console.warn('⚠️ Erro na tabela bot_training:', testError);
+      // Se erro de schema cache, forçar reload e tentar novamente
+      if (testError.code === 'PGRST204' || testError.message?.includes('schema cache')) {
+        console.log('Tentando recarregar schema cache...');
+        await new Promise(r => setTimeout(r, 2000));
+        // Tentar novamente
+        const { data: retryData, error: retryError } = await db
+          .from('bot_training')
+          .select('*')
+          .limit(1);
+        if (retryError) throw retryError;
+        processData(retryData?.[0] || null);
+      } else {
+        throw testError;
+      }
     } else {
-      tog.classList.remove('on');
+      processData(testData?.[0] || null);
     }
-    updateToggleLabel(!!data.active);
-
-    renderTags(); 
-    renderFaq();
-    isReady = true;
-    showToast('Configurações carregadas ✓','success');
   } catch(e) {
-    console.error('Erro no load:', e);
-    showToast('Erro ao carregar: ' + e.message,'error');
+    console.error('❌ Erro Supabase:', e);
+    setStatus('warn','Supabase indisponível — modo offline ativado');
+    useLocal = true;
     loadFromLocal();
   }
 }
 
-/* ── LOCALSTORAGE FALLBACK ────────────────────────────────────────────── */
+function processData(data) {
+  if (!data) {
+    createDefaultSupabase();
+    return;
+  }
+  
+  training = data;
+  faqData = data.faq_data || [];
+  escalation = data.escalation_keywords || escalation;
+  
+  // Mapear campos com fallback para nomes alternativos
+  document.getElementById('botName').value       = data.bot_name || data.name || data.botname || '';
+  document.getElementById('companyName').value   = data.company_name || data.company || '';
+  document.getElementById('greeting').value      = data.greeting_message || data.greeting || '';
+  document.getElementById('personality').value   = data.personality || data.behavior || '';
+  document.getElementById('services').value      = data.services || '';
+  document.getElementById('businessHours').value = data.business_hours || data.hours || '';
+  document.getElementById('pricing').value       = data.pricing_info || data.pricing || '';
+  document.getElementById('fallback').value      = data.fallback_message || data.fallback || '';
+  
+  const tog = document.getElementById('botToggle');
+  const isActive = data.active !== false;
+  if (isActive) {
+    tog.classList.add('on');
+  } else {
+    tog.classList.remove('on');
+  }
+  updateToggleLabel(isActive);
+  
+  renderTags();
+  renderFaq();
+  isReady = true;
+  useLocal = false;
+  setStatus('ok','Conectado ao Supabase ✓');
+  showToast('Configurações carregadas ✓','success');
+}
+
+/* ── LOCALSTORAGE (FALLBACK OFFLINE) ──────────────────────────────────── */
 function loadFromLocal() {
   try {
-    const saved = localStorage.getItem('bot_training_local');
+    const saved = localStorage.getItem('bot_training_v2');
     if (saved) {
       const data = JSON.parse(saved);
       training = data;
@@ -630,20 +693,22 @@ function loadFromLocal() {
       document.getElementById('fallback').value      = data.fallback_message || '';
       
       const tog = document.getElementById('botToggle');
-      if (data.active) {
+      if (data.active !== false) {
         tog.classList.add('on');
       } else {
         tog.classList.remove('on');
       }
-      updateToggleLabel(!!data.active);
+      updateToggleLabel(data.active !== false);
       
       renderTags();
       renderFaq();
-      showToast('Dados locais carregados (modo offline)','info');
+      setStatus('warn','Modo offline — dados do navegador');
+      showToast('Dados locais carregados','info');
     } else {
       createDefaultLocal();
     }
     isReady = true;
+    useLocal = true;
   } catch(e) {
     console.error('Erro localStorage:', e);
     createDefaultLocal();
@@ -665,11 +730,11 @@ function createDefaultLocal() {
     active:true
   };
   training = d;
-  localStorage.setItem('bot_training_local', JSON.stringify(d));
+  localStorage.setItem('bot_training_v2', JSON.stringify(d));
   loadFromLocal();
 }
 
-async function createDefault() {
+async function createDefaultSupabase() {
   const d = {
     bot_name:'Assistente', 
     company_name:'Minha Empresa',
@@ -686,11 +751,17 @@ async function createDefault() {
   
   try {
     const { data, error } = await db.from('bot_training').insert(d).select().single();
-    if (error) throw error;
+    if (error) {
+      console.warn('Erro ao criar padrão no Supabase:', error);
+      useLocal = true;
+      createDefaultLocal();
+      return;
+    }
     if (data) training = data;
     load();
   } catch(e) {
-    console.error('Erro ao criar padrão:', e);
+    console.error('Erro createDefault:', e);
+    useLocal = true;
     createDefaultLocal();
   }
 }
@@ -797,15 +868,11 @@ function saveFaqItem() {
 
 document.addEventListener('click', function(e) {
   const modal = document.getElementById('faqModal');
-  if (modal && e.target === modal) {
-    closeFaqModal();
-  }
+  if (modal && e.target === modal) closeFaqModal();
 });
 
 document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape') {
-    closeFaqModal();
-  }
+  if (e.key === 'Escape') closeFaqModal();
 });
 
 /* ── SIMULATE ─────────────────────────────────────────────────────────── */
@@ -834,7 +901,7 @@ function simulate() {
   out.classList.add('show');
 }
 
-/* ── GENERATE RESPONSE ───────────────────────────────────────────────── */
+/* ── GENERATE RESPONSE (mesma lógica do webhook) ─────────────────────── */
 function genResponse(userMsg, t) {
   const msg = userMsg.toLowerCase().trim();
 
@@ -893,25 +960,59 @@ async function save() {
     updated_at: new Date().toISOString()
   };
 
+  // SEMPRE salvar no localStorage primeiro (persistência garantida)
+  localStorage.setItem('bot_training_v2', JSON.stringify(payload));
+  console.log('💾 Salvo no localStorage');
+
   try {
-    localStorage.setItem('bot_training_local', JSON.stringify(payload));
-    
-    if (db && training?.id) {
-      const res = await db.from('bot_training').update(payload).eq('id',training.id);
-      if (res.error) throw res.error;
-      training = {...training,...payload};
-      showToast('Configurações salvas no servidor ✓','success');
-    } else if (db) {
-      const res = await db.from('bot_training').insert(payload).select().single();
-      if (res.error) throw res.error;
-      if (res.data) training = res.data;
-      showToast('Configurações criadas no servidor ✓','success');
+    if (db && !useLocal) {
+      if (training?.id) {
+        const res = await db.from('bot_training').update(payload).eq('id',training.id);
+        if (res.error) {
+          // Se erro de coluna, tentar com nomes alternativos
+          if (res.error.message?.includes('column') || res.error.code === 'PGRST204') {
+            console.warn('Tentando nomes de coluna alternativos...');
+            const altPayload = {
+              name: payload.bot_name,
+              company: payload.company_name,
+              greeting: payload.greeting_message,
+              behavior: payload.personality,
+              services: payload.services,
+              hours: payload.business_hours,
+              pricing: payload.pricing_info,
+              fallback: payload.fallback_message,
+              faq_data: payload.faq_data,
+              escalation_keywords: payload.escalation_keywords,
+              active: payload.active,
+              updated_at: payload.updated_at
+            };
+            const altRes = await db.from('bot_training').update(altPayload).eq('id',training.id);
+            if (altRes.error) throw altRes.error;
+            training = {...training,...altPayload};
+          } else {
+            throw res.error;
+          }
+        } else {
+          training = {...training,...payload};
+        }
+        setStatus('ok','Salvo no Supabase ✓');
+        showToast('Configurações salvas no servidor ✓','success');
+      } else {
+        const res = await db.from('bot_training').insert(payload).select().single();
+        if (res.error) throw res.error;
+        if (res.data) training = res.data;
+        setStatus('ok','Criado no Supabase ✓');
+        showToast('Configurações criadas no servidor ✓','success');
+      }
     } else {
-      showToast('Salvo localmente (modo offline) ✓','success');
+      setStatus('warn','Salvo localmente (offline)');
+      showToast('Salvo localmente ✓','success');
     }
   } catch(e) {
-    console.error('Erro ao salvar:', e);
-    showToast('Erro ao salvar: ' + e.message,'error');
+    console.error('Erro ao salvar no Supabase:', e);
+    setStatus('warn','Salvo localmente — Supabase com erro');
+    showToast('Salvo localmente (Supabase: ' + e.message + ')','info');
+    useLocal = true;
   } finally {
     btn.innerHTML='Salvar Configurações';
     btn.disabled=false;

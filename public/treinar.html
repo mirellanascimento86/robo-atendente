@@ -248,6 +248,19 @@ body{
 .status-bar .bar .dot.ok{background:#2d6a4f;}
 .status-bar .bar .dot.warn{background:#b8965a;}
 .status-bar .bar .dot.err{background:#c0392b;}
+.debug-panel{
+  max-width:560px;margin:10px auto;padding:0 14px;
+}
+.debug-box{
+  background:#1e1e1e;color:#00ff00;border-radius:var(--r);
+  padding:12px 14px;font-family:'Courier New',monospace;
+  font-size:11px;line-height:1.5;max-height:200px;overflow-y:auto;
+  white-space:pre-wrap;word-break:break-all;
+}
+.debug-title{
+  font-size:10px;letter-spacing:2px;text-transform:uppercase;
+  color:var(--gold);margin-bottom:6px;font-weight:500;
+}
 </style>
 </head>
 <body>
@@ -263,7 +276,7 @@ body{
 <div class="status-bar">
   <div class="bar" id="statusBar">
     <div class="dot ok" id="statusDot"></div>
-    <span id="statusText">Painel pronto — edite e salve para atualizar o WhatsApp</span>
+    <span id="statusText">Painel pronto — edite e salve</span>
   </div>
 </div>
 
@@ -382,6 +395,11 @@ body{
   <button class="save-btn" id="saveBtn" onclick="save()">Salvar e Enviar para WhatsApp</button>
 </div>
 
+<div class="debug-panel" id="debugPanel" style="display:none;">
+  <div class="debug-title">Debug - Ultimo envio</div>
+  <div class="debug-box" id="debugBox"></div>
+</div>
+
 <nav class="nav-bar">
   <a href="painel.html" class="nav-item">
     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
@@ -419,13 +437,12 @@ body{
 
 <script>
 // ============================================
-// CONFIGURACAO DO WEBHOOK
+// CONFIGURACAO
 // ============================================
-// Altere aqui para seu dominio real:
 const WEBHOOK_URL = 'https://robo-atendente.vercel.app/api/webhook';
 
 // ============================================
-// ESTADO GLOBAL
+// ESTADO
 // ============================================
 let training = null;
 let faqData = [];
@@ -459,19 +476,28 @@ function esc(t) {
   return d.innerHTML;
 }
 
+function logDebug(title, obj) {
+  const panel = document.getElementById('debugPanel');
+  const box = document.getElementById('debugBox');
+  if (!panel || !box) return;
+  panel.style.display = 'block';
+  const timestamp = new Date().toLocaleTimeString();
+  const text = typeof obj === 'string' ? obj : JSON.stringify(obj, null, 2);
+  box.textContent = `[${timestamp}] ${title}\n${text}\n\n` + box.textContent;
+}
+
 // ============================================
-// CARREGAR DADOS
+// CARREGAR
 // ============================================
 function load() {
   showToast('Carregando...', 'info', 1500);
-  
   try {
     const saved = localStorage.getItem('bot_training_v2');
     if (saved) {
       const data = JSON.parse(saved);
       applyData(data);
-      setStatus('ok', 'Configuracoes carregadas — pronto para editar');
-      showToast('Pronto para editar!', 'success', 2000);
+      setStatus('ok', 'Configuracoes carregadas');
+      showToast('Pronto!', 'success', 2000);
     } else {
       createDefaultData();
     }
@@ -528,7 +554,7 @@ function applyData(data) {
 }
 
 // ============================================
-// TOGGLE BOT
+// TOGGLE
 // ============================================
 function toggleBot() {
   const tog = document.getElementById('botToggle');
@@ -546,7 +572,7 @@ function updateToggleLabel(on) {
 }
 
 // ============================================
-// TAGS (ESCALATION)
+// TAGS
 // ============================================
 function renderTags() {
   const container = document.getElementById('escalationTags');
@@ -699,15 +725,15 @@ function genResponse(userMsg, t) {
 }
 
 // ============================================
-// SALVAR E ENVIAR TUDO PARA O WEBHOOK
+// SALVAR E ENVIAR
 // ============================================
 async function save() {
   const btn = document.getElementById('saveBtn');
   if (!btn) return;
-  btn.innerHTML = '<span class="spin"></span>Enviando...';
+  btn.innerHTML = '<span class="spin"></span>Salvando...';
   btn.disabled = true;
 
-  // 1. Montar o payload COMPLETO
+  // 1. Montar payload
   const active = document.getElementById('botToggle').classList.contains('on');
   const payload = {
     bot_name: document.getElementById('botName')?.value?.trim() || '',
@@ -724,19 +750,22 @@ async function save() {
     updated_at: new Date().toISOString()
   };
 
-  // 2. Salvar no localStorage (backup local)
+  // 2. Salvar localStorage (sempre funciona)
   localStorage.setItem('bot_training_v2', JSON.stringify(payload));
-  console.log('✓ Salvo no localStorage');
+  console.log('✓ localStorage salvo');
 
-  // 3. ENVIAR TUDO PARA O WEBHOOK VIA POST
+  // 3. Tentar enviar para webhook
   let webhookOk = false;
-  let webhookError = '';
+  let webhookStatus = '';
+  let webhookResponse = null;
   
   try {
-    showToast('Enviando configuracao para o WhatsApp...', 'info', 99999);
+    showToast('Enviando para WhatsApp...', 'info', 99999);
+    
+    logDebug('ENVIANDO PARA WEBHOOK', { url: WEBHOOK_URL, payload: payload });
     
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 seg timeout
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
     
     const response = await fetch(WEBHOOK_URL, {
       method: 'POST',
@@ -749,46 +778,37 @@ async function save() {
     });
     
     clearTimeout(timeoutId);
+    webhookStatus = response.status + ' ' + response.statusText;
+    
+    const text = await response.text();
+    logDebug('RESPOSTA RAW', { status: response.status, body: text });
+    
+    try {
+      webhookResponse = JSON.parse(text);
+    } catch(e) {
+      webhookResponse = text;
+    }
     
     if (response.ok) {
-      const result = await response.json().catch(() => ({}));
-      console.log('✓ Webhook respondeu:', result);
       webhookOk = true;
-    } else {
-      webhookError = 'Status ' + response.status;
-      console.error('✗ Webhook erro:', response.status, response.statusText);
     }
-  } catch (e) {
-    webhookError = e.message || 'Falha na conexao';
-    console.error('✗ Erro fetch:', e);
     
-    // Tenta novamente com no-cors como fallback (para debug)
-    try {
-      console.log('Tentando fallback no-cors...');
-      await fetch(WEBHOOK_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-        mode: 'no-cors'
-      });
-      // no-cors nao da pra ler resposta, mas pode ter funcionado
-      webhookOk = true;
-      console.log('Fallback enviado (no-cors)');
-    } catch (e2) {
-      console.error('Fallback tambem falhou:', e2);
-    }
+  } catch (e) {
+    webhookStatus = e.name + ': ' + e.message;
+    logDebug('FETCH ERROR', { name: e.name, message: e.message });
   }
 
-  // 4. Feedback ao usuario
+  // 4. Feedback
   if (webhookOk) {
-    setStatus('ok', 'WhatsApp atualizado! Configuracao ativa ✓');
-    showToast('Sucesso! WhatsApp esta usando a nova configuracao.', 'success', 4000);
+    setStatus('ok', 'WhatsApp atualizado! ✓');
+    showToast('Sucesso! Configuracao ativa no WhatsApp.', 'success', 4000);
+    logDebug('SUCESSO', webhookResponse);
   } else {
-    setStatus('err', 'Erro: ' + webhookError);
-    showToast('Erro ao enviar: ' + webhookError + '. Verifique o console (F12).', 'error', 6000);
+    setStatus('warn', 'Salvo localmente — webhook: ' + webhookStatus);
+    showToast('Salvo localmente. Webhook: ' + webhookStatus, 'info', 5000);
+    logDebug('FALHA WEBHOOK', webhookStatus);
   }
 
-  // 5. Resetar botao
   btn.innerHTML = 'Salvar e Enviar para WhatsApp';
   btn.disabled = false;
 }
@@ -798,7 +818,7 @@ async function save() {
 // ============================================
 document.addEventListener('DOMContentLoaded', function() {
   console.log('=== AI Training Studio ===');
-  console.log('Webhook URL:', WEBHOOK_URL);
+  console.log('Webhook:', WEBHOOK_URL);
   load();
 });
 

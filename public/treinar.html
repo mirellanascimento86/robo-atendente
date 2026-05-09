@@ -277,6 +277,9 @@ body{font-family:'DM Sans',system-ui,sans-serif;background:var(--cream);color:va
 <div class="toast" id="toast"></div>
 
 <script>
+// ============================================
+// CONFIGURAÇÃO - URL DO WEBHOOK
+// ============================================
 const WEBHOOK_URL = 'https://robo-atendente.vercel.app/api/webhook';
 
 let training = null;
@@ -315,9 +318,12 @@ function logDebug(title, obj) {
   panel.style.display = 'block';
   const timestamp = new Date().toLocaleTimeString();
   const text = typeof obj === 'string' ? obj : JSON.stringify(obj, null, 2);
-  box.textContent = `[${timestamp}] ${title}\n${text}\n\n` + box.textContent;
+  box.textContent = `[${timestamp}] ${title}\\n${text}\\n\\n` + box.textContent;
 }
 
+// ============================================
+// CARREGAR CONFIGURAÇÃO
+// ============================================
 function load() {
   showToast('Carregando...', 'info', 1500);
   try {
@@ -514,7 +520,7 @@ function genResponse(userMsg, t) {
   }
   
   for (const item of (t.faq_data || [])) {
-    const words = item.question.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+    const words = item.question.toLowerCase().split(/\\s+/).filter(w => w.length > 2);
     const matches = words.filter(w => msg.includes(w)).length;
     if (matches >= 2 || msg.includes(item.question.toLowerCase())) {
       return item.answer;
@@ -522,15 +528,15 @@ function genResponse(userMsg, t) {
   }
   
   if (/preco|valor|custa|quanto|orcamento/i.test(msg)) {
-    return (t.pricing_info || 'Consulte-nos para orcamento.') + '\n\nPosso agendar um orcamento gratuito!';
+    return (t.pricing_info || 'Consulte-nos para orcamento.') + '\\n\\nPosso agendar um orcamento gratuito!';
   }
   
   if (/horario|hora|aberto|funciona/i.test(msg)) {
-    return '⏰ ' + (t.business_hours || 'Horario comercial') + '\n\nEstamos prontos!';
+    return '⏰ ' + (t.business_hours || 'Horario comercial') + '\\n\\nEstamos prontos!';
   }
   
   if (/servico|conserta|reparo|arruma/i.test(msg)) {
-    return '🔧 ' + (t.services || 'Diversos servicos.') + '\n\nQual voce precisa?';
+    return '🔧 ' + (t.services || 'Diversos servicos.') + '\\n\\nQual voce precisa?';
   }
   
   const esc = t.escalation_keywords || [];
@@ -538,11 +544,11 @@ function genResponse(userMsg, t) {
     return '👨‍💼 Transferindo para atendente humano. Aguarde...';
   }
   
-  return (t.fallback_message || 'Nao compreendi.') + '\n\nOu digite "atendente"!';
+  return (t.fallback_message || 'Nao compreendi.') + '\\n\\nOu digite "atendente"!';
 }
 
 // ============================================
-// SALVAR COM DOIS METODOS (POST + GET FALLBACK)
+// SALVAR - COMUNICAÇÃO COM WEBHOOK
 // ============================================
 async function save() {
   const btn = document.getElementById('saveBtn');
@@ -553,10 +559,11 @@ async function save() {
   const active = document.getElementById('botToggle').classList.contains('on');
   const greeting = document.getElementById('greeting')?.value?.trim() || '';
   
+  // MONTAR PAYLOAD EXATO que o webhook espera
   const payload = {
     bot_name: document.getElementById('botName')?.value?.trim() || '',
     company_name: document.getElementById('companyName')?.value?.trim() || '',
-    greeting_message: greeting,
+    greeting_message: greeting,  // Nome correto que o webhook espera
     personality: document.getElementById('personality')?.value?.trim() || '',
     services: document.getElementById('services')?.value?.trim() || '',
     business_hours: document.getElementById('businessHours')?.value?.trim() || '',
@@ -568,20 +575,20 @@ async function save() {
     updated_at: new Date().toISOString()
   };
 
-  // Salvar localStorage
+  // Salvar localStorage primeiro (backup)
   localStorage.setItem('bot_training_v2', JSON.stringify(payload));
-  logDebug('PAYLOAD LOCAL', { greeting: greeting });
+  logDebug('PAYLOAD MONTADO', payload);
 
-  // ===== METODO 1: POST =====
-  let postOk = false;
-  let postResult = null;
+  // ===== MÉTODO 1: POST (preferido - envia arrays completos) =====
+  let success = false;
+  let serverResponse = null;
   
   try {
-    showToast('Enviando POST...', 'info', 99999);
+    showToast('Enviando para servidor...', 'info', 99999);
     logDebug('TENTANDO POST', WEBHOOK_URL);
     
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
     
     const response = await fetch(WEBHOOK_URL, {
       method: 'POST',
@@ -590,31 +597,34 @@ async function save() {
         'Accept': 'application/json'
       },
       body: JSON.stringify(payload),
-      signal: controller.signal
+      signal: controller.signal,
+      mode: 'cors'
     });
     
     clearTimeout(timeoutId);
     
     const text = await response.text();
-    logDebug('POST RESPOSTA', { status: response.status, body: text.substring(0, 200) });
+    logDebug('POST RESPOSTA RAW', { status: response.status, body: text.substring(0, 500) });
     
     try {
-      postResult = JSON.parse(text);
+      serverResponse = JSON.parse(text);
     } catch(e) {
-      postResult = text;
+      serverResponse = { raw: text };
     }
     
-    if (response.ok && postResult && (postResult.success || postResult.ok)) {
-      postOk = true;
-      logDebug('POST SUCESSO', postResult);
+    if (response.ok && serverResponse && (serverResponse.success || serverResponse.ok)) {
+      success = true;
+      logDebug('POST SUCESSO', serverResponse);
+    } else {
+      logDebug('POST FALHOU', { status: response.status, response: serverResponse });
     }
     
   } catch (e) {
     logDebug('POST ERRO', e.message);
   }
 
-  // ===== METODO 2: GET FALLBACK (se POST falhar) =====
-  if (!postOk) {
+  // ===== MÉTODO 2: GET FALLBACK (se POST falhar - arrays limitados) =====
+  if (!success) {
     try {
       showToast('POST falhou, tentando GET...', 'info', 99999);
       
@@ -622,32 +632,47 @@ async function save() {
         action: 'updateconfig',
         bot_name: payload.bot_name,
         company_name: payload.company_name,
-        greeting: payload.greeting_message,
+        greeting: payload.greeting_message,  // GET usa 'greeting'
+        greeting_message: payload.greeting_message,  // Também envia o nome completo
         personality: payload.personality,
         services: payload.services,
         hours: payload.business_hours,
+        business_hours: payload.business_hours,
         pricing: payload.pricing_info,
+        pricing_info: payload.pricing_info,
         fallback: payload.fallback_message,
+        fallback_message: payload.fallback_message,
         active: payload.active ? 'true' : 'false'
       });
       
+      // Tentar enviar FAQ e escalation como JSON string
+      if (payload.faq_data && payload.faq_data.length > 0) {
+        params.append('faq_data', JSON.stringify(payload.faq_data));
+      }
+      if (payload.escalation_keywords && payload.escalation_keywords.length > 0) {
+        params.append('escalation_keywords', JSON.stringify(payload.escalation_keywords));
+      }
+      
       const getUrl = WEBHOOK_URL + '?' + params.toString();
-      logDebug('TENTANDO GET', getUrl.substring(0, 100));
+      logDebug('TENTANDO GET', getUrl.substring(0, 200));
       
       const response = await fetch(getUrl, {
         method: 'GET',
-        headers: { 'Accept': 'application/json' }
+        headers: { 'Accept': 'application/json' },
+        mode: 'cors'
       });
       
       const text = await response.text();
-      logDebug('GET RESPOSTA', { status: response.status, body: text.substring(0, 200) });
+      logDebug('GET RESPOSTA RAW', { status: response.status, body: text.substring(0, 500) });
       
       try {
         const data = JSON.parse(text);
         if (response.ok && data.success) {
-          postOk = true;
-          postResult = data;
+          success = true;
+          serverResponse = data;
           logDebug('GET SUCESSO', data);
+        } else {
+          logDebug('GET FALHOU', { status: response.status, data });
         }
       } catch(e) {
         logDebug('GET PARSE ERROR', text);
@@ -658,25 +683,60 @@ async function save() {
     }
   }
 
-  // ===== FEEDBACK =====
-  if (postOk) {
+  // ===== FEEDBACK FINAL =====
+  if (success) {
     setStatus('ok', 'WhatsApp atualizado! ✓');
-    showToast('Sucesso! Configuracao ativa.', 'success', 4000);
-    logDebug('FINAL', 'Configuracao salva no servidor');
+    showToast('✓ Sucesso! Configuracao ativa no WhatsApp.', 'success', 4000);
+    logDebug('FINAL', 'Configuracao salva e ativa no servidor');
+    
+    // Mostrar confirmação com a saudação salva
+    if (serverResponse && serverResponse.greeting) {
+      logDebug('SAUDACAO CONFIRMADA', serverResponse.greeting);
+    }
   } else {
     setStatus('warn', 'Salvo localmente — webhook offline');
-    showToast('Salvo localmente. O WhatsApp usara em ate 30s.', 'info', 5000);
-    logDebug('FINAL', 'Apenas localStorage');
+    showToast('⚠ Salvo localmente. O WhatsApp pode nao refletir imediatamente.', 'info', 6000);
+    logDebug('FINAL', 'Apenas localStorage - webhook nao respondeu');
   }
 
   btn.innerHTML = 'Salvar e Ativar no WhatsApp';
   btn.disabled = false;
 }
 
+// ============================================
+// VERIFICAR CONEXÃO COM WEBHOOK
+// ============================================
+async function checkWebhookConnection() {
+  try {
+    const response = await fetch(WEBHOOK_URL + '?_check=' + Date.now(), {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+      mode: 'cors'
+    });
+    const data = await response.json();
+    logDebug('WEBHOOK STATUS', data);
+    return data.status === 'online';
+  } catch (e) {
+    logDebug('WEBHOOK OFFLINE', e.message);
+    return false;
+  }
+}
+
 document.addEventListener('DOMContentLoaded', function() {
   console.log('=== AI Training Studio ===');
   console.log('Webhook:', WEBHOOK_URL);
   load();
+  
+  // Verificar conexão ao carregar
+  setTimeout(() => {
+    checkWebhookConnection().then(online => {
+      if (online) {
+        setStatus('ok', 'Conectado ao webhook');
+      } else {
+        setStatus('warn', 'Webhook inacessivel - verifique URL');
+      }
+    });
+  }, 1000);
 });
 
 if (document.readyState === 'complete' || document.readyState === 'interactive') {

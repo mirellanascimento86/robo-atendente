@@ -257,7 +257,6 @@ body{
 </style>
 </head>
 <body>
-
 <div class="hero">
   <div class="hero-inner">
     <div class="eyebrow">AI Training Studio</div>
@@ -429,7 +428,6 @@ body{
 const SUPABASE_URL = 'https://fwcljognwdutsagppxcq.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ3Y2xqb2dud2R1dHNhZ3BweGNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4OTY4MjMsImV4cCI6MjA5MDQ3MjgyM30.6n8MejPbWRZlJnfZylrsK37_jwFha3FE7Xbj_Sn8VcE';
 
-// URL do webhook - detecta automaticamente
 const WEBHOOK_URL = (() => {
   const host = window.location.host;
   const protocol = window.location.protocol;
@@ -446,6 +444,21 @@ let escalation = ['atendente','humano','pessoa','reclamacao','cancelar','chefe',
 let isReady = false;
 let useLocal = false;
 let pendingSync = false;
+
+let columnMap = {
+  bot_name: 'bot_name',
+  company_name: 'company_name',
+  greeting_message: 'greeting_message',
+  personality: 'personality',
+  services: 'services',
+  business_hours: 'business_hours',
+  pricing_info: 'pricing_info',
+  fallback_message: 'fallback_message',
+  faq_data: 'faq_data',
+  escalation_keywords: 'escalation_keywords',
+  active: 'active',
+  updated_at: 'updated_at'
+};
 
 function setStatus(type, text, showSync) {
   const dot = document.getElementById('statusDot');
@@ -478,6 +491,34 @@ function initSupabase() {
   }
 }
 
+async function detectColumns() {
+  try {
+    console.log('Detectando colunas da tabela bot_training...');
+    const { data, error } = await db.from('bot_training').select('*').limit(1);
+    if (error) {
+      console.log('Erro ao detectar colunas:', error);
+      return false;
+    }
+    if (data && data.length > 0) {
+      const cols = Object.keys(data[0]);
+      console.log('Colunas detectadas:', cols);
+      if (cols.includes('name') && !cols.includes('bot_name')) columnMap.bot_name = 'name';
+      if (cols.includes('company') && !cols.includes('company_name')) columnMap.company_name = 'company';
+      if (cols.includes('greeting') && !cols.includes('greeting_message')) columnMap.greeting_message = 'greeting';
+      if (cols.includes('behavior') && !cols.includes('personality')) columnMap.personality = 'behavior';
+      if (cols.includes('hours') && !cols.includes('business_hours')) columnMap.business_hours = 'hours';
+      if (cols.includes('pricing') && !cols.includes('pricing_info')) columnMap.pricing_info = 'pricing';
+      if (cols.includes('fallback') && !cols.includes('fallback_message')) columnMap.fallback_message = 'fallback';
+      console.log('Mapeamento final:', columnMap);
+      return true;
+    }
+    return false;
+  } catch (e) {
+    console.error('Erro detectando colunas:', e);
+    return false;
+  }
+}
+
 async function load() {
   showToast('Carregando...','info',99999);
   let attempts = 0;
@@ -490,12 +531,13 @@ async function load() {
     loadFromLocal();
     return;
   }
+  await detectColumns();
   try {
     const { data: testData, error: testError } = await db.from('bot_training').select('*').limit(1);
     if (testError) {
       if (testError.code === 'PGRST204') {
-        await new Promise(r => setTimeout(r, 2000));
-        const { data: retryData, error: retryError } = await db.from('bot_training').select('*').limit(1);
+        const mappedCols = Object.values(columnMap).join(',');
+        const { data: retryData, error: retryError } = await db.from('bot_training').select(mappedCols).limit(1);
         if (retryError) throw retryError;
         processData(retryData?.[0] || null);
       } else {
@@ -505,6 +547,7 @@ async function load() {
       processData(testData?.[0] || null);
     }
   } catch(e) {
+    console.error('Erro Supabase:', e);
     setStatus('warn','Supabase indisponivel — modo offline', true);
     useLocal = true;
     pendingSync = true;
@@ -515,20 +558,20 @@ async function load() {
 function processData(data) {
   if (!data) { createDefaultSupabase(); return; }
   training = data;
-  faqData = data.faq_data || [];
-  escalation = data.escalation_keywords || escalation;
+  faqData = data[columnMap.faq_data] || data.faq_data || [];
+  escalation = data[columnMap.escalation_keywords] || data.escalation_keywords || escalation;
   
-  document.getElementById('botName').value = data.bot_name || data.name || '';
-  document.getElementById('companyName').value = data.company_name || data.company || '';
-  document.getElementById('greeting').value = data.greeting_message || data.greeting || '';
-  document.getElementById('personality').value = data.personality || data.behavior || '';
-  document.getElementById('services').value = data.services || '';
-  document.getElementById('businessHours').value = data.business_hours || data.hours || '';
-  document.getElementById('pricing').value = data.pricing_info || data.pricing || '';
-  document.getElementById('fallback').value = data.fallback_message || data.fallback || '';
+  document.getElementById('botName').value = data[columnMap.bot_name] || data.name || '';
+  document.getElementById('companyName').value = data[columnMap.company_name] || data.company || '';
+  document.getElementById('greeting').value = data[columnMap.greeting_message] || data.greeting || '';
+  document.getElementById('personality').value = data[columnMap.personality] || data.behavior || '';
+  document.getElementById('services').value = data[columnMap.services] || data.services || '';
+  document.getElementById('businessHours').value = data[columnMap.business_hours] || data.hours || '';
+  document.getElementById('pricing').value = data[columnMap.pricing_info] || data.pricing || '';
+  document.getElementById('fallback').value = data[columnMap.fallback_message] || data.fallback || '';
   
   const tog = document.getElementById('botToggle');
-  const isActive = data.active !== false;
+  const isActive = data[columnMap.active] !== false;
   tog.classList.toggle('on', isActive);
   updateToggleLabel(isActive);
   
@@ -617,11 +660,29 @@ async function createDefaultSupabase() {
     faq_data:[], escalation_keywords:escalation, active:true
   };
   try {
-    const { data, error } = await db.from('bot_training').insert(d).select().single();
+    const payload = buildPayload(d);
+    const { data, error } = await db.from('bot_training').insert(payload).select().single();
     if (error) { useLocal = true; pendingSync = true; createDefaultLocal(); return; }
     if (data) training = data;
     load();
   } catch(e) { useLocal = true; pendingSync = true; createDefaultLocal(); }
+}
+
+function buildPayload(source) {
+  const payload = {};
+  payload[columnMap.bot_name] = source.bot_name || source.name || '';
+  payload[columnMap.company_name] = source.company_name || source.company || '';
+  payload[columnMap.greeting_message] = source.greeting_message || source.greeting || '';
+  payload[columnMap.personality] = source.personality || source.behavior || '';
+  payload[columnMap.services] = source.services || '';
+  payload[columnMap.business_hours] = source.business_hours || source.hours || '';
+  payload[columnMap.pricing_info] = source.pricing_info || source.pricing || '';
+  payload[columnMap.fallback_message] = source.fallback_message || source.fallback || '';
+  payload[columnMap.faq_data] = source.faq_data || [];
+  payload[columnMap.escalation_keywords] = source.escalation_keywords || escalation;
+  payload[columnMap.active] = source.active !== false;
+  payload[columnMap.updated_at] = new Date().toISOString();
+  return payload;
 }
 
 async function forceSync() {
@@ -629,11 +690,12 @@ async function forceSync() {
   showToast('Sincronizando...','info',99999);
   try {
     const localData = JSON.parse(localStorage.getItem('bot_training_v2') || '{}');
+    const payload = buildPayload(localData);
     if (training?.id) {
-      const res = await db.from('bot_training').update(localData).eq('id', training.id);
+      const res = await db.from('bot_training').update(payload).eq('id', training.id);
       if (res.error) throw res.error;
     } else {
-      const res = await db.from('bot_training').insert(localData).select().single();
+      const res = await db.from('bot_training').insert(payload).select().single();
       if (res.error) throw res.error;
       if (res.data) training = res.data;
     }
@@ -796,7 +858,7 @@ async function save() {
   btn.disabled=true;
 
   const active = document.getElementById('botToggle').classList.contains('on');
-  const payload = {
+  const source = {
     bot_name: document.getElementById('botName')?.value || '',
     company_name: document.getElementById('companyName')?.value || '',
     greeting_message: document.getElementById('greeting')?.value || '',
@@ -811,7 +873,7 @@ async function save() {
     updated_at: new Date().toISOString()
   };
 
-  localStorage.setItem('bot_training_v2', JSON.stringify(payload));
+  localStorage.setItem('bot_training_v2', JSON.stringify(source));
   console.log('Salvo no localStorage');
 
   let supabaseSuccess = false;
@@ -819,27 +881,13 @@ async function save() {
 
   try {
     if (db) {
+      const payload = buildPayload(source);
+      console.log('Payload para Supabase:', payload);
+      
       if (training?.id) {
         const res = await db.from('bot_training').update(payload).eq('id', training.id);
-        if (res.error) {
-          if (res.error.message?.includes('column') || res.error.code === 'PGRST204') {
-            const altPayload = {
-              name: payload.bot_name, company: payload.company_name,
-              greeting: payload.greeting_message, behavior: payload.personality,
-              services: payload.services, hours: payload.business_hours,
-              pricing: payload.pricing_info, fallback: payload.fallback_message,
-              faq_data: payload.faq_data, escalation_keywords: payload.escalation_keywords,
-              active: payload.active, updated_at: payload.updated_at
-            };
-            const altRes = await db.from('bot_training').update(altPayload).eq('id', training.id);
-            if (altRes.error) throw altRes.error;
-            training = {...training, ...altPayload};
-          } else {
-            throw res.error;
-          }
-        } else {
-          training = {...training, ...payload};
-        }
+        if (res.error) throw res.error;
+        training = {...training, ...source};
         supabaseSuccess = true;
       } else {
         const res = await db.from('bot_training').insert(payload).select().single();
@@ -856,13 +904,13 @@ async function save() {
   if (supabaseSuccess) {
     try { webhookNotified = await notifyWebhookClearCache(); } catch(e) { console.warn(e); }
     useLocal = false; pendingSync = false;
-    localStorage.setItem('bot_training_cache', JSON.stringify(payload));
+    localStorage.setItem('bot_training_cache', JSON.stringify(source));
     if (webhookNotified) {
       setStatus('ok','Salvo + Webhook atualizado ✓', false);
       showToast('Configuracoes ativas! Proxima mensagem ja usa nova configuracao.','success');
     } else {
-      setStatus('ok','Salvo no Supabase (webhook em 10s)', false);
-      showToast('Salvo! Webhook atualizado em ate 10 segundos.','success');
+      setStatus('ok','Salvo no Supabase (webhook em 5s)', false);
+      showToast('Salvo! Webhook atualizado em ate 5 segundos.','success');
     }
   } else {
     useLocal = true; pendingSync = true;

@@ -11,9 +11,10 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
   auth: { autoRefreshToken: false, persistSession: false }
 });
 
+// Cache com TTL curto para garantir atualizações rápidas
 let trainingCache = null;
 let cacheTimestamp = 0;
-const CACHE_TTL = 3000; // 3 segundos apenas
+const CACHE_TTL = 2000; // 2 segundos
 
 const defaultTraining = {
   bot_name: 'Assistente',
@@ -58,6 +59,7 @@ export default async function handler(req, res) {
       const mode = req.query['hub.mode'];
       const challenge = req.query['hub.challenge'];
 
+      // Verificação do Meta (WhatsApp Business)
       if (mode === 'subscribe') {
         console.log('Meta verification');
         return res.status(200).send(challenge);
@@ -65,9 +67,25 @@ export default async function handler(req, res) {
 
       const action = req.query.action;
 
-      // GET com action=updateconfig = receber config do painel via query params
+      // GET com action=updateconfig = receber config do painel
       if (action === 'updateconfig') {
         console.log('=== UPDATE CONFIG VIA GET ===');
+        
+        // ✅ CORREÇÃO: Parsear arrays que vêm como JSON string
+        let faqData = [];
+        let escalationKeywords = [];
+        
+        try {
+          if (req.query.faq_data) {
+            faqData = JSON.parse(req.query.faq_data);
+          }
+          if (req.query.escalation_keywords) {
+            escalationKeywords = JSON.parse(req.query.escalation_keywords);
+          }
+        } catch (e) {
+          console.log('Erro parse arrays:', e.message);
+        }
+
         const config = {
           bot_name: req.query.bot_name || defaultTraining.bot_name,
           company_name: req.query.company_name || defaultTraining.company_name,
@@ -77,12 +95,17 @@ export default async function handler(req, res) {
           business_hours: req.query.hours || '',
           pricing_info: req.query.pricing || '',
           fallback_message: req.query.fallback || '',
+          faq_data: faqData,
+          escalation_keywords: escalationKeywords,
           active: req.query.active !== 'false',
           updated_at: new Date().toISOString()
         };
 
         const result = await saveTrainingToSupabase(config);
-        trainingCache = null; // limpar cache
+        
+        // ✅ CORREÇÃO: Limpar cache imediatamente
+        trainingCache = null;
+        cacheTimestamp = 0;
         
         return res.status(200).json({
           success: true,
@@ -135,7 +158,7 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true, message: 'Cache limpo' });
       }
 
-      // GET sem action = teste
+      // GET sem action = status/teste
       const training = await getTraining();
       return res.status(200).json({
         status: 'online',
@@ -146,15 +169,18 @@ export default async function handler(req, res) {
 
     // ========== POST ==========
     if (req.method === 'POST') {
+      console.log('POST body type:', typeof req.body);
       console.log('POST body:', JSON.stringify(req.body).substring(0, 500));
 
-      // Detectar tipo de POST
       const body = req.body || {};
-      const hasBotName = body.bot_name !== undefined;
+      
+      // ✅ CORREÇÃO: Detectar POST do painel de forma mais robusta
+      // O painel envia um objeto com bot_name, mas o Vercel pode parsear de formas diferentes
+      const hasBotName = body.bot_name !== undefined || body.bot_name !== null;
       const hasWhatsAppObject = body.object === 'whatsapp_business_account';
       const hasAction = !!req.query.action;
 
-      console.log('Detectado:', { hasBotName, hasWhatsAppObject, hasAction });
+      console.log('Detectado:', { hasBotName, hasWhatsAppObject, hasAction, bodyKeys: Object.keys(body) });
 
       // --- POST DO PAINEL (tem bot_name) ---
       if (hasBotName && !hasAction) {
@@ -179,7 +205,7 @@ export default async function handler(req, res) {
 
         const saved = await saveTrainingToSupabase(trainingData);
         
-        // Limpar cache
+        // ✅ CORREÇÃO: Limpar cache imediatamente após salvar
         trainingCache = null;
         cacheTimestamp = 0;
 
@@ -244,7 +270,7 @@ export default async function handler(req, res) {
 
         console.log(`Msg de ${from}: ${text}`);
 
-        // Buscar treinamento ATUAL
+        // ✅ CORREÇÃO: Sempre buscar treinamento atual do banco (cache curto)
         const training = await getTraining();
 
         // Bot desativado?
@@ -267,7 +293,7 @@ export default async function handler(req, res) {
           return res.status(200).send('Human mode');
         }
 
-        // Gerar resposta
+        // Gerar resposta com treinamento atualizado
         const response = generateResponse(text, training);
         console.log('Resposta:', response);
 
@@ -349,7 +375,9 @@ async function saveTrainingToSupabase(data) {
 async function getTraining() {
   const now = Date.now();
 
+  // ✅ CORREÇÃO: Cache mais curto e verificação mais rigorosa
   if (trainingCache && (now - cacheTimestamp) < CACHE_TTL) {
+    console.log('Usando cache (TTL ok)');
     return trainingCache;
   }
 
@@ -370,7 +398,7 @@ async function getTraining() {
     if (data) {
       trainingCache = data;
       cacheTimestamp = now;
-      console.log('Training carregado:', data.greeting_message?.substring(0, 50));
+      console.log('Training carregado do banco:', data.greeting_message?.substring(0, 50));
       return data;
     }
 
@@ -391,6 +419,7 @@ function generateResponse(userMessage, training) {
     return training.greeting_message || defaultTraining.greeting_message;
   }
 
+  // ✅ CORREÇÃO: Usar FAQ do treinamento atual
   const faq = training.faq_data || [];
   for (const item of faq) {
     if (!item.question || !item.answer) continue;

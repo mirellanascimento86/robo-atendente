@@ -6,7 +6,6 @@
 <title>AI Training Studio</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root {
   --ink:#0e0e0e; --cream:#f5f3ef; --gold:#b8965a; --gold-l:#d4b07a;
@@ -249,11 +248,6 @@ body{
 .status-bar .bar .dot.ok{background:#2d6a4f;}
 .status-bar .bar .dot.warn{background:#b8965a;}
 .status-bar .bar .dot.err{background:#c0392b;}
-.status-bar .bar .sync-btn{
-  margin-left:auto;background:none;border:none;
-  color:var(--gold);font-size:11px;cursor:pointer;text-decoration:underline;
-}
-.status-bar .bar .sync-btn:disabled{opacity:.4;cursor:not-allowed;}
 </style>
 </head>
 <body>
@@ -268,9 +262,8 @@ body{
 
 <div class="status-bar">
   <div class="bar" id="statusBar">
-    <div class="dot warn" id="statusDot"></div>
-    <span id="statusText">Verificando conexao...</span>
-    <button class="sync-btn" id="syncBtn" onclick="forceSync()" style="display:none;">&#8635; Sincronizar</button>
+    <div class="dot ok" id="statusDot"></div>
+    <span id="statusText">Painel ativo — edite e salve para atualizar o WhatsApp</span>
   </div>
 </div>
 
@@ -386,7 +379,7 @@ body{
 </div>
 
 <div class="save-wrap">
-  <button class="save-btn" id="saveBtn" onclick="save()">Salvar Configuracoes</button>
+  <button class="save-btn" id="saveBtn" onclick="save()">Salvar e Ativar no WhatsApp</button>
 </div>
 
 <nav class="nav-bar">
@@ -425,315 +418,123 @@ body{
 <div class="toast" id="toast"></div>
 
 <script>
-const SUPABASE_URL = 'https://fwcljognwdutsagppxcq.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ3Y2xqb2dud2R1dHNhZ3BweGNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4OTY4MjMsImV4cCI6MjA5MDQ3MjgyM30.6n8MejPbWRZlJnfZylrsK37_jwFha3FE7Xbj_Sn8VcE';
+// ============================================
+// CONFIGURACAO - ALTERE AQUI SEU WEBHOOK URL
+// ============================================
+const WEBHOOK_BASE_URL = 'https://robo-atendente.vercel.app/api/webhook';
 
-const WEBHOOK_URL = (() => {
-  const host = window.location.host;
-  const protocol = window.location.protocol;
-  if (host.includes('localhost') || host === '' || protocol === 'file:') {
-    return 'https://robo-atendente.vercel.app/api/webhook';
-  }
-  return protocol + '//' + host + '/api/webhook';
-})();
-
-let db = null;
+// ============================================
+// ESTADO GLOBAL
+// ============================================
 let training = null;
 let faqData = [];
 let escalation = ['atendente','humano','pessoa','reclamacao','cancelar','chefe','gerente'];
 let isReady = false;
-let useLocal = false;
-let pendingSync = false;
 
-let columnMap = {
-  bot_name: 'bot_name',
-  company_name: 'company_name',
-  greeting_message: 'greeting_message',
-  personality: 'personality',
-  services: 'services',
-  business_hours: 'business_hours',
-  pricing_info: 'pricing_info',
-  fallback_message: 'fallback_message',
-  faq_data: 'faq_data',
-  escalation_keywords: 'escalation_keywords',
-  active: 'active',
-  updated_at: 'updated_at'
-};
-
-function setStatus(type, text, showSync) {
+// ============================================
+// UTILIDADES
+// ============================================
+function setStatus(type, text) {
   const dot = document.getElementById('statusDot');
   const txt = document.getElementById('statusText');
-  const syncBtn = document.getElementById('syncBtn');
   if (dot) dot.className = 'dot ' + type;
   if (txt) txt.textContent = text;
-  if (syncBtn) syncBtn.style.display = showSync ? 'inline-block' : 'none';
 }
 
-function initSupabase() {
-  try {
-    if (typeof window.supabase === 'undefined') {
-      setStatus('warn','CDN nao carregou — modo offline', false);
-      return false;
-    }
-    const { createClient } = window.supabase;
-    if (typeof createClient !== 'function') {
-      setStatus('err','Erro na inicializacao');
-      return false;
-    }
-    db = createClient(SUPABASE_URL, SUPABASE_KEY, {
-      auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
-      db: { schema: 'public' }
-    });
-    return true;
-  } catch (e) {
-    setStatus('err','Erro: ' + e.message);
-    return false;
+function showToast(msg, type, dur) {
+  clearTimeout(window._tt);
+  const el = document.getElementById('toast');
+  if (!el) return;
+  el.textContent = msg;
+  el.className = 'toast show ' + type;
+  if (dur && dur < 99999) {
+    window._tt = setTimeout(() => el.classList.remove('show'), dur);
   }
 }
 
-async function detectColumns() {
-  try {
-    console.log('Detectando colunas da tabela bot_training...');
-    const { data, error } = await db.from('bot_training').select('*').limit(1);
-    if (error) {
-      console.log('Erro ao detectar colunas:', error);
-      return false;
-    }
-    if (data && data.length > 0) {
-      const cols = Object.keys(data[0]);
-      console.log('Colunas detectadas:', cols);
-      if (cols.includes('name') && !cols.includes('bot_name')) columnMap.bot_name = 'name';
-      if (cols.includes('company') && !cols.includes('company_name')) columnMap.company_name = 'company';
-      if (cols.includes('greeting') && !cols.includes('greeting_message')) columnMap.greeting_message = 'greeting';
-      if (cols.includes('behavior') && !cols.includes('personality')) columnMap.personality = 'behavior';
-      if (cols.includes('hours') && !cols.includes('business_hours')) columnMap.business_hours = 'hours';
-      if (cols.includes('pricing') && !cols.includes('pricing_info')) columnMap.pricing_info = 'pricing';
-      if (cols.includes('fallback') && !cols.includes('fallback_message')) columnMap.fallback_message = 'fallback';
-      console.log('Mapeamento final:', columnMap);
-      return true;
-    }
-    return false;
-  } catch (e) {
-    console.error('Erro detectando colunas:', e);
-    return false;
-  }
+function esc(t) {
+  const d = document.createElement('div');
+  d.textContent = t || '';
+  return d.innerHTML;
 }
 
-async function load() {
-  showToast('Carregando...','info',99999);
-  let attempts = 0;
-  while (!window.supabase && attempts < 50) {
-    await new Promise(r => setTimeout(r, 100));
-    attempts++;
-  }
-  if (!initSupabase()) {
-    useLocal = true;
-    loadFromLocal();
-    return;
-  }
-  await detectColumns();
-  try {
-    const { data: testData, error: testError } = await db.from('bot_training').select('*').limit(1);
-    if (testError) {
-      if (testError.code === 'PGRST204') {
-        const mappedCols = Object.values(columnMap).join(',');
-        const { data: retryData, error: retryError } = await db.from('bot_training').select(mappedCols).limit(1);
-        if (retryError) throw retryError;
-        processData(retryData?.[0] || null);
-      } else {
-        throw testError;
-      }
-    } else {
-      processData(testData?.[0] || null);
-    }
-  } catch(e) {
-    console.error('Erro Supabase:', e);
-    setStatus('warn','Supabase indisponivel — modo offline', true);
-    useLocal = true;
-    pendingSync = true;
-    loadFromLocal();
-  }
-}
-
-function processData(data) {
-  if (!data) { createDefaultSupabase(); return; }
-  training = data;
-  faqData = data[columnMap.faq_data] || data.faq_data || [];
-  escalation = data[columnMap.escalation_keywords] || data.escalation_keywords || escalation;
+// ============================================
+// CARREGAR DADOS (LOCALSTORAGE ONLY - SEM SUPABASE)
+// ============================================
+function load() {
+  showToast('Carregando configuracoes...', 'info', 2000);
   
-  document.getElementById('botName').value = data[columnMap.bot_name] || data.name || '';
-  document.getElementById('companyName').value = data[columnMap.company_name] || data.company || '';
-  document.getElementById('greeting').value = data[columnMap.greeting_message] || data.greeting || '';
-  document.getElementById('personality').value = data[columnMap.personality] || data.behavior || '';
-  document.getElementById('services').value = data[columnMap.services] || data.services || '';
-  document.getElementById('businessHours').value = data[columnMap.business_hours] || data.hours || '';
-  document.getElementById('pricing').value = data[columnMap.pricing_info] || data.pricing || '';
-  document.getElementById('fallback').value = data[columnMap.fallback_message] || data.fallback || '';
+  try {
+    const saved = localStorage.getItem('bot_training_v2');
+    if (saved) {
+      const data = JSON.parse(saved);
+      applyData(data);
+      setStatus('ok', 'Configuracoes carregadas — pronto para editar');
+      showToast('Configuracoes carregadas!', 'success', 2000);
+    } else {
+      createDefaultData();
+    }
+    isReady = true;
+  } catch(e) {
+    console.error('Erro ao carregar:', e);
+    createDefaultData();
+  }
+}
+
+function createDefaultData() {
+  const d = {
+    bot_name: 'Assistente',
+    company_name: 'Minha Empresa',
+    greeting_message: 'Ola! Seja bem-vindo(a). Como posso ajuda-lo(a) hoje?',
+    personality: 'Seja cordial, elegante e objetivo.',
+    services: 'Conserto de celulares, notebooks, tablets.',
+    business_hours: 'Seg-Sex: 9h as 18h | Sab: 9h as 13h',
+    pricing_info: 'Orcamento gratuito e sem compromisso.',
+    fallback_message: 'Nao compreendi. Posso ajudar com orcamentos, horarios e servicos.',
+    faq_data: [],
+    escalation_keywords: escalation,
+    active: true,
+    updated_at: new Date().toISOString()
+  };
+  applyData(d);
+  localStorage.setItem('bot_training_v2', JSON.stringify(d));
+  setStatus('ok', 'Configuracao padrao criada');
+  showToast('Configuracao padrao criada', 'info', 2000);
+  isReady = true;
+}
+
+function applyData(data) {
+  training = data;
+  faqData = data.faq_data || [];
+  escalation = data.escalation_keywords || escalation;
+  
+  document.getElementById('botName').value = data.bot_name || '';
+  document.getElementById('companyName').value = data.company_name || '';
+  document.getElementById('greeting').value = data.greeting_message || '';
+  document.getElementById('personality').value = data.personality || '';
+  document.getElementById('services').value = data.services || '';
+  document.getElementById('businessHours').value = data.business_hours || '';
+  document.getElementById('pricing').value = data.pricing_info || '';
+  document.getElementById('fallback').value = data.fallback_message || '';
   
   const tog = document.getElementById('botToggle');
-  const isActive = data[columnMap.active] !== false;
+  const isActive = data.active !== false;
   tog.classList.toggle('on', isActive);
   updateToggleLabel(isActive);
   
   renderTags();
   renderFaq();
-  isReady = true;
-  useLocal = false;
-  pendingSync = false;
-  setStatus('ok','Sincronizado com Supabase ✓', false);
-  showToast('Configuracoes carregadas ✓','success');
-  localStorage.setItem('bot_training_cache', JSON.stringify(data));
 }
 
-function loadFromLocal() {
-  try {
-    const cache = localStorage.getItem('bot_training_cache');
-    if (cache) {
-      const data = JSON.parse(cache);
-      training = data; faqData = data.faq_data || []; escalation = data.escalation_keywords || escalation;
-      document.getElementById('botName').value = data.bot_name || '';
-      document.getElementById('companyName').value = data.company_name || '';
-      document.getElementById('greeting').value = data.greeting_message || '';
-      document.getElementById('personality').value = data.personality || '';
-      document.getElementById('services').value = data.services || '';
-      document.getElementById('businessHours').value = data.business_hours || '';
-      document.getElementById('pricing').value = data.pricing_info || '';
-      document.getElementById('fallback').value = data.fallback_message || '';
-      const tog = document.getElementById('botToggle');
-      tog.classList.toggle('on', data.active !== false);
-      updateToggleLabel(data.active !== false);
-      renderTags(); renderFaq();
-      setStatus('warn','Offline — cache local', true);
-      showToast('Dados em cache','info');
-      isReady = true; return;
-    }
-    const saved = localStorage.getItem('bot_training_v2');
-    if (saved) {
-      const data = JSON.parse(saved);
-      training = data; faqData = data.faq_data || []; escalation = data.escalation_keywords || escalation;
-      document.getElementById('botName').value = data.bot_name || '';
-      document.getElementById('companyName').value = data.company_name || '';
-      document.getElementById('greeting').value = data.greeting_message || '';
-      document.getElementById('personality').value = data.personality || '';
-      document.getElementById('services').value = data.services || '';
-      document.getElementById('businessHours').value = data.business_hours || '';
-      document.getElementById('pricing').value = data.pricing_info || '';
-      document.getElementById('fallback').value = data.fallback_message || '';
-      const tog = document.getElementById('botToggle');
-      tog.classList.toggle('on', data.active !== false);
-      updateToggleLabel(data.active !== false);
-      renderTags(); renderFaq();
-      setStatus('warn','Modo offline — nao sincronizado', true);
-      showToast('Dados locais','info');
-    } else {
-      createDefaultLocal();
-    }
-    isReady = true; useLocal = true; pendingSync = true;
-  } catch(e) { createDefaultLocal(); }
-}
-
-function createDefaultLocal() {
-  const d = {
-    bot_name:'Assistente', company_name:'Minha Empresa',
-    greeting_message:'Ola! Seja bem-vindo(a). Como posso ajuda-lo(a) hoje?',
-    personality:'Seja cordial, elegante e objetivo.',
-    services:'Conserto de celulares, notebooks, tablets.',
-    business_hours:'Seg-Sex: 9h as 18h | Sab: 9h as 13h',
-    pricing_info:'Orcamento gratuito e sem compromisso.',
-    fallback_message:'Nao compreendi. Posso ajudar com orcamentos, horarios e servicos.',
-    faq_data:[], escalation_keywords:escalation, active:true
-  };
-  training = d;
-  localStorage.setItem('bot_training_v2', JSON.stringify(d));
-  loadFromLocal();
-}
-
-async function createDefaultSupabase() {
-  const d = {
-    bot_name:'Assistente', company_name:'Minha Empresa',
-    greeting_message:'Ola! Seja bem-vindo(a). Como posso ajuda-lo(a) hoje?',
-    personality:'Seja cordial, elegante e objetivo.',
-    services:'Conserto de celulares, notebooks, tablets.',
-    business_hours:'Seg-Sex: 9h as 18h | Sab: 9h as 13h',
-    pricing_info:'Orcamento gratuito e sem compromisso.',
-    fallback_message:'Nao compreendi. Posso ajudar com orcamentos, horarios e servicos.',
-    faq_data:[], escalation_keywords:escalation, active:true
-  };
-  try {
-    const payload = buildPayload(d);
-    const { data, error } = await db.from('bot_training').insert(payload).select().single();
-    if (error) { useLocal = true; pendingSync = true; createDefaultLocal(); return; }
-    if (data) training = data;
-    load();
-  } catch(e) { useLocal = true; pendingSync = true; createDefaultLocal(); }
-}
-
-function buildPayload(source) {
-  const payload = {};
-  payload[columnMap.bot_name] = source.bot_name || source.name || '';
-  payload[columnMap.company_name] = source.company_name || source.company || '';
-  payload[columnMap.greeting_message] = source.greeting_message || source.greeting || '';
-  payload[columnMap.personality] = source.personality || source.behavior || '';
-  payload[columnMap.services] = source.services || '';
-  payload[columnMap.business_hours] = source.business_hours || source.hours || '';
-  payload[columnMap.pricing_info] = source.pricing_info || source.pricing || '';
-  payload[columnMap.fallback_message] = source.fallback_message || source.fallback || '';
-  payload[columnMap.faq_data] = source.faq_data || [];
-  payload[columnMap.escalation_keywords] = source.escalation_keywords || escalation;
-  payload[columnMap.active] = source.active !== false;
-  payload[columnMap.updated_at] = new Date().toISOString();
-  return payload;
-}
-
-async function forceSync() {
-  if (!db) { showToast('Supabase nao disponivel','error'); return; }
-  showToast('Sincronizando...','info',99999);
-  try {
-    const localData = JSON.parse(localStorage.getItem('bot_training_v2') || '{}');
-    const payload = buildPayload(localData);
-    if (training?.id) {
-      const res = await db.from('bot_training').update(payload).eq('id', training.id);
-      if (res.error) throw res.error;
-    } else {
-      const res = await db.from('bot_training').insert(payload).select().single();
-      if (res.error) throw res.error;
-      if (res.data) training = res.data;
-    }
-    localStorage.setItem('bot_training_cache', JSON.stringify(localData));
-    pendingSync = false; useLocal = false;
-    await notifyWebhookClearCache();
-    setStatus('ok','Sincronizado com Supabase ✓', false);
-    showToast('Sincronizado!','success');
-  } catch(e) {
-    showToast('Erro: ' + e.message,'error');
-  }
-}
-
-async function notifyWebhookClearCache() {
-  try {
-    console.log('Notificando webhook:', WEBHOOK_URL + '?action=clearcache');
-    const response = await fetch(WEBHOOK_URL + '?action=clearcache', {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' }
-    });
-    if (response.ok) {
-      const data = await response.json();
-      console.log('Webhook notificado:', data);
-      return true;
-    }
-    console.warn('Webhook nao respondeu:', response.status);
-    return false;
-  } catch(e) {
-    console.warn('Erro notificar webhook:', e.message);
-    return false;
-  }
-}
-
+// ============================================
+// TOGGLE BOT
+// ============================================
 function toggleBot() {
   const tog = document.getElementById('botToggle');
   tog.classList.toggle('on');
-  updateToggleLabel(tog.classList.contains('on'));
-  showToast(tog.classList.contains('on') ? 'Bot sera ativado ao salvar' : 'Bot sera desativado ao salvar','info');
+  const isOn = tog.classList.contains('on');
+  updateToggleLabel(isOn);
+  showToast(isOn ? 'Bot sera ativado ao salvar' : 'Bot sera desativado ao salvar', 'info', 2000);
 }
 
 function updateToggleLabel(on) {
@@ -743,10 +544,13 @@ function updateToggleLabel(on) {
     : 'Mensagens direcionadas ao atendimento humano';
 }
 
+// ============================================
+// TAGS (ESCALATION)
+// ============================================
 function renderTags() {
   const container = document.getElementById('escalationTags');
   if (!container) return;
-  container.innerHTML = escalation.map((t,i) =>
+  container.innerHTML = escalation.map((t, i) =>
     '<div class="tag-pill">' + esc(t) + '<button onclick="removeTag(' + i + ')" aria-label="remover">×</button></div>'
   ).join('');
 }
@@ -756,36 +560,50 @@ function addTag() {
   if (!inp) return;
   const v = inp.value.trim().toLowerCase();
   if (!v) return;
-  if (escalation.includes(v)) { showToast('Palavra ja existe','info'); return; }
-  escalation.push(v); inp.value=''; renderTags();
-  showToast('Adicionada — salve para aplicar','info');
+  if (escalation.includes(v)) { showToast('Palavra ja existe', 'info', 2000); return; }
+  escalation.push(v);
+  inp.value = '';
+  renderTags();
+  showToast('Adicionada — salve para aplicar', 'info', 2000);
 }
 
 function removeTag(i) {
-  escalation.splice(i,1); renderTags();
-  showToast('Removida — salve para aplicar','info');
+  escalation.splice(i, 1);
+  renderTags();
+  showToast('Removida — salve para aplicar', 'info', 2000);
 }
 
+// ============================================
+// FAQ
+// ============================================
 function renderFaq() {
   const el = document.getElementById('faqList');
   if (!el) return;
-  if (!faqData.length) { el.innerHTML='<div class="faq-empty">Nenhuma entrada ainda</div>'; return; }
-  el.innerHTML = faqData.map((f,i) =>
+  if (!faqData.length) {
+    el.innerHTML = '<div class="faq-empty">Nenhuma entrada ainda</div>';
+    return;
+  }
+  el.innerHTML = faqData.map((f, i) =>
     '<div class="faq-item"><div class="faq-q">❓ ' + esc(f.question) + '</div>' +
     '<div class="faq-a">' + esc(f.answer) + '</div>' +
     '<button class="faq-del" onclick="removeFaq(' + i + ')" title="Remover">🗑</button></div>'
   ).join('');
 }
 
-function removeFaq(i) { faqData.splice(i,1); renderFaq(); showToast('Removida','info'); }
+function removeFaq(i) {
+  faqData.splice(i, 1);
+  renderFaq();
+  showToast('Removida', 'info', 2000);
+}
 
 function openFaqModal() {
   const modal = document.getElementById('faqModal');
   const q = document.getElementById('modalQ');
   const a = document.getElementById('modalA');
-  if (q) q.value=''; if (a) a.value='';
+  if (q) q.value = '';
+  if (a) a.value = '';
   if (modal) modal.classList.add('open');
-  setTimeout(() => { if(q) q.focus(); }, 120);
+  setTimeout(() => { if (q) q.focus(); }, 120);
 }
 
 function closeFaqModal() {
@@ -797,12 +615,19 @@ function saveFaqItem() {
   const q = document.getElementById('modalQ');
   const a = document.getElementById('modalA');
   if (!q || !a) return;
-  const qv = q.value.trim(); const av = a.value.trim();
-  if (!qv || !av) { showToast('Preencha pergunta e resposta','error'); return; }
-  faqData.push({question:qv, answer:av}); renderFaq(); closeFaqModal();
-  showToast('Adicionada — salve para aplicar','info');
+  const qv = q.value.trim();
+  const av = a.value.trim();
+  if (!qv || !av) {
+    showToast('Preencha pergunta e resposta', 'error', 3000);
+    return;
+  }
+  faqData.push({ question: qv, answer: av });
+  renderFaq();
+  closeFaqModal();
+  showToast('Adicionada — salve para aplicar', 'info', 2000);
 }
 
+// Fechar modal ao clicar fora ou ESC
 document.addEventListener('click', function(e) {
   const modal = document.getElementById('faqModal');
   if (modal && e.target === modal) closeFaqModal();
@@ -811,6 +636,9 @@ document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') closeFaqModal();
 });
 
+// ============================================
+// SIMULADOR
+// ============================================
 function simulate() {
   const qInput = document.getElementById('testQ');
   const out = document.getElementById('previewOut');
@@ -818,6 +646,7 @@ function simulate() {
   if (!qInput || !out || !txt) return;
   const q = qInput.value.trim();
   if (!q) { out.classList.remove('show'); return; }
+  
   const live = {
     greeting_message: document.getElementById('greeting')?.value || '',
     personality: document.getElementById('personality')?.value || '',
@@ -828,122 +657,188 @@ function simulate() {
     faq_data: faqData,
     escalation_keywords: escalation
   };
+  
   txt.textContent = genResponse(q, live);
   out.classList.add('show');
 }
 
 function genResponse(userMsg, t) {
   const msg = userMsg.toLowerCase().trim();
-  const greetings = ['oi','ola','olá','bom dia','boa tarde','boa noite','hey','hi','hello'];
-  if (greetings.some(g => msg===g || msg.startsWith(g+' '))) return t.greeting_message || 'Ola! Como posso ajudar?';
-  for (const item of (t.faq_data||[])) {
-    const words = item.question.toLowerCase().split(/\s+/).filter(w=>w.length>2);
-    if (words.filter(w=>msg.includes(w)).length>=2 || msg.includes(item.question.toLowerCase())) return item.answer;
+  const greetings = ['oi', 'ola', 'olá', 'bom dia', 'boa tarde', 'boa noite', 'hey', 'hi', 'hello'];
+  
+  if (greetings.some(g => msg === g || msg.startsWith(g + ' '))) {
+    return t.greeting_message || 'Ola! Como posso ajudar?';
   }
-  if (/preco|valor|custa|quanto|orcamento/i.test(msg))
-    return (t.pricing_info||'Consulte-nos para orcamento.') + '\n\nPosso agendar um orcamento gratuito!';
-  if (/horario|hora|aberto|funciona/i.test(msg))
-    return '⏰ ' + (t.business_hours||'Horario comercial') + '\n\nEstamos prontos!';
-  if (/servico|conserta|reparo|arruma/i.test(msg))
-    return '🔧 ' + (t.services||'Diversos servicos.') + '\n\nQual voce precisa?';
-  const esc2 = t.escalation_keywords||[];
-  if (esc2.some(w=>msg.includes(w.toLowerCase()))) return '👨‍💼 Transferindo para atendente humano. Aguarde...';
-  return (t.fallback_message||'Nao compreendi.') + '\n\nOu digite "atendente"!';
+  
+  for (const item of (t.faq_data || [])) {
+    const words = item.question.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+    const matches = words.filter(w => msg.includes(w)).length;
+    if (matches >= 2 || msg.includes(item.question.toLowerCase())) {
+      return item.answer;
+    }
+  }
+  
+  if (/preco|valor|custa|quanto|orcamento/i.test(msg)) {
+    return (t.pricing_info || 'Consulte-nos para orcamento.') + '\n\nPosso agendar um orcamento gratuito!';
+  }
+  
+  if (/horario|hora|aberto|funciona/i.test(msg)) {
+    return '⏰ ' + (t.business_hours || 'Horario comercial') + '\n\nEstamos prontos!';
+  }
+  
+  if (/servico|conserta|reparo|arruma/i.test(msg)) {
+    return '🔧 ' + (t.services || 'Diversos servicos.') + '\n\nQual voce precisa?';
+  }
+  
+  const esc = t.escalation_keywords || [];
+  if (esc.some(w => msg.includes(w.toLowerCase()))) {
+    return '👨‍💼 Transferindo para atendente humano. Aguarde...';
+  }
+  
+  return (t.fallback_message || 'Nao compreendi.') + '\n\nOu digite "atendente"!';
 }
 
+// ============================================
+// SALVAR E SINCRONIZAR COM WEBHOOK
+// ============================================
 async function save() {
   const btn = document.getElementById('saveBtn');
   if (!btn) return;
-  btn.innerHTML='<span class="spin"></span>Salvando...';
-  btn.disabled=true;
+  btn.innerHTML = '<span class="spin"></span>Salvando...';
+  btn.disabled = true;
 
+  // 1. Coletar dados do formulario
   const active = document.getElementById('botToggle').classList.contains('on');
   const source = {
-    bot_name: document.getElementById('botName')?.value || '',
-    company_name: document.getElementById('companyName')?.value || '',
-    greeting_message: document.getElementById('greeting')?.value || '',
-    personality: document.getElementById('personality')?.value || '',
-    services: document.getElementById('services')?.value || '',
-    business_hours: document.getElementById('businessHours')?.value || '',
-    pricing_info: document.getElementById('pricing')?.value || '',
-    fallback_message: document.getElementById('fallback')?.value || '',
+    bot_name: document.getElementById('botName')?.value?.trim() || '',
+    company_name: document.getElementById('companyName')?.value?.trim() || '',
+    greeting_message: document.getElementById('greeting')?.value?.trim() || '',
+    personality: document.getElementById('personality')?.value?.trim() || '',
+    services: document.getElementById('services')?.value?.trim() || '',
+    business_hours: document.getElementById('businessHours')?.value?.trim() || '',
+    pricing_info: document.getElementById('pricing')?.value?.trim() || '',
+    fallback_message: document.getElementById('fallback')?.value?.trim() || '',
     faq_data: faqData,
     escalation_keywords: escalation,
-    active,
+    active: active,
     updated_at: new Date().toISOString()
   };
 
+  // 2. Salvar no localStorage (sempre)
   localStorage.setItem('bot_training_v2', JSON.stringify(source));
-  console.log('Salvo no localStorage');
+  console.log('✓ Salvo no localStorage');
 
-  let supabaseSuccess = false;
-  let webhookNotified = false;
-
+  // 3. Notificar webhook para atualizar cache
+  let webhookOk = false;
   try {
-    if (db) {
-      const payload = buildPayload(source);
-      console.log('Payload para Supabase:', payload);
-      
-      if (training?.id) {
-        const res = await db.from('bot_training').update(payload).eq('id', training.id);
-        if (res.error) throw res.error;
-        training = {...training, ...source};
-        supabaseSuccess = true;
-      } else {
-        const res = await db.from('bot_training').insert(payload).select().single();
-        if (res.error) throw res.error;
-        if (res.data) training = res.data;
-        supabaseSuccess = true;
-      }
-    }
-  } catch(e) {
-    console.error('Erro Supabase:', e);
-    supabaseSuccess = false;
-  }
-
-  if (supabaseSuccess) {
-    try { webhookNotified = await notifyWebhookClearCache(); } catch(e) { console.warn(e); }
-    useLocal = false; pendingSync = false;
-    localStorage.setItem('bot_training_cache', JSON.stringify(source));
-    if (webhookNotified) {
-      setStatus('ok','Salvo + Webhook atualizado ✓', false);
-      showToast('Configuracoes ativas! Proxima mensagem ja usa nova configuracao.','success');
+    showToast('Atualizando WhatsApp...', 'info', 99999);
+    
+    // Tenta notificar o webhook de varias formas
+    const webhookUrl = WEBHOOK_BASE_URL + '?action=clearcache&t=' + Date.now();
+    
+    const response = await fetch(webhookUrl, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+      // Importante: nao bloquear se demorar
+      signal: AbortSignal.timeout(8000)
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      console.log('✓ Webhook notificado:', data);
+      webhookOk = true;
     } else {
-      setStatus('ok','Salvo no Supabase (webhook em 5s)', false);
-      showToast('Salvo! Webhook atualizado em ate 5 segundos.','success');
+      console.warn('Webhook respondeu com status:', response.status);
     }
-  } else {
-    useLocal = true; pendingSync = true;
-    setStatus('warn','Salvo localmente — clique Sincronizar', true);
-    showToast('Salvo localmente. Clique Sincronizar para ativar.','info');
+  } catch (e) {
+    console.warn('✗ Erro ao notificar webhook:', e.message);
+    // Fallback: tenta POST se GET falhar
+    try {
+      const response = await fetch(WEBHOOK_BASE_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'clearcache', timestamp: Date.now() }),
+        signal: AbortSignal.timeout(8000)
+      });
+      if (response.ok) webhookOk = true;
+    } catch (e2) {
+      console.warn('✗ POST tambem falhou:', e2.message);
+    }
   }
 
-  btn.innerHTML='Salvar Configuracoes';
-  btn.disabled=false;
+  // 4. Atualizar status e feedback
+  if (webhookOk) {
+    setStatus('ok', 'WhatsApp atualizado! Configuracao ativa ✓');
+    showToast('Sucesso! WhatsApp ja esta usando a nova configuracao.', 'success', 4000);
+  } else {
+    setStatus('warn', 'Salvo localmente — webhook nao respondeu');
+    showToast('Salvo! O WhatsApp atualizara automaticamente em ate 30 segundos.', 'info', 4000);
+  }
+
+  // 5. Resetar botao
+  btn.innerHTML = 'Salvar e Ativar no WhatsApp';
+  btn.disabled = false;
 }
 
-let _tt;
-function showToast(msg, type, dur) {
-  clearTimeout(_tt);
-  const el = document.getElementById('toast');
-  if (!el) return;
-  el.textContent = msg;
-  el.className = 'toast show ' + type;
-  if (dur < 99999) _tt = setTimeout(() => el.classList.remove('show'), dur);
+// ============================================
+// AUTO-SALVAMENTO (opcional - salva a cada 30s se houver mudancas)
+// ============================================
+let lastSavedHash = '';
+function getDataHash() {
+  const data = {
+    bot_name: document.getElementById('botName')?.value || '',
+    company_name: document.getElementById('companyName')?.value || '',
+    greeting: document.getElementById('greeting')?.value || '',
+    personality: document.getElementById('personality')?.value || '',
+    services: document.getElementById('services')?.value || '',
+    business_hours: document.getElementById('businessHours')?.value || '',
+    pricing: document.getElementById('pricing')?.value || '',
+    fallback: document.getElementById('fallback')?.value || '',
+    faq_count: faqData.length,
+    esc_count: escalation.length
+  };
+  return JSON.stringify(data);
 }
 
-function esc(t) {
-  const d = document.createElement('div');
-  d.textContent = t || '';
-  return d.innerHTML;
-}
+// Auto-save a cada 30 segundos se detectar mudancas
+setInterval(() => {
+  if (!isReady) return;
+  const currentHash = getDataHash();
+  if (currentHash !== lastSavedHash) {
+    // Nao salva automaticamente no webhook, so no localStorage
+    const active = document.getElementById('botToggle').classList.contains('on');
+    const source = {
+      bot_name: document.getElementById('botName')?.value?.trim() || '',
+      company_name: document.getElementById('companyName')?.value?.trim() || '',
+      greeting_message: document.getElementById('greeting')?.value?.trim() || '',
+      personality: document.getElementById('personality')?.value?.trim() || '',
+      services: document.getElementById('services')?.value?.trim() || '',
+      business_hours: document.getElementById('businessHours')?.value?.trim() || '',
+      pricing_info: document.getElementById('pricing')?.value?.trim() || '',
+      fallback_message: document.getElementById('fallback')?.value?.trim() || '',
+      faq_data: faqData,
+      escalation_keywords: escalation,
+      active: active,
+      updated_at: new Date().toISOString()
+    };
+    localStorage.setItem('bot_training_v2', JSON.stringify(source));
+    lastSavedHash = currentHash;
+    console.log('Auto-save localStorage');
+  }
+}, 30000);
 
+// ============================================
+// INICIALIZACAO
+// ============================================
 document.addEventListener('DOMContentLoaded', function() {
   console.log('AI Training Studio iniciando...');
-  console.log('Webhook URL:', WEBHOOK_URL);
+  console.log('Webhook URL:', WEBHOOK_BASE_URL);
   load();
+  // Guardar hash inicial
+  setTimeout(() => { lastSavedHash = getDataHash(); }, 1000);
 });
 
+// Se ja estiver carregado
 if (document.readyState === 'complete' || document.readyState === 'interactive') {
   setTimeout(load, 100);
 }

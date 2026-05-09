@@ -1,506 +1,505 @@
-import { createClient } from '@supabase/supabase-js';
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>AI Training Studio</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#0e0e0e;--cream:#f5f3ef;--gold:#b8965a;--gold-l:#d4b07a;--gold-pale:#f0e6d3;--smoke:#6b6560;--line:rgba(184,150,90,.18);--card:#fff;--field:#f2f0ec;--r:6px;--sh:0 2px 20px rgba(0,0,0,.07);}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'DM Sans',system-ui,sans-serif;background:var(--cream);color:var(--ink);min-height:100vh;padding-bottom:120px;}
+.hero{background:#0e0e0e;padding:52px 24px 38px;position:relative;}
+.hero::after{content:'';position:absolute;bottom:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,#b8965a,transparent);}
+.hero-inner{max-width:560px;margin:0 auto;}
+.eyebrow{font-size:10px;letter-spacing:4px;text-transform:uppercase;color:#b8965a;margin-bottom:16px;display:flex;align-items:center;gap:10px;}
+.eyebrow::before{content:'';display:block;width:28px;height:1px;background:#b8965a;}
+.hero h1{font-family:'Cormorant Garamond',Georgia,serif;font-size:2.5rem;font-weight:300;color:#fff;line-height:1.15;margin-bottom:10px;}
+.hero h1 em{color:#d4b07a;font-style:italic;}
+.hero-sub{font-size:13px;color:rgba(255,255,255,.45);font-weight:300;}
+.live-badge{display:inline-flex;align-items:center;gap:7px;background:rgba(184,150,90,.12);border:1px solid rgba(184,150,90,.3);color:#d4b07a;padding:5px 13px;border-radius:20px;font-size:10.5px;letter-spacing:1.5px;text-transform:uppercase;margin-top:18px;}
+.live-dot{width:6px;height:6px;background:#d4b07a;border-radius:50%;animation:pulse 2s ease-in-out infinite;}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(1.4)}}
+.wrap{max-width:560px;margin:0 auto;padding:0 14px;}
+.status-card{background:var(--card);border-radius:var(--r);padding:16px 18px;margin:20px 0 0;display:flex;align-items:center;justify-content:space-between;box-shadow:var(--sh);border:1px solid rgba(0,0,0,.05);}
+.tog-row{display:flex;align-items:center;gap:9px;}
+.tog-txt{font-size:11.5px;color:var(--smoke);font-weight:500;}
+.tog{width:44px;height:24px;background:#ccc;border-radius:12px;position:relative;cursor:pointer;transition:background .3s;flex-shrink:0;}
+.tog.on{background:var(--gold);}
+.tog::after{content:'';position:absolute;width:20px;height:20px;background:#fff;border-radius:50%;top:2px;left:2px;transition:left .3s;box-shadow:0 1px 4px rgba(0,0,0,.25);}
+.tog.on::after{left:22px;}
+.content{max-width:560px;margin:0 auto;padding:20px 14px 0;}
+.section{background:var(--card);border-radius:var(--r);box-shadow:var(--sh);border:1px solid rgba(0,0,0,.05);overflow:hidden;margin-bottom:16px;}
+.section:focus-within{box-shadow:0 4px 28px rgba(184,150,90,.13);}
+.sec-head{padding:16px 18px 13px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;}
+.sec-title{font-family:'Cormorant Garamond',Georgia,serif;font-size:1.1rem;font-weight:400;display:flex;align-items:center;gap:10px;}
+.sec-icon{width:26px;height:26px;border-radius:50%;background:var(--gold-pale);display:flex;align-items:center;justify-content:center;font-size:13px;}
+.sec-badge{font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);background:var(--gold-pale);padding:3px 8px;border-radius:10px;font-weight:500;}
+.sec-body{padding:16px 18px;}
+.field{margin-bottom:15px;}
+.field:last-child{margin-bottom:0;}
+.field label{display:block;font-size:10px;letter-spacing:1.8px;text-transform:uppercase;color:var(--smoke);font-weight:500;margin-bottom:7px;}
+.field input,.field textarea{width:100%;padding:11px 13px;background:var(--field);border:1.5px solid transparent;border-radius:var(--r);font-size:14px;color:var(--ink);font-family:'DM Sans',system-ui,sans-serif;transition:all .2s;outline:none;resize:vertical;}
+.field input:focus,.field textarea:focus{background:#fff;border-color:var(--gold);box-shadow:0 0 0 3px rgba(184,150,90,.09);}
+.field textarea{min-height:76px;line-height:1.55;}
+.hint{font-size:11px;color:#aaa;margin-top:5px;line-height:1.4;}
+.div{height:1px;background:var(--line);margin:4px 0 15px;}
+.tags{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:11px;}
+.tag-pill{display:inline-flex;align-items:center;gap:5px;background:#fff0f0;border:1px solid #ffd6d6;color:#c0392b;padding:5px 11px;border-radius:20px;font-size:12px;font-weight:500;}
+.tag-pill button{background:none;border:none;color:#c0392b;cursor:pointer;font-size:14px;line-height:1;padding:0;}
+.tag-add{display:flex;gap:8px;}
+.tag-add input{flex:1;padding:10px 12px;background:var(--field);border:1.5px solid transparent;border-radius:var(--r);font-size:13.5px;font-family:'DM Sans',system-ui,sans-serif;outline:none;color:var(--ink);transition:all .2s;}
+.tag-add input:focus{background:#fff;border-color:var(--gold);}
+.tag-add button{padding:10px 15px;background:var(--ink);color:#fff;border:none;border-radius:var(--r);font-size:13px;font-family:'DM Sans',system-ui,sans-serif;font-weight:500;cursor:pointer;}
+.tag-add button:hover{background:var(--gold);}
+.faq-item{background:var(--field);border-radius:var(--r);padding:13px 15px;margin-bottom:8px;border-left:2px solid var(--gold);position:relative;}
+.faq-q{font-size:13px;font-weight:500;margin-bottom:4px;}
+.faq-a{font-size:12.5px;color:var(--smoke);line-height:1.5;}
+.faq-del{position:absolute;top:10px;right:12px;background:none;border:none;font-size:16px;color:#c0392b;cursor:pointer;opacity:.4;}
+.faq-del:hover{opacity:1;}
+.faq-add-btn{width:100%;padding:13px;background:none;border:1.5px dashed var(--line);border-radius:var(--r);color:var(--smoke);font-family:'DM Sans',system-ui,sans-serif;font-size:13.5px;cursor:pointer;transition:all .2s;margin-top:4px;display:flex;align-items:center;justify-content:center;gap:6px;}
+.faq-add-btn:hover{border-color:var(--gold);color:var(--gold);background:var(--gold-pale);}
+.faq-empty{text-align:center;color:var(--smoke);font-size:13px;padding:18px 0;font-style:italic;}
+.preview-out{background:linear-gradient(135deg,#f8f4ed,#f0eade);border-top:1px solid var(--line);padding:16px 18px;display:none;}
+.preview-out.show{display:block;}
+.preview-lbl{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);font-weight:500;margin-bottom:10px;}
+.preview-txt{font-size:13.5px;line-height:1.65;white-space:pre-wrap;}
+.save-wrap{max-width:560px;margin:0 auto;padding:0 14px 14px;}
+.save-btn{width:100%;padding:16px;background:var(--ink);color:#fff;border:none;border-radius:var(--r);font-family:'DM Sans',system-ui,sans-serif;font-size:13.5px;font-weight:500;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;transition:all .25s;}
+.save-btn:hover{background:#1e1e1e;}
+.save-btn:disabled{opacity:.5;cursor:not-allowed;}
+.toast{position:fixed;bottom:88px;left:50%;transform:translateX(-50%) translateY(16px);background:var(--ink);color:#fff;padding:11px 22px;border-radius:30px;font-size:13px;font-weight:500;opacity:0;pointer-events:none;transition:all .3s cubic-bezier(.34,1.56,.64,1);z-index:999;white-space:nowrap;box-shadow:0 8px 28px rgba(0,0,0,.18);}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+.toast.success{background:#2d6a4f;}
+.toast.error{background:#b5211e;}
+.toast.info{background:var(--gold);color:var(--ink);}
+.nav-bar{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid rgba(0,0,0,.07);display:flex;justify-content:center;z-index:100;box-shadow:0 -3px 20px rgba(0,0,0,.06);}
+.nav-item{text-decoration:none;display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 40px;color:#bbb;font-size:10px;letter-spacing:1px;text-transform:uppercase;font-weight:500;border-top:2px solid transparent;transition:color .2s;}
+.nav-item.active{color:var(--gold);border-top-color:var(--gold);}
+.nav-item svg{width:22px;height:22px;}
+.modal-ov{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:500;display:none;align-items:flex-end;justify-content:center;backdrop-filter:blur(2px);}
+.modal-ov.open{display:flex;}
+.modal{background:#fff;border-radius:14px 14px 0 0;padding:24px 20px 36px;width:100%;max-width:560px;animation:slideUp .3s cubic-bezier(.34,1.2,.64,1);}
+@keyframes slideUp{from{transform:translateY(60px);opacity:0}to{transform:none;opacity:1}}
+.modal h3{font-family:'Cormorant Garamond',Georgia,serif;font-size:1.3rem;font-weight:400;margin-bottom:16px;}
+.modal .field{margin-bottom:13px;}
+.modal-acts{display:flex;gap:10px;margin-top:6px;}
+.modal-acts button{flex:1;padding:13px;border:none;border-radius:var(--r);font-family:'DM Sans',system-ui,sans-serif;font-size:14px;font-weight:500;cursor:pointer;}
+.m-cancel{background:var(--field);color:var(--smoke);}
+.m-ok{background:var(--ink);color:#fff;}
+.m-ok:hover{background:var(--gold);}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spinA .8s linear infinite;vertical-align:middle;margin-right:6px;}
+@keyframes spinA{to{transform:rotate(360deg)}}
+.sbar{max-width:560px;margin:10px auto 0;padding:0 14px;}
+.sbar .inner{background:#fff;border-radius:var(--r);padding:10px 14px;display:flex;align-items:center;gap:8px;box-shadow:var(--sh);border:1px solid rgba(0,0,0,.05);font-size:11.5px;color:var(--smoke);}
+.dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.dot.ok{background:#2d6a4f;} .dot.warn{background:#b8965a;} .dot.err{background:#c0392b;}
+</style>
+</head>
+<body>
 
-const SUPABASE_URL = 'https://fwcljognwdutsagppxcq.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ3Y2xqb2dud2R1dHNhZ3BweGNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg5NjgyMzMsImV4cCI6MjA5MDQ3MjgyM30.6n8MejPbWRZlJnfZylrsK37_jwFha3FE7Xbj_Sn8VcE';
+<div class="hero">
+  <div class="hero-inner">
+    <div class="eyebrow">AI Training Studio</div>
+    <h1>Shape your<br><em>Intelligence</em></h1>
+    <p class="hero-sub">Configure a personalidade do seu assistente em tempo real</p>
+    <div class="live-badge"><div class="live-dot"></div>Live Sync</div>
+  </div>
+</div>
 
-const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
-const WHATSAPP_PHONE_ID = process.env.WHATSAPP_PHONE_ID;
+<div class="sbar">
+  <div class="inner">
+    <div class="dot warn" id="sDot"></div>
+    <span id="sTxt">Carregando...</span>
+  </div>
+</div>
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+<div class="wrap">
+  <div class="status-card">
+    <div>
+      <div style="font-size:13.5px;font-weight:500">Assistente Ativo</div>
+      <div style="font-size:11.5px;color:var(--smoke);margin-top:2px" id="togHint">Todas as mensagens processadas pelo bot</div>
+    </div>
+    <div class="tog-row">
+      <span class="tog-txt" id="togLbl">ON</span>
+      <div class="tog on" id="botToggle" onclick="toggleBot()"></div>
+    </div>
+  </div>
+</div>
 
-export default async function handler(req, res) {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+<div class="content">
+  <div class="section">
+    <div class="sec-head">
+      <div class="sec-title"><div class="sec-icon">✦</div>Identidade</div>
+      <span class="sec-badge">Obrigatorio</span>
+    </div>
+    <div class="sec-body">
+      <div class="field"><label>Nome do Assistente</label><input type="text" id="botName" placeholder="Ex: ARIA, NOVA, TecBot..."></div>
+      <div class="field"><label>Nome da Empresa</label><input type="text" id="companyName" placeholder="Ex: Assistencia Express"></div>
+      <div class="field">
+        <label>Saudacao Inicial</label>
+        <textarea id="greeting" placeholder="Mensagem enviada no primeiro contato e ao digitar oi/ola..."></textarea>
+        <div class="hint">Esta mensagem é enviada quando o cliente diz oi, olá, bom dia etc.</div>
+      </div>
+    </div>
+  </div>
 
-    if (req.method === 'OPTIONS') return res.status(200).end();
+  <div class="section">
+    <div class="sec-head"><div class="sec-title"><div class="sec-icon">◆</div>Personalidade & Servicos</div></div>
+    <div class="sec-body">
+      <div class="field"><label>Instrucoes de Comportamento</label><textarea id="personality" placeholder="Ex: Seja cordial e objetivo..."></textarea></div>
+      <div class="div"></div>
+      <div class="field"><label>Servicos Disponiveis</label><textarea id="services" placeholder="Liste os servicos..."></textarea></div>
+      <div class="field"><label>Horario de Funcionamento</label><textarea id="businessHours" placeholder="Seg-Sex: 9h as 18h..."></textarea></div>
+      <div class="field"><label>Politica de Precos</label><textarea id="pricing" placeholder="O que o assistente responde sobre valores..."></textarea></div>
+      <div class="field"><label>Mensagem de Fallback</label><textarea id="fallback" placeholder="Quando o assistente nao entende..."></textarea></div>
+    </div>
+  </div>
 
-    // ==========================================
-    // VERIFICAÇÃO DO WEBHOOK (Meta)
-    // ==========================================
-    if (req.method === 'GET' && req.query['hub.mode']) {
-        const mode = req.query['hub.mode'];
-        const challenge = req.query['hub.challenge'];
-        if (mode === 'subscribe') {
-            console.log('✅ Webhook verificado pelo Meta');
-            return res.status(200).send(challenge);
-        }
-        return res.status(403).send('Forbidden');
-    }
+  <div class="section">
+    <div class="sec-head">
+      <div class="sec-title"><div class="sec-icon">⚡</div>Transferencia para Humano</div>
+      <span class="sec-badge">Auto</span>
+    </div>
+    <div class="sec-body">
+      <p class="hint" style="margin-bottom:12px;">Ao detectar estas palavras, a conversa é transferida automaticamente.</p>
+      <div class="tags" id="escalationTags"></div>
+      <div class="tag-add">
+        <input type="text" id="newTagInput" placeholder="Nova palavra-chave..." onkeypress="if(event.key==='Enter')addTag()">
+        <button onclick="addTag()">+ Adicionar</button>
+      </div>
+    </div>
+  </div>
 
-    // ==========================================
-    // API DO PAINEL - STATUS/TREINAMENTO
-    // ==========================================
-    if (req.method === 'GET' && req.query.action === 'status') {
-        try {
-            const { data: training, error } = await supabase
-                .from('bot_training')
-                .select('*')
-                .order('updated_at', { ascending: false })
-                .limit(1)
-                .maybeSingle();
+  <div class="section">
+    <div class="sec-head">
+      <div class="sec-title"><div class="sec-icon">❝</div>Base de Conhecimento</div>
+      <span class="sec-badge">FAQ</span>
+    </div>
+    <div class="sec-body">
+      <p class="hint" style="margin-bottom:13px;">O assistente reconhece palavras das perguntas e responde automaticamente.</p>
+      <div id="faqList"></div>
+      <button class="faq-add-btn" onclick="openFaq()"><span>+</span> Nova Pergunta & Resposta</button>
+    </div>
+  </div>
 
-            if (error) throw error;
+  <div class="section" style="margin-bottom:16px;">
+    <div class="sec-head"><div class="sec-title"><div class="sec-icon">◉</div>Simulador de Resposta</div></div>
+    <div class="sec-body">
+      <div class="field" style="margin-bottom:0;">
+        <label>Mensagem do cliente</label>
+        <input type="text" id="testQ" placeholder="Ex: Quanto custa trocar a tela?" oninput="simulate()">
+      </div>
+    </div>
+    <div class="preview-out" id="previewOut">
+      <div class="preview-lbl">Resposta do Assistente</div>
+      <div class="preview-txt" id="previewTxt"></div>
+    </div>
+  </div>
+</div>
 
-            return res.status(200).json({
-                success: true,
-                status: 'online',
-                ...training,
-                greeting: training?.greeting_message,
-                bot_active: training?.active
-            });
-        } catch (error) {
-            console.error('❌ Erro status:', error);
-            return res.status(500).json({ error: error.message });
-        }
-    }
+<div class="save-wrap">
+  <button class="save-btn" id="saveBtn" onclick="save()">Salvar e Ativar no WhatsApp</button>
+</div>
 
-    // ==========================================
-    // API DO PAINEL - LISTAR CONVERSAS
-    // ==========================================
-    if (req.method === 'GET' && req.query.action === 'list') {
-        try {
-            const { data: conversations, error } = await supabase
-                .from('conversations')
-                .select('*')
-                .order('last_message_time', { ascending: false });
+<nav class="nav-bar">
+  <a href="painel.html" class="nav-item">
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
+    Intervencao
+  </a>
+  <a href="treinar.html" class="nav-item active">
+    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+    Treinamento
+  </a>
+</nav>
 
-            if (error) throw error;
+<div class="modal-ov" id="faqModal">
+  <div class="modal">
+    <h3>Nova Pergunta & Resposta</h3>
+    <div class="field"><label>Pergunta do Cliente</label><input type="text" id="modalQ" placeholder="Ex: Quanto custa trocar a tela?"></div>
+    <div class="field"><label>Resposta do Assistente</label><textarea id="modalA" placeholder="Ex: O valor varia de R$150 a R$400..." style="min-height:90px;"></textarea></div>
+    <div class="modal-acts">
+      <button class="m-cancel" onclick="closeFaq()">Cancelar</button>
+      <button class="m-ok" onclick="saveFaqItem()">Salvar</button>
+    </div>
+  </div>
+</div>
 
-            const conversas = (conversations || []).map(conv => ({
-                telefone: conv.phone_number,
-                nome: conv.contact_name || conv.phone_number,
-                emIntervencao: conv.status === 'human',
-                etapa: conv.status,
-                ultimaAtividade: conv.last_message_time,
-                ultima: conv.last_message || 'Sem mensagens',
-                mensagens: []
-            }));
+<div class="toast" id="toast"></div>
 
-            return res.status(200).json(conversas);
-        } catch (error) {
-            console.error('❌ Erro listar:', error);
-            return res.status(500).json({ error: error.message, conversas: [] });
-        }
-    }
+<script>
+// ═══════════════════════════════════════════════════════
+// CONFIGURACAO — APENAS WEBHOOK (sem Supabase direto no browser)
+// ═══════════════════════════════════════════════════════
+const WEBHOOK_URL = 'https://robo-atendente.vercel.app/api/webhook';
 
-    // ==========================================
-    // API DO PAINEL - BUSCAR MENSAGENS
-    // ==========================================
-    if (req.method === 'GET' && req.query.action === 'messages') {
-        const phone = req.query.phone;
-        if (!phone) return res.status(400).json({ error: 'Phone required' });
+let faqData = [];
+let escalation = ['atendente','humano','pessoa','reclamacao','cancelar','chefe','gerente','supervisor'];
 
-        try {
-            const { data: conversation } = await supabase
-                .from('conversations')
-                .select('*')
-                .eq('phone_number', phone)
-                .maybeSingle();
-
-            const { data: messages, error } = await supabase
-                .from('messages')
-                .select('*')
-                .eq('phone_number', phone)
-                .order('created_at', { ascending: true });
-
-            if (error) throw error;
-
-            const mensagens = (messages || []).map(msg => ({
-                data: msg.created_at,
-                timestamp: msg.created_at,
-                tipo: msg.direction === 'outbound' ? (msg.sender_type === 'human' ? 'humano' : 'bot') : 'cliente',
-                from: msg.direction === 'outbound' ? (msg.sender_type === 'human' ? 'humano' : 'bot') : 'cliente',
-                mensagem: msg.content,
-                texto: msg.content,
-                content: msg.content,
-                message: msg.content,
-                nome: msg.sender_type === 'human' ? 'Voce' : (msg.sender_type === 'bot' ? 'Bot' : 'Cliente')
-            }));
-
-            return res.status(200).json({
-                mensagens: mensagens,
-                emIntervencao: conversation?.status === 'human'
-            });
-        } catch (error) {
-            console.error('❌ Erro mensagens:', error);
-            return res.status(500).json({ error: error.message, mensagens: [] });
-        }
-    }
-
-    // ==========================================
-    // SALVAR TREINAMENTO (POST sem action ou action=saveconfig)
-    // ==========================================
-    if (req.method === 'POST' && (!req.query.action || req.query.action === 'saveconfig')) {
-        try {
-            const body = req.body;
-            console.log('💾 Salvando treinamento:', JSON.stringify(body).substring(0, 200));
-
-            const trainingData = {
-                bot_name: body.bot_name || '',
-                company_name: body.company_name || '',
-                greeting_message: body.greeting_message || body.greeting || '',
-                personality: body.personality || '',
-                services: body.services || '',
-                business_hours: body.business_hours || body.hours || '',
-                pricing_info: body.pricing_info || body.pricing || '',
-                fallback_message: body.fallback_message || body.fallback || '',
-                faq_data: Array.isArray(body.faq_data) ? body.faq_data : [],
-                escalation_keywords: Array.isArray(body.escalation_keywords) ? body.escalation_keywords : [],
-                active: body.active !== false && body.active !== 'false',
-                updated_at: new Date().toISOString()
-            };
-
-            // Buscar registro existente
-            const { data: existing } = await supabase
-                .from('bot_training')
-                .select('id')
-                .order('updated_at', { ascending: false })
-                .limit(1)
-                .maybeSingle();
-
-            let result, error;
-
-            if (existing?.id) {
-                // Atualizar
-                ({ data: result, error } = await supabase
-                    .from('bot_training')
-                    .update(trainingData)
-                    .eq('id', existing.id)
-                    .select()
-                    .single());
-            } else {
-                // Inserir novo
-                trainingData.created_at = new Date().toISOString();
-                ({ data: result, error } = await supabase
-                    .from('bot_training')
-                    .insert(trainingData)
-                    .select()
-                    .single());
-            }
-
-            if (error) throw error;
-
-            console.log('✅ Treinamento salvo:', result?.id);
-
-            return res.status(200).json({
-                success: true,
-                message: 'Configuracao salva com sucesso',
-                id: result?.id,
-                greeting: trainingData.greeting_message
-            });
-
-        } catch (error) {
-            console.error('❌ Erro salvar treinamento:', error);
-            return res.status(500).json({ error: error.message });
-        }
-    }
-
-    // ==========================================
-    // AÇÕES DO PAINEL - INTERVIR / LIBERAR / ENVIAR
-    // ==========================================
-    if (req.method === 'POST' && req.query.action) {
-        const action = req.query.action;
-        const body = req.body;
-        const phone = body?.phone;
-
-        // ASSUMIR CONTROLE (Intervenção Humana)
-        if (action === 'intervene') {
-            try {
-                await supabase
-                    .from('conversations')
-                    .update({ status: 'human', updated_at: new Date().toISOString() })
-                    .eq('phone_number', phone);
-
-                await saveMessage(phone, '👨‍💼 Atendente humano assumiu o controle da conversa.', 'outbound', 'system');
-
-                return res.status(200).json({ ok: true, message: 'Intervencao ativada' });
-            } catch (error) {
-                return res.status(500).json({ error: error.message });
-            }
-        }
-
-        // LIBERAR ROBÔ
-        if (action === 'release') {
-            try {
-                await supabase
-                    .from('conversations')
-                    .update({ status: 'bot', updated_at: new Date().toISOString() })
-                    .eq('phone_number', phone);
-
-                await saveMessage(phone, '🤖 Robo reassumiu o atendimento.', 'outbound', 'system');
-
-                return res.status(200).json({ ok: true, message: 'Robo liberado' });
-            } catch (error) {
-                return res.status(500).json({ error: error.message });
-            }
-        }
-
-        // ENVIAR MENSAGEM PELO PAINEL
-        if (action === 'send') {
-            try {
-                const message = body?.message;
-                if (!message) return res.status(400).json({ error: 'Message required' });
-
-                await saveMessage(phone, message, 'outbound', 'human');
-
-                if (WHATSAPP_TOKEN && WHATSAPP_PHONE_ID) {
-                    await sendWhatsAppMessage(phone, message);
-                }
-
-                return res.status(200).json({ ok: true, message: 'Mensagem enviada' });
-            } catch (error) {
-                return res.status(500).json({ error: error.message });
-            }
-        }
-    }
-
-    // ==========================================
-    // RECEBIMENTO DE MENSAGENS DO WHATSAPP (POST)
-    // ==========================================
-    if (req.method === 'POST') {
-        try {
-            const body = req.body;
-            console.log('📩 Webhook recebido:', JSON.stringify(body).substring(0, 500));
-
-            const entry = body.entry?.[0];
-            const changes = entry?.changes?.[0];
-            const value = changes?.value;
-            const message = value?.messages?.[0];
-
-            if (!message || message.type !== 'text') {
-                return res.status(200).send('OK');
-            }
-
-            const from = message.from;
-            const text = message.text?.body || '';
-            const contactName = value?.contacts?.[0]?.profile?.name || from;
-
-            // 1. Buscar configuração atual do bot
-            const { data: training, error: trainingError } = await supabase
-                .from('bot_training')
-                .select('*')
-                .order('updated_at', { ascending: false })
-                .limit(1)
-                .maybeSingle();
-
-            if (trainingError || !training) {
-                console.error('Erro ao buscar treinamento:', trainingError);
-                await saveMessage(from, text, 'inbound', 'human', contactName);
-                return res.status(200).send('OK - Sem treinamento');
-            }
-
-            // 2. Verificar se bot está ativo
-            if (!training.active) {
-                await saveMessage(from, text, 'inbound', 'human', contactName);
-                return res.status(200).send('Bot desativado');
-            }
-
-            // 3. Salvar mensagem do cliente
-            await saveMessage(from, text, 'inbound', 'bot', contactName);
-
-            // 4. Verificar se conversa está em modo humano
-            const { data: conversation } = await supabase
-                .from('conversations')
-                .select('status')
-                .eq('phone_number', from)
-                .maybeSingle();
-
-            if (conversation?.status === 'human') {
-                return res.status(200).send('Modo humano ativo');
-            }
-
-            // 5. Gerar resposta do bot
-            const botResponse = generateResponse(text, training, from);
-
-            // 6. Enviar resposta pelo WhatsApp
-            if (WHATSAPP_TOKEN && WHATSAPP_PHONE_ID) {
-                await sendWhatsAppMessage(from, botResponse);
-            } else {
-                console.log('⚠️ Token nao configurado. Resposta simulada:', botResponse.substring(0, 100));
-            }
-
-            // 7. Salvar resposta do bot
-            await saveMessage(from, botResponse, 'outbound', 'bot', contactName);
-
-            return res.status(200).json({ 
-                success: true, 
-                response: botResponse.substring(0, 100),
-                phone: from 
-            });
-
-        } catch (error) {
-            console.error('❌ Erro no webhook:', error);
-            return res.status(500).json({ error: error.message });
-        }
-    }
-
-    return res.status(405).send('Method not allowed');
+// ═══════════════════════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════════════════════
+function setStatus(type, txt) {
+  document.getElementById('sDot').className = 'dot ' + type;
+  document.getElementById('sTxt').textContent = txt;
 }
 
-// ==========================================
-// GERAR RESPOSTA DO BOT
-// ==========================================
-function generateResponse(userMessage, training, phoneNumber) {
-    const msg = userMessage.toLowerCase().trim();
-    const from = phoneNumber; // Corrigido: recebe como parâmetro
-    
-    // 1. Saudações
-    const greetings = ['oi', 'ola', 'olá', 'bom dia', 'boa tarde', 'boa noite', 'hey', 'hi', 'hello', 'eai', 'eae'];
-    if (greetings.some(g => msg.includes(g))) {
-        return training.greeting_message || 'Ola! Como posso ajudar?';
-    }
-
-    // 2. FAQ Inteligente
-    const faq = training.faq_data || [];
-    for (const item of faq) {
-        const questionWords = item.question.toLowerCase().split(' ').filter(w => w.length > 2);
-        const matchCount = questionWords.filter(word => msg.includes(word)).length;
-        if (matchCount >= 2 || msg.includes(item.question.toLowerCase())) {
-            return item.answer;
-        }
-    }
-
-    // 3. Palavras-chave por categoria
-    if (msg.includes('preco') || msg.includes('valor') || msg.includes('custa') || msg.includes('quanto') || msg.includes('cobrar')) {
-        return (training.pricing_info || 'Entre em contato para orcamento.') + '\n\nPosso agendar um orcamento gratuito para voce! Qual equipamento precisa de assistencia?';
-    }
-
-    if (msg.includes('horario') || msg.includes('hora') || msg.includes('aberto') || msg.includes('funciona') || msg.includes('atende') || msg.includes('abre')) {
-        return '⏰ ' + (training.business_hours || 'Horario comercial') + '\n\nEstamos prontos para te atender! 😊';
-    }
-
-    if (msg.includes('servico') || msg.includes('faz') || msg.includes('conserta') || msg.includes('concerta') || msg.includes('arruma') || msg.includes('troca') || msg.includes('reparo')) {
-        return '🔧 ' + (training.services || 'Oferecemos diversos servicos.') + '\n\nQual desses servicos voce precisa? Posso te passar mais detalhes!';
-    }
-
-    if (msg.includes('local') || msg.includes('endereco') || msg.includes('onde') || msg.includes('fica') || msg.includes('chegar')) {
-        return '📍 Nossa assistencia fica em local de facil acesso! Voce pode buscar no Google Maps por "' + (training.company_name || 'nossa empresa') + '".';
-    }
-
-    if (msg.includes('garantia') || msg.includes('garante') || msg.includes('garantir')) {
-        return '✅ Todos os nossos servicos possuem garantia! O prazo varia conforme o tipo de reparo (geralmente 30 a 90 dias).\n\nA garantia cobre o mesmo defeito reparado. Quer saber mais sobre algum servico especifico?';
-    }
-
-    if (msg.includes('prazo') || msg.includes('tempo') || msg.includes('demora') || msg.includes('rapido') || msg.includes('demorar')) {
-        return '⏱️ O prazo depende do defeito e da disponibilidade de pecas.\n\nFazemos orcamento em ate 24h! Qual equipamento voce tem?';
-    }
-
-    if (msg.includes('agendar') || msg.includes('marcar') || msg.includes('quando') || msg.includes('posso ir') || msg.includes('visita')) {
-        return '📅 Perfeito! Para agendar, preciso saber:\n1️⃣ Qual equipamento?\n2️⃣ Qual o problema/defeito?\n3️⃣ Qual dia e horario prefere?\n\nOu se preferir, posso transferir voce para um atendente humano agora mesmo! 👨‍💼';
-    }
-
-    // 4. Escalonamento para humano
-    const escalationWords = training.escalation_keywords || ['atendente', 'humano', 'pessoa', 'reclamacao', 'problema grave', 'cancelar', 'chefe', 'gerente', 'supervisor'];
-    if (escalationWords.some(word => msg.includes(word))) {
-        // Transferir para humano
-        supabase
-            .from('conversations')
-            .update({ status: 'human', updated_at: new Date().toISOString() })
-            .eq('phone_number', from)
-            .then(() => console.log('🔄 Conversa transferida para humano'))
-            .catch(err => console.error('Erro ao transferir:', err));
-        
-        return '👨‍💼 Entendido! Vou transferir voce para um atendente humano agora mesmo. Por favor, aguarde um momento... ⏳\n\n(Seu atendente ja foi notificado e respondera em breve!)';
-    }
-
-    // 5. Fallback
-    return (training.fallback_message || 'Nao entendi bem. Posso te ajudar com orcamentos, horarios, servicos e agendamentos.') + '\n\nOu digite "atendente" para falar com uma pessoa!';
+function toast(msg, type, ms = 4000) {
+  clearTimeout(window._tt);
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast show ' + (type || '');
+  if (ms < 99999) window._tt = setTimeout(() => el.classList.remove('show'), ms);
 }
 
-// ==========================================
-// SALVAR MENSAGEM NO BANCO
-// ==========================================
-async function saveMessage(phone, content, direction, senderType, contactName = null) {
+function val(id) { return (document.getElementById(id)?.value || '').trim(); }
+function setVal(id, v) { const el = document.getElementById(id); if (el) el.value = v || ''; }
+
+// ═══════════════════════════════════════════════════════
+// CARREGAR — busca do webhook via GET ?action=status
+// ═══════════════════════════════════════════════════════
+async function load() {
+  setStatus('warn', 'Carregando...');
+  toast('Carregando dados do servidor...', 'info', 99999);
+
+  try {
+    const res = await fetch(WEBHOOK_URL + '?action=status&_=' + Date.now(), {
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      cache: 'no-store'
+    });
+
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+
+    const d = await res.json();
+    console.log('[load] Resposta do webhook:', d);
+
+    if (d.success !== false) {
+      applyData(d);
+      setStatus('ok', 'Conectado ao webhook ✓');
+      toast('Dados carregados do servidor!', 'success', 2000);
+      return;
+    }
+    throw new Error(d.error || 'Resposta invalida');
+
+  } catch (e) {
+    console.warn('Webhook GET falhou:', e.message);
+    // Fallback: localStorage
     try {
-        // Buscar ou criar conversa
-        let { data: conversation } = await supabase
-            .from('conversations')
-            .select('id')
-            .eq('phone_number', phone)
-            .maybeSingle();
+      const cached = JSON.parse(localStorage.getItem('bot_training_v2') || 'null');
+      if (cached) {
+        applyData(cached);
+        setStatus('warn', 'Cache local (sem conexao)');
+        toast('Cache local carregado', 'info', 3000);
+        return;
+      }
+    } catch (e2) {}
 
-        if (!conversation) {
-            const { data: newConv, error: convError } = await supabase
-                .from('conversations')
-                .insert({
-                    phone_number: phone,
-                    contact_name: contactName,
-                    status: 'bot',
-                    last_message: content,
-                    last_message_time: new Date().toISOString(),
-                    unread: true
-                })
-                .select()
-                .single();
-            
-            if (convError) {
-                console.error('Erro criar conversa:', convError);
-                return;
-            }
-            conversation = newConv;
-        } else {
-            await supabase
-                .from('conversations')
-                .update({
-                    contact_name: contactName || undefined,
-                    last_message: content,
-                    last_message_time: new Date().toISOString(),
-                    unread: true
-                })
-                .eq('id', conversation.id);
-        }
-
-        // Inserir mensagem
-        const { error: msgError } = await supabase.from('messages').insert({
-            conversation_id: conversation.id,
-            phone_number: phone,
-            direction: direction,
-            content: content,
-            sender_type: senderType
-        });
-
-        if (msgError) {
-            console.error('Erro salvar mensagem:', msgError);
-        }
-
-    } catch (error) {
-        console.error('❌ Erro ao salvar mensagem:', error);
-    }
+    setStatus('err', 'Falha ao carregar — verifique conexao');
+    toast('Falha ao carregar. Preencha e salve.', 'error', 5000);
+  }
 }
 
-// ==========================================
-// ENVIAR MENSAGEM PELO WHATSAPP (API META)
-// ==========================================
-async function sendWhatsAppMessage(to, text) {
-    try {
-        const response = await fetch(`https://graph.facebook.com/v18.0/${WHATSAPP_PHONE_ID}/messages`, {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${WHATSAPP_TOKEN}`,
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                messaging_product: 'whatsapp',
-                recipient_type: 'individual',
-                to: to,
-                type: 'text',
-                text: { body: text }
-            })
-        });
+function applyData(d) {
+  if (!d) return;
+  faqData    = Array.isArray(d.faq_data)            ? d.faq_data            : [];
+  escalation = Array.isArray(d.escalation_keywords) ? d.escalation_keywords : escalation;
 
-        const data = await response.json();
-        
-        if (!response.ok) {
-            console.error('❌ Erro WhatsApp API:', data);
-            throw new Error(data.error?.message || 'Erro ao enviar mensagem');
-        }
+  setVal('botName',       d.bot_name);
+  setVal('companyName',   d.company_name);
+  setVal('greeting',      d.greeting_message || d.greeting);
+  setVal('personality',   d.personality);
+  setVal('services',      d.services);
+  setVal('businessHours', d.business_hours);
+  setVal('pricing',       d.pricing_info);
+  setVal('fallback',      d.fallback_message);
 
-        console.log('✅ Mensagem enviada:', data.messages?.[0]?.id);
-        return data;
-
-    } catch (error) {
-        console.error('❌ Erro ao enviar WhatsApp:', error);
-        throw error;
-    }
+  const on = d.active !== false && d.bot_active !== false;
+  document.getElementById('botToggle').classList.toggle('on', on);
+  updateTogLabel(on);
+  renderTags();
+  renderFaq();
 }
+
+// ═══════════════════════════════════════════════════════
+// TOGGLE
+// ═══════════════════════════════════════════════════════
+function toggleBot() {
+  const tog = document.getElementById('botToggle');
+  tog.classList.toggle('on');
+  updateTogLabel(tog.classList.contains('on'));
+}
+function updateTogLabel(on) {
+  document.getElementById('togLbl').textContent = on ? 'ON' : 'OFF';
+  document.getElementById('togHint').textContent = on
+    ? 'Todas as mensagens processadas pelo assistente'
+    : 'Mensagens direcionadas ao atendimento humano';
+}
+
+// ═══════════════════════════════════════════════════════
+// TAGS
+// ═══════════════════════════════════════════════════════
+function renderTags() {
+  document.getElementById('escalationTags').innerHTML = escalation.map((t, i) =>
+    `<div class="tag-pill">${t}<button onclick="removeTag(${i})">×</button></div>`
+  ).join('');
+}
+function addTag() {
+  const inp = document.getElementById('newTagInput');
+  const v = inp.value.trim().toLowerCase();
+  if (!v) return;
+  if (escalation.includes(v)) { toast('Palavra ja existe', 'info'); return; }
+  escalation.push(v); inp.value = ''; renderTags();
+}
+function removeTag(i) { escalation.splice(i, 1); renderTags(); }
+
+// ═══════════════════════════════════════════════════════
+// FAQ
+// ═══════════════════════════════════════════════════════
+function renderFaq() {
+  const el = document.getElementById('faqList');
+  el.innerHTML = faqData.length
+    ? faqData.map((f, i) => `<div class="faq-item"><div class="faq-q">? ${f.question}</div><div class="faq-a">${f.answer}</div><button class="faq-del" onclick="removeFaq(${i})">🗑</button></div>`).join('')
+    : '<div class="faq-empty">Nenhuma entrada ainda</div>';
+}
+function removeFaq(i) { faqData.splice(i, 1); renderFaq(); }
+function openFaq() {
+  document.getElementById('modalQ').value = '';
+  document.getElementById('modalA').value = '';
+  document.getElementById('faqModal').classList.add('open');
+  setTimeout(() => document.getElementById('modalQ').focus(), 120);
+}
+function closeFaq() { document.getElementById('faqModal').classList.remove('open'); }
+function saveFaqItem() {
+  const q = document.getElementById('modalQ').value.trim();
+  const a = document.getElementById('modalA').value.trim();
+  if (!q || !a) { toast('Preencha pergunta e resposta', 'error'); return; }
+  faqData.push({ question: q, answer: a });
+  renderFaq();
+  closeFaq();
+}
+document.addEventListener('click', e => { if (e.target === document.getElementById('faqModal')) closeFaq(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeFaq(); });
+
+// ═══════════════════════════════════════════════════════
+// SIMULADOR
+// ═══════════════════════════════════════════════════════
+function simulate() {
+  const q = val('testQ');
+  const out = document.getElementById('previewOut');
+  if (!q) { out.classList.remove('show'); return; }
+  const t = {
+    greeting_message: val('greeting'),
+    services: val('services'),
+    business_hours: val('businessHours'),
+    pricing_info: val('pricing'),
+    fallback_message: val('fallback'),
+    faq_data: faqData,
+    escalation_keywords: escalation
+  };
+  document.getElementById('previewTxt').textContent = genResp(q, t);
+  out.classList.add('show');
+}
+function genResp(m, t) {
+  const msg = m.toLowerCase().trim();
+  const hi = ['oi', 'ola', 'ola', 'bom dia', 'boa tarde', 'boa noite', 'hey', 'hi', 'hello'];
+  if (hi.some(g => msg === g || msg.startsWith(g + ' '))) return t.greeting_message || 'Ola!';
+  for (const f of t.faq_data || []) {
+    if (!f.question || !f.answer) continue;
+    const ws = f.question.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+    if (ws.filter(w => msg.includes(w)).length >= 2 || msg.includes(f.question.toLowerCase())) return f.answer;
+  }
+  if (/preco|valor|custa|quanto|orcamento/i.test(msg)) return (t.pricing_info || 'Consulte-nos.') + '\n\nPosso agendar orcamento gratuito!';
+  if (/horario|hora|aberto|funciona/i.test(msg)) return '⏰ ' + (t.business_hours || 'Horario comercial') + '\n\nEstamos prontos!';
+  if (/servico|conserta|reparo|arruma/i.test(msg)) return '🔧 ' + (t.services || 'Diversos servicos.') + '\n\nQual voce precisa?';
+  if ((t.escalation_keywords || []).some(w => msg.includes(w))) return '👨‍💼 Transferindo para atendente humano...';
+  return (t.fallback_message || 'Nao compreendi.') + '\n\nOu digite "atendente"!';
+}
+
+// ═══════════════════════════════════════════════════════
+// SALVAR — envia para o webhook via POST (sem action)
+// ═══════════════════════════════════════════════════════
+async function save() {
+  const btn = document.getElementById('saveBtn');
+  btn.innerHTML = '<span class="spin"></span>Salvando...';
+  btn.disabled = true;
+
+  const payload = {
+    bot_name: val('botName'),
+    company_name: val('companyName'),
+    greeting_message: val('greeting'),
+    personality: val('personality'),
+    services: val('services'),
+    business_hours: val('businessHours'),
+    pricing_info: val('pricing'),
+    fallback_message: val('fallback'),
+    faq_data: faqData,
+    escalation_keywords: escalation,
+    active: document.getElementById('botToggle').classList.contains('on'),
+    updated_at: new Date().toISOString(),
+  };
+
+  console.log('[save] Enviando payload:', payload);
+
+  // Cache local (backup)
+  try { localStorage.setItem('bot_training_v2', JSON.stringify(payload)); } catch (e) {}
+
+  toast('Salvando no servidor...', 'info', 99999);
+
+  let ok = false;
+  let errorMsg = '';
+
+  try {
+    const ctrl = new AbortController();
+    const tid = setTimeout(() => ctrl.abort(), 15000);
+
+    const res = await fetch(WEBHOOK_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json'
+      },
+      body: JSON.stringify(payload),
+      signal: ctrl.signal
+    });
+
+    clearTimeout(tid);
+
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error('HTTP ' + res.status + ': ' + errText);
+    }
+
+    const d = await res.json();
+    console.log('[save] Resposta do webhook:', d);
+
+    if (d.success || d.ok) {
+      ok = true;
+    } else {
+      throw new Error(d.error || 'Resposta invalida do servidor');
+    }
+
+  } catch (e) {
+    console.error('[save] Erro:', e.message);
+    errorMsg = e.message;
+  }
+
+  if (ok) {
+    setStatus('ok', 'WhatsApp atualizado ✓ — resposta ativa agora');
+    toast('✓ Sucesso! Configuracao salva e ativa!', 'success', 5000);
+  } else {
+    setStatus('err', 'Falha ao salvar — ' + errorMsg);
+    toast('✗ Falha ao salvar: ' + errorMsg, 'error', 7000);
+  }
+
+  btn.innerHTML = 'Salvar e Ativar no WhatsApp';
+  btn.disabled = false;
+}
+
+// ═══════════════════════════════════════════════════════
+// INICIAR
+// ═══════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', load);
+</script>
+</body>
+</html>

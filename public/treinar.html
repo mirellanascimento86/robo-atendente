@@ -15,72 +15,43 @@
   --sh:0 2px 20px rgba(0,0,0,.07);
 }
 *{margin:0;padding:0;box-sizing:border-box;}
-
 body{
   font-family:'DM Sans',system-ui,sans-serif;
-  background:var(--cream);
-  color:var(--ink);
-  min-height:100vh;
-  padding-bottom:120px;
+  background:var(--cream);color:var(--ink);min-height:100vh;padding-bottom:120px;
 }
-
-/* ── HERO ────────────────────────────────── */
 .hero{
-  background:#0e0e0e;
-  padding:52px 24px 38px;
-  position:relative;
+  background:#0e0e0e;padding:52px 24px 38px;position:relative;
 }
 .hero::after{
-  content:'';position:absolute;
-  bottom:0;left:0;right:0;height:1px;
+  content:'';position:absolute;bottom:0;left:0;right:0;height:1px;
   background:linear-gradient(90deg,transparent,#b8965a,transparent);
 }
 .hero-inner{max-width:560px;margin:0 auto;}
-
 .eyebrow{
   font-size:10px;letter-spacing:4px;text-transform:uppercase;
-  color:#b8965a;margin-bottom:16px;
-  display:flex;align-items:center;gap:10px;
+  color:#b8965a;margin-bottom:16px;display:flex;align-items:center;gap:10px;
 }
-.eyebrow::before{
-  content:'';display:block;width:28px;height:1px;background:#b8965a;
-}
-
+.eyebrow::before{content:'';display:block;width:28px;height:1px;background:#b8965a;}
 .hero h1{
-  font-family:'Cormorant Garamond',Georgia,serif;
-  font-size:2.5rem;font-weight:300;
-  color:#ffffff;
-  line-height:1.15;letter-spacing:-.3px;
-  margin-bottom:10px;
+  font-family:'Cormorant Garamond',Georgia,serif;font-size:2.5rem;font-weight:300;
+  color:#fff;line-height:1.15;letter-spacing:-.3px;margin-bottom:10px;
 }
 .hero h1 em{color:#d4b07a;font-style:italic;}
-
-.hero-sub{
-  font-size:13px;color:rgba(255,255,255,.45);
-  font-weight:300;line-height:1.5;
-}
-
+.hero-sub{font-size:13px;color:rgba(255,255,255,.45);font-weight:300;line-height:1.5;}
 .live-badge{
   display:inline-flex;align-items:center;gap:7px;
-  background:rgba(184,150,90,.12);
-  border:1px solid rgba(184,150,90,.3);
-  color:#d4b07a;padding:5px 13px;
-  border-radius:20px;font-size:10.5px;
-  letter-spacing:1.5px;text-transform:uppercase;
-  margin-top:18px;
+  background:rgba(184,150,90,.12);border:1px solid rgba(184,150,90,.3);
+  color:#d4b07a;padding:5px 13px;border-radius:20px;font-size:10.5px;
+  letter-spacing:1.5px;text-transform:uppercase;margin-top:18px;
 }
 .live-dot{
-  width:6px;height:6px;background:#d4b07a;
-  border-radius:50%;animation:pulse 2s ease-in-out infinite;
+  width:6px;height:6px;background:#d4b07a;border-radius:50%;
+  animation:pulse 2s ease-in-out infinite;
 }
 @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(1.4)}}
-
-/* ── STATUS CARD ─────────────────────────── */
 .wrap{max-width:560px;margin:0 auto;padding:0 14px;}
-
 .status-card{
-  background:var(--card);border-radius:var(--r);
-  padding:16px 18px;margin:20px 0 0;
+  background:var(--card);border-radius:var(--r);padding:16px 18px;margin:20px 0 0;
   display:flex;align-items:center;justify-content:space-between;
   box-shadow:var(--sh);border:1px solid rgba(0,0,0,.05);
 }
@@ -89,46 +60,34 @@ body{
 .tog-row{display:flex;align-items:center;gap:9px;}
 .tog-txt{font-size:11.5px;color:var(--smoke);font-weight:500;}
 .tog{
-  width:44px;height:24px;background:#ccc;
-  border-radius:12px;position:relative;cursor:pointer;
-  transition:background .3s;flex-shrink:0;
+  width:44px;height:24px;background:#ccc;border-radius:12px;
+  position:relative;cursor:pointer;transition:background .3s;flex-shrink:0;
 }
 .tog.on{background:var(--gold);}
 .tog::after{
-  content:'';position:absolute;
-  width:20px;height:20px;background:#fff;
-  border-radius:50%;top:2px;left:2px;
-  transition:left .3s;
+  content:'';position:absolute;width:20px;height:20px;background:#fff;
+  border-radius:50%;top:2px;left:2px;transition:left .3s;
   box-shadow:0 1px 4px rgba(0,0,0,.25);
 }
 .tog.on::after{left:22px;}
-
-/* ── SECTION ─────────────────────────────── */
 .content{max-width:560px;margin:0 auto;padding:20px 14px 0;}
-
 .section{
-  background:var(--card);border-radius:var(--r);
-  box-shadow:var(--sh);border:1px solid rgba(0,0,0,.05);
-  overflow:hidden;margin-bottom:16px;
+  background:var(--card);border-radius:var(--r);box-shadow:var(--sh);
+  border:1px solid rgba(0,0,0,.05);overflow:hidden;margin-bottom:16px;
   transition:box-shadow .2s;
 }
 .section:focus-within{box-shadow:0 4px 28px rgba(184,150,90,.13);}
-
 .sec-head{
   padding:16px 18px 13px;border-bottom:1px solid var(--line);
   display:flex;align-items:center;justify-content:space-between;
 }
 .sec-title{
-  font-family:'Cormorant Garamond',Georgia,serif;
-  font-size:1.1rem;font-weight:400;
-  display:flex;align-items:center;gap:10px;
-  color:var(--ink);
+  font-family:'Cormorant Garamond',Georgia,serif;font-size:1.1rem;font-weight:400;
+  display:flex;align-items:center;gap:10px;color:var(--ink);
 }
 .sec-icon{
-  width:26px;height:26px;border-radius:50%;
-  background:var(--gold-pale);
-  display:flex;align-items:center;justify-content:center;
-  font-size:13px;
+  width:26px;height:26px;border-radius:50%;background:var(--gold-pale);
+  display:flex;align-items:center;justify-content:center;font-size:13px;
 }
 .sec-badge{
   font-size:9px;letter-spacing:2px;text-transform:uppercase;
@@ -136,46 +95,33 @@ body{
   padding:3px 8px;border-radius:10px;font-weight:500;
 }
 .sec-body{padding:16px 18px;}
-
-/* ── FIELDS ──────────────────────────────── */
 .field{margin-bottom:15px;}
 .field:last-child{margin-bottom:0;}
 .field label{
   display:block;font-size:10px;letter-spacing:1.8px;
-  text-transform:uppercase;color:var(--smoke);
-  font-weight:500;margin-bottom:7px;
+  text-transform:uppercase;color:var(--smoke);font-weight:500;margin-bottom:7px;
 }
 .field input,.field textarea{
-  width:100%;padding:11px 13px;
-  background:var(--field);
-  border:1.5px solid transparent;
-  border-radius:var(--r);
-  font-size:14px;color:var(--ink);
-  font-family:'DM Sans',system-ui,sans-serif;
+  width:100%;padding:11px 13px;background:var(--field);
+  border:1.5px solid transparent;border-radius:var(--r);
+  font-size:14px;color:var(--ink);font-family:'DM Sans',system-ui,sans-serif;
   transition:all .2s;outline:none;resize:vertical;
 }
 .field input:focus,.field textarea:focus{
-  background:#fff;border-color:var(--gold);
-  box-shadow:0 0 0 3px rgba(184,150,90,.09);
+  background:#fff;border-color:var(--gold);box-shadow:0 0 0 3px rgba(184,150,90,.09);
 }
 .field textarea{min-height:76px;line-height:1.55;}
 .hint{font-size:11px;color:#aaa;margin-top:5px;line-height:1.4;}
-
-/* ── DIVIDER ─────────────────────────────── */
 .div{height:1px;background:var(--line);margin:4px 0 15px;}
-
-/* ── ESCALATION TAGS ────────────────────── */
 .tags{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:11px;}
 .tag-pill{
   display:inline-flex;align-items:center;gap:5px;
-  background:#fff0f0;border:1px solid #ffd6d6;
-  color:#c0392b;padding:5px 11px;
-  border-radius:20px;font-size:12px;font-weight:500;
+  background:#fff0f0;border:1px solid #ffd6d6;color:#c0392b;
+  padding:5px 11px;border-radius:20px;font-size:12px;font-weight:500;
 }
 .tag-pill button{
-  background:none;border:none;color:#c0392b;
-  cursor:pointer;font-size:14px;line-height:1;
-  padding:0;transition:opacity .15s;
+  background:none;border:none;color:#c0392b;cursor:pointer;
+  font-size:14px;line-height:1;padding:0;transition:opacity .15s;
 }
 .tag-pill button:hover{opacity:.55;}
 .tag-add{display:flex;gap:8px;}
@@ -187,40 +133,30 @@ body{
 }
 .tag-add input:focus{background:#fff;border-color:var(--gold);}
 .tag-add button{
-  padding:10px 15px;background:var(--ink);color:#fff;
-  border:none;border-radius:var(--r);
-  font-size:13px;font-family:'DM Sans',system-ui,sans-serif;
+  padding:10px 15px;background:var(--ink);color:#fff;border:none;
+  border-radius:var(--r);font-size:13px;font-family:'DM Sans',system-ui,sans-serif;
   font-weight:500;cursor:pointer;transition:background .2s;white-space:nowrap;
 }
 .tag-add button:hover{background:var(--gold);}
-
-/* ── FAQ ─────────────────────────────────── */
 .faq-item{
-  background:var(--field);border-radius:var(--r);
-  padding:13px 15px;margin-bottom:8px;
-  border-left:2px solid var(--gold);position:relative;
+  background:var(--field);border-radius:var(--r);padding:13px 15px;
+  margin-bottom:8px;border-left:2px solid var(--gold);position:relative;
 }
 .faq-q{font-size:13px;font-weight:500;color:var(--ink);margin-bottom:4px;}
 .faq-a{font-size:12.5px;color:var(--smoke);line-height:1.5;}
 .faq-del{
-  position:absolute;top:10px;right:12px;
-  background:none;border:none;font-size:16px;
-  color:#c0392b;cursor:pointer;opacity:.4;
-  transition:opacity .15s;
+  position:absolute;top:10px;right:12px;background:none;border:none;
+  font-size:16px;color:#c0392b;cursor:pointer;opacity:.4;transition:opacity .15s;
 }
 .faq-del:hover{opacity:1;}
 .faq-add-btn{
-  width:100%;padding:13px;background:none;
-  border:1.5px dashed var(--line);border-radius:var(--r);
-  color:var(--smoke);font-family:'DM Sans',system-ui,sans-serif;
-  font-size:13.5px;cursor:pointer;
-  transition:all .2s;margin-top:4px;
+  width:100%;padding:13px;background:none;border:1.5px dashed var(--line);
+  border-radius:var(--r);color:var(--smoke);font-family:'DM Sans',system-ui,sans-serif;
+  font-size:13.5px;cursor:pointer;transition:all .2s;margin-top:4px;
   display:flex;align-items:center;justify-content:center;gap:6px;
 }
 .faq-add-btn:hover{border-color:var(--gold);color:var(--gold);background:var(--gold-pale);}
 .faq-empty{text-align:center;color:var(--smoke);font-size:13px;padding:18px 0;font-style:italic;}
-
-/* ── PREVIEW ─────────────────────────────── */
 .preview-out{
   background:linear-gradient(135deg,#f8f4ed,#f0eade);
   border-top:1px solid var(--line);padding:16px 18px;display:none;
@@ -232,65 +168,46 @@ body{
   display:flex;align-items:center;gap:8px;
 }
 .preview-lbl::after{content:'';flex:1;height:1px;background:var(--line);}
-.preview-txt{
-  font-size:13.5px;color:var(--ink);
-  line-height:1.65;white-space:pre-wrap;
-}
-
-/* ── SAVE BTN ────────────────────────────── */
+.preview-txt{font-size:13.5px;color:var(--ink);line-height:1.65;white-space:pre-wrap;}
 .save-wrap{max-width:560px;margin:0 auto;padding:0 14px 14px;}
 .save-btn{
-  width:100%;padding:16px;
-  background:var(--ink);color:#fff;border:none;
-  border-radius:var(--r);
-  font-family:'DM Sans',system-ui,sans-serif;
-  font-size:13.5px;font-weight:500;
-  letter-spacing:1.5px;text-transform:uppercase;
+  width:100%;padding:16px;background:var(--ink);color:#fff;border:none;
+  border-radius:var(--r);font-family:'DM Sans',system-ui,sans-serif;
+  font-size:13.5px;font-weight:500;letter-spacing:1.5px;text-transform:uppercase;
   cursor:pointer;transition:all .25s;
 }
 .save-btn:hover{background:#1e1e1e;}
 .save-btn:active{transform:scale(.99);}
 .save-btn:disabled{opacity:.5;cursor:not-allowed;}
-
-/* ── TOAST ───────────────────────────────── */
 .toast{
   position:fixed;bottom:88px;left:50%;
   transform:translateX(-50%) translateY(16px);
-  background:var(--ink);color:#fff;
-  padding:11px 22px;border-radius:30px;
-  font-size:13px;font-weight:500;
+  background:var(--ink);color:#fff;padding:11px 22px;
+  border-radius:30px;font-size:13px;font-weight:500;
   opacity:0;pointer-events:none;
   transition:all .3s cubic-bezier(.34,1.56,.64,1);
-  z-index:999;white-space:nowrap;
-  box-shadow:0 8px 28px rgba(0,0,0,.18);
+  z-index:999;white-space:nowrap;box-shadow:0 8px 28px rgba(0,0,0,.18);
 }
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
 .toast.success{background:#2d6a4f;}
 .toast.error{background:#b5211e;}
 .toast.info{background:var(--gold);color:var(--ink);}
-
-/* ── NAV ─────────────────────────────────── */
 .nav-bar{
-  position:fixed;bottom:0;left:0;right:0;
-  background:#fff;border-top:1px solid rgba(0,0,0,.07);
-  display:flex;justify-content:center;
+  position:fixed;bottom:0;left:0;right:0;background:#fff;
+  border-top:1px solid rgba(0,0,0,.07);display:flex;justify-content:center;
   z-index:100;box-shadow:0 -3px 20px rgba(0,0,0,.06);
 }
 .nav-item{
   text-decoration:none;display:flex;flex-direction:column;
-  align-items:center;gap:3px;padding:10px 40px;
-  color:#bbb;font-size:10px;letter-spacing:1px;
-  text-transform:uppercase;font-weight:500;
-  border-top:2px solid transparent;transition:color .2s;
+  align-items:center;gap:3px;padding:10px 40px;color:#bbb;
+  font-size:10px;letter-spacing:1px;text-transform:uppercase;
+  font-weight:500;border-top:2px solid transparent;transition:color .2s;
 }
 .nav-item.active{color:var(--gold);border-top-color:var(--gold);}
 .nav-item svg{width:22px;height:22px;}
-
-/* ── MODAL ───────────────────────────────── */
 .modal-ov{
   position:fixed;inset:0;background:rgba(0,0,0,.5);
-  z-index:500;display:none;
-  align-items:flex-end;justify-content:center;
+  z-index:500;display:none;align-items:flex-end;justify-content:center;
   backdrop-filter:blur(2px);
 }
 .modal-ov.open{display:flex;}
@@ -301,57 +218,46 @@ body{
 }
 @keyframes slideUp{from{transform:translateY(60px);opacity:0}to{transform:none;opacity:1}}
 .modal h3{
-  font-family:'Cormorant Garamond',Georgia,serif;
-  font-size:1.3rem;font-weight:400;margin-bottom:16px;color:var(--ink);
+  font-family:'Cormorant Garamond',Georgia,serif;font-size:1.3rem;
+  font-weight:400;margin-bottom:16px;color:var(--ink);
 }
 .modal .field{margin-bottom:13px;}
 .modal-acts{display:flex;gap:10px;margin-top:6px;}
 .modal-acts button{
   flex:1;padding:13px;border:none;border-radius:var(--r);
-  font-family:'DM Sans',system-ui,sans-serif;
-  font-size:14px;font-weight:500;cursor:pointer;transition:all .2s;
+  font-family:'DM Sans',system-ui,sans-serif;font-size:14px;
+  font-weight:500;cursor:pointer;transition:all .2s;
 }
 .m-cancel{background:var(--field);color:var(--smoke);}
 .m-ok{background:var(--ink);color:#fff;}
 .m-ok:hover{background:var(--gold);}
-
-/* ── SPINNER ─────────────────────────────── */
 .spin{
   display:inline-block;width:14px;height:14px;
-  border:2px solid rgba(255,255,255,.3);
-  border-top-color:#fff;border-radius:50%;
-  animation:spinA .8s linear infinite;
+  border:2px solid rgba(255,255,255,.3);border-top-color:#fff;
+  border-radius:50%;animation:spinA .8s linear infinite;
   vertical-align:middle;margin-right:6px;
 }
 @keyframes spinA{to{transform:rotate(360deg)}}
-
-/* ── STATUS BAR ──────────────────────────── */
-.status-bar{
-  max-width:560px;margin:0 auto;padding:0 14px;
-}
+.status-bar{max-width:560px;margin:0 auto;padding:0 14px;}
 .status-bar .bar{
-  background:#fff;border-radius:var(--r);
-  padding:10px 14px;margin:10px 0 0;
+  background:#fff;border-radius:var(--r);padding:10px 14px;margin:10px 0 0;
   display:flex;align-items:center;gap:8px;
   box-shadow:var(--sh);border:1px solid rgba(0,0,0,.05);
   font-size:11.5px;color:var(--smoke);
 }
-.status-bar .bar .dot{
-  width:8px;height:8px;border-radius:50%;
-}
+.status-bar .bar .dot{width:8px;height:8px;border-radius:50%;}
 .status-bar .bar .dot.ok{background:#2d6a4f;}
 .status-bar .bar .dot.warn{background:#b8965a;}
 .status-bar .bar .dot.err{background:#c0392b;}
 .status-bar .bar .sync-btn{
   margin-left:auto;background:none;border:none;
-  color:var(--gold);font-size:11px;cursor:pointer;
-  text-decoration:underline;
+  color:var(--gold);font-size:11px;cursor:pointer;text-decoration:underline;
 }
+.status-bar .bar .sync-btn:disabled{opacity:.4;cursor:not-allowed;}
 </style>
 </head>
 <body>
 
-<!-- HERO -->
 <div class="hero">
   <div class="hero-inner">
     <div class="eyebrow">AI Training Studio</div>
@@ -361,16 +267,14 @@ body{
   </div>
 </div>
 
-<!-- STATUS -->
 <div class="status-bar">
   <div class="bar" id="statusBar">
     <div class="dot warn" id="statusDot"></div>
-    <span id="statusText">Verificando conexão…</span>
-    <button class="sync-btn" id="syncBtn" onclick="forceSync()" style="display:none;">↻ Sincronizar</button>
+    <span id="statusText">Verificando conexao...</span>
+    <button class="sync-btn" id="syncBtn" onclick="forceSync()" style="display:none;">&#8635; Sincronizar</button>
   </div>
 </div>
 
-<!-- STATUS TOGGLE -->
 <div class="wrap">
   <div class="status-card">
     <div>
@@ -384,95 +288,89 @@ body{
   </div>
 </div>
 
-<!-- CONTENT -->
 <div class="content">
 
-  <!-- IDENTITY -->
   <div class="section">
     <div class="sec-head">
-      <div class="sec-title"><div class="sec-icon">✦</div>Identidade</div>
-      <span class="sec-badge">Obrigatório</span>
+      <div class="sec-title"><div class="sec-icon">&#10022;</div>Identidade</div>
+      <span class="sec-badge">Obrigatorio</span>
     </div>
     <div class="sec-body">
       <div class="field">
         <label>Nome do Assistente</label>
-        <input type="text" id="botName" placeholder="Ex: ARIA, NOVA, TecBot…">
+        <input type="text" id="botName" placeholder="Ex: ARIA, NOVA, TecBot...">
       </div>
       <div class="field">
         <label>Nome da Empresa</label>
-        <input type="text" id="companyName" placeholder="Ex: Assistência Express Premium">
+        <input type="text" id="companyName" placeholder="Ex: Assistencia Express Premium">
       </div>
       <div class="field">
-        <label>Saudação Inicial</label>
-        <textarea id="greeting" placeholder="Primeira mensagem enviada ao cliente…"></textarea>
+        <label>Saudacao Inicial</label>
+        <textarea id="greeting" placeholder="Primeira mensagem enviada ao cliente..."></textarea>
         <div class="hint">Enviada automaticamente no primeiro contato.</div>
       </div>
     </div>
   </div>
 
-  <!-- PERSONALITY -->
   <div class="section">
     <div class="sec-head">
-      <div class="sec-title"><div class="sec-icon">◈</div>Personalidade & Serviços</div>
+      <div class="sec-title"><div class="sec-icon">&#9672;</div>Personalidade & Servicos</div>
     </div>
     <div class="sec-body">
       <div class="field">
-        <label>Instruções de Comportamento</label>
-        <textarea id="personality" placeholder="Ex: Seja elegante e objetivo. Use linguagem sofisticada. Demonstre expertise."></textarea>
+        <label>Instrucoes de Comportamento</label>
+        <textarea id="personality" placeholder="Ex: Seja elegante e objetivo..."></textarea>
       </div>
       <div class="div"></div>
       <div class="field">
-        <label>Serviços Disponíveis</label>
-        <textarea id="services" placeholder="Liste os serviços que o assistente pode mencionar…"></textarea>
+        <label>Servicos Disponiveis</label>
+        <textarea id="services" placeholder="Liste os servicos..."></textarea>
       </div>
       <div class="field">
-        <label>Horário de Funcionamento</label>
-        <textarea id="businessHours" placeholder="Seg–Sex: 9h às 18h | Sáb: 9h às 13h"></textarea>
+        <label>Horario de Funcionamento</label>
+        <textarea id="businessHours" placeholder="Seg-Sex: 9h as 18h..."></textarea>
       </div>
       <div class="field">
-        <label>Política de Preços</label>
-        <textarea id="pricing" placeholder="O que o assistente responde sobre valores e orçamentos…"></textarea>
+        <label>Politica de Precos</label>
+        <textarea id="pricing" placeholder="O que o assistente responde sobre valores..."></textarea>
       </div>
       <div class="field">
         <label>Mensagem de Fallback</label>
-        <textarea id="fallback" placeholder="Quando o assistente não entende a solicitação…"></textarea>
+        <textarea id="fallback" placeholder="Quando o assistente nao entende..."></textarea>
       </div>
     </div>
   </div>
 
-  <!-- ESCALATION -->
   <div class="section">
     <div class="sec-head">
-      <div class="sec-title"><div class="sec-icon">⚡</div>Transferência para Humano</div>
+      <div class="sec-title"><div class="sec-icon">&#9889;</div>Transferencia para Humano</div>
       <span class="sec-badge">Auto</span>
     </div>
     <div class="sec-body">
-      <p class="hint" style="margin-bottom:12px;">Ao detectar estas palavras, a conversa é transferida automaticamente para um atendente.</p>
+      <p class="hint" style="margin-bottom:12px;">Ao detectar estas palavras, a conversa e transferida automaticamente.</p>
       <div class="tags" id="escalationTags"></div>
       <div class="tag-add">
-        <input type="text" id="newTagInput" placeholder="Nova palavra-chave…" onkeypress="if(event.key==='Enter')addTag()">
+        <input type="text" id="newTagInput" placeholder="Nova palavra-chave..." onkeypress="if(event.key==='Enter')addTag()">
         <button onclick="addTag()">+ Adicionar</button>
       </div>
     </div>
   </div>
 
-  <!-- FAQ -->
   <div class="section">
     <div class="sec-head">
-      <div class="sec-title"><div class="sec-icon">❋</div>Base de Conhecimento</div>
+      <div class="sec-title"><div class="sec-icon">&#10075;</div>Base de Conhecimento</div>
       <span class="sec-badge">FAQ</span>
     </div>
     <div class="sec-body">
       <p class="hint" style="margin-bottom:13px;">O assistente reconhece palavras das perguntas e responde automaticamente.</p>
       <div id="faqList"></div>
-      <button class="faq-add-btn" onclick="openFaqModal()"><span>＋</span> Nova Pergunta & Resposta</button>
+      <button class="faq-add-btn" onclick="openFaqModal()"><span>+</span> Nova Pergunta & Resposta</button>
     </div>
   </div>
 
-  <!-- PREVIEW -->
   <div class="section" style="margin-bottom:16px;">
     <div class="sec-head">
-      <div class="sec-title"><div class="sec-icon">◎</div>Simulador de Resposta</div>
+      <div class="sec-title"><div class="sec-icon">&#9678;</div>Simulador de Resposta</div>
     </div>
     <div class="sec-body">
       <div class="field" style="margin-bottom:0;">
@@ -486,20 +384,18 @@ body{
     </div>
   </div>
 
-</div><!-- /content -->
-
-<!-- SAVE -->
-<div class="save-wrap">
-  <button class="save-btn" id="saveBtn" onclick="save()">Salvar Configurações</button>
 </div>
 
-<!-- NAV -->
+<div class="save-wrap">
+  <button class="save-btn" id="saveBtn" onclick="save()">Salvar Configuracoes</button>
+</div>
+
 <nav class="nav-bar">
   <a href="painel.html" class="nav-item">
     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
       <path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
     </svg>
-    Intervenção
+    Intervencao
   </a>
   <a href="treinar.html" class="nav-item active">
     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
@@ -509,7 +405,6 @@ body{
   </a>
 </nav>
 
-<!-- MODAL FAQ -->
 <div class="modal-ov" id="faqModal">
   <div class="modal">
     <h3>Nova Pergunta & Resposta</h3>
@@ -519,7 +414,7 @@ body{
     </div>
     <div class="field">
       <label>Resposta do Assistente</label>
-      <textarea id="modalA" placeholder="Ex: O valor varia de R$150 a R$400 conforme o modelo…" style="min-height:90px;"></textarea>
+      <textarea id="modalA" placeholder="Ex: O valor varia de R$150 a R$400..." style="min-height:90px;"></textarea>
     </div>
     <div class="modal-acts">
       <button class="m-cancel" onclick="closeFaqModal()">Cancelar</button>
@@ -528,101 +423,79 @@ body{
   </div>
 </div>
 
-<!-- TOAST -->
 <div class="toast" id="toast"></div>
 
 <script>
-/* ════════════════════════════════════════════════════════════════════════
-   SUPABASE CLIENT - CORREÇÃO PRINCIPAL
-   ════════════════════════════════════════════════════════════════════════ */
 const SUPABASE_URL = 'https://fwcljognwdutsagppxcq.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ3Y2xqb2dud2R1dHNhZ3BweGNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4OTY4MjMsImV4cCI6MjA5MDQ3MjgyM30.6n8MejPbWRZlJnfZylrsK37_jwFha3FE7Xbj_Sn8VcE';
 
-let db = null;
-let training   = null;
-let faqData    = [];
-let escalation = ['atendente','humano','pessoa','reclamação','cancelar','chefe','gerente'];
-let isReady    = false;
-let useLocal   = false;
-let pendingSync = false; // true = tem alterações locais não sincronizadas
+// URL do webhook - detecta automaticamente
+const WEBHOOK_URL = (() => {
+  const host = window.location.host;
+  const protocol = window.location.protocol;
+  if (host.includes('localhost') || host === '' || protocol === 'file:') {
+    return 'https://robo-atendente.vercel.app/api/webhook';
+  }
+  return protocol + '//' + host + '/api/webhook';
+})();
 
-/* ── STATUS BAR ───────────────────────────────────────────────────────── */
-function setStatus(type, text, showSync = false) {
+let db = null;
+let training = null;
+let faqData = [];
+let escalation = ['atendente','humano','pessoa','reclamacao','cancelar','chefe','gerente'];
+let isReady = false;
+let useLocal = false;
+let pendingSync = false;
+
+function setStatus(type, text, showSync) {
   const dot = document.getElementById('statusDot');
   const txt = document.getElementById('statusText');
   const syncBtn = document.getElementById('syncBtn');
-  if (!dot || !txt) return;
-  dot.className = 'dot ' + type;
-  txt.textContent = text;
-  if (syncBtn) syncBtn.style.display = showSync ? 'block' : 'none';
+  if (dot) dot.className = 'dot ' + type;
+  if (txt) txt.textContent = text;
+  if (syncBtn) syncBtn.style.display = showSync ? 'inline-block' : 'none';
 }
 
-/* ── INIT SUPABASE ────────────────────────────────────────────────────── */
 function initSupabase() {
   try {
     if (typeof window.supabase === 'undefined') {
-      console.warn('⚠️ Supabase CDN não carregou');
-      setStatus('warn','CDN não carregou — usando modo offline', false);
+      setStatus('warn','CDN nao carregou — modo offline', false);
       return false;
     }
-    
     const { createClient } = window.supabase;
-    
     if (typeof createClient !== 'function') {
-      console.error('createClient não é função:', window.supabase);
-      setStatus('err','Erro na inicialização');
+      setStatus('err','Erro na inicializacao');
       return false;
     }
-    
     db = createClient(SUPABASE_URL, SUPABASE_KEY, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-        detectSessionInUrl: false
-      },
+      auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
       db: { schema: 'public' }
     });
-    
-    console.log('✅ Supabase inicializado');
     return true;
   } catch (e) {
-    console.error('Erro Supabase:', e);
     setStatus('err','Erro: ' + e.message);
     return false;
   }
 }
 
-/* ── LOAD ─────────────────────────────────────────────────────────────── */
 async function load() {
-  showToast('Carregando…','info',99999);
-  
+  showToast('Carregando...','info',99999);
   let attempts = 0;
   while (!window.supabase && attempts < 50) {
     await new Promise(r => setTimeout(r, 100));
     attempts++;
   }
-  
   if (!initSupabase()) {
     useLocal = true;
     loadFromLocal();
     return;
   }
-  
   try {
-    const { data: testData, error: testError } = await db
-      .from('bot_training')
-      .select('*')
-      .limit(1);
-    
+    const { data: testData, error: testError } = await db.from('bot_training').select('*').limit(1);
     if (testError) {
-      console.warn('⚠️ Erro na tabela bot_training:', testError);
-      if (testError.code === 'PGRST204' || testError.message?.includes('schema cache')) {
-        console.log('Tentando recarregar schema cache...');
+      if (testError.code === 'PGRST204') {
         await new Promise(r => setTimeout(r, 2000));
-        const { data: retryData, error: retryError } = await db
-          .from('bot_training')
-          .select('*')
-          .limit(1);
+        const { data: retryData, error: retryError } = await db.from('bot_training').select('*').limit(1);
         if (retryError) throw retryError;
         processData(retryData?.[0] || null);
       } else {
@@ -632,8 +505,7 @@ async function load() {
       processData(testData?.[0] || null);
     }
   } catch(e) {
-    console.error('❌ Erro Supabase:', e);
-    setStatus('warn','Supabase indisponível — modo offline', true);
+    setStatus('warn','Supabase indisponivel — modo offline', true);
     useLocal = true;
     pendingSync = true;
     loadFromLocal();
@@ -641,31 +513,23 @@ async function load() {
 }
 
 function processData(data) {
-  if (!data) {
-    createDefaultSupabase();
-    return;
-  }
-  
+  if (!data) { createDefaultSupabase(); return; }
   training = data;
   faqData = data.faq_data || [];
   escalation = data.escalation_keywords || escalation;
   
-  document.getElementById('botName').value       = data.bot_name || data.name || '';
-  document.getElementById('companyName').value   = data.company_name || data.company || '';
-  document.getElementById('greeting').value      = data.greeting_message || data.greeting || '';
-  document.getElementById('personality').value   = data.personality || data.behavior || '';
-  document.getElementById('services').value      = data.services || '';
+  document.getElementById('botName').value = data.bot_name || data.name || '';
+  document.getElementById('companyName').value = data.company_name || data.company || '';
+  document.getElementById('greeting').value = data.greeting_message || data.greeting || '';
+  document.getElementById('personality').value = data.personality || data.behavior || '';
+  document.getElementById('services').value = data.services || '';
   document.getElementById('businessHours').value = data.business_hours || data.hours || '';
-  document.getElementById('pricing').value       = data.pricing_info || data.pricing || '';
-  document.getElementById('fallback').value      = data.fallback_message || data.fallback || '';
+  document.getElementById('pricing').value = data.pricing_info || data.pricing || '';
+  document.getElementById('fallback').value = data.fallback_message || data.fallback || '';
   
   const tog = document.getElementById('botToggle');
   const isActive = data.active !== false;
-  if (isActive) {
-    tog.classList.add('on');
-  } else {
-    tog.classList.remove('on');
-  }
+  tog.classList.toggle('on', isActive);
   updateToggleLabel(isActive);
   
   renderTags();
@@ -674,102 +538,67 @@ function processData(data) {
   useLocal = false;
   pendingSync = false;
   setStatus('ok','Sincronizado com Supabase ✓', false);
-  showToast('Configurações carregadas ✓','success');
-  
-  // Salvar no localStorage como cache
+  showToast('Configuracoes carregadas ✓','success');
   localStorage.setItem('bot_training_cache', JSON.stringify(data));
 }
 
-/* ── LOCALSTORAGE (FALLBACK + CACHE) ──────────────────────────────────── */
 function loadFromLocal() {
   try {
-    // Primeiro tentar cache do Supabase
     const cache = localStorage.getItem('bot_training_cache');
-    if (cache && !useLocal) {
+    if (cache) {
       const data = JSON.parse(cache);
-      training = data;
-      faqData = data.faq_data || [];
-      escalation = data.escalation_keywords || escalation;
-      
-      document.getElementById('botName').value       = data.bot_name || '';
-      document.getElementById('companyName').value   = data.company_name || '';
-      document.getElementById('greeting').value      = data.greeting_message || '';
-      document.getElementById('personality').value   = data.personality || '';
-      document.getElementById('services').value      = data.services || '';
+      training = data; faqData = data.faq_data || []; escalation = data.escalation_keywords || escalation;
+      document.getElementById('botName').value = data.bot_name || '';
+      document.getElementById('companyName').value = data.company_name || '';
+      document.getElementById('greeting').value = data.greeting_message || '';
+      document.getElementById('personality').value = data.personality || '';
+      document.getElementById('services').value = data.services || '';
       document.getElementById('businessHours').value = data.business_hours || '';
-      document.getElementById('pricing').value       = data.pricing_info || '';
-      document.getElementById('fallback').value      = data.fallback_message || '';
-      
+      document.getElementById('pricing').value = data.pricing_info || '';
+      document.getElementById('fallback').value = data.fallback_message || '';
       const tog = document.getElementById('botToggle');
-      if (data.active !== false) {
-        tog.classList.add('on');
-      } else {
-        tog.classList.remove('on');
-      }
+      tog.classList.toggle('on', data.active !== false);
       updateToggleLabel(data.active !== false);
-      
-      renderTags();
-      renderFaq();
-      setStatus('warn','Offline — mostrando cache', true);
-      showToast('Dados em cache (modo offline)','info');
-      isReady = true;
-      return;
+      renderTags(); renderFaq();
+      setStatus('warn','Offline — cache local', true);
+      showToast('Dados em cache','info');
+      isReady = true; return;
     }
-    
-    // Se não tiver cache, usar localStorage de edição
     const saved = localStorage.getItem('bot_training_v2');
     if (saved) {
       const data = JSON.parse(saved);
-      training = data;
-      faqData = data.faq_data || [];
-      escalation = data.escalation_keywords || escalation;
-      
-      document.getElementById('botName').value       = data.bot_name || '';
-      document.getElementById('companyName').value   = data.company_name || '';
-      document.getElementById('greeting').value      = data.greeting_message || '';
-      document.getElementById('personality').value   = data.personality || '';
-      document.getElementById('services').value      = data.services || '';
+      training = data; faqData = data.faq_data || []; escalation = data.escalation_keywords || escalation;
+      document.getElementById('botName').value = data.bot_name || '';
+      document.getElementById('companyName').value = data.company_name || '';
+      document.getElementById('greeting').value = data.greeting_message || '';
+      document.getElementById('personality').value = data.personality || '';
+      document.getElementById('services').value = data.services || '';
       document.getElementById('businessHours').value = data.business_hours || '';
-      document.getElementById('pricing').value       = data.pricing_info || '';
-      document.getElementById('fallback').value      = data.fallback_message || '';
-      
+      document.getElementById('pricing').value = data.pricing_info || '';
+      document.getElementById('fallback').value = data.fallback_message || '';
       const tog = document.getElementById('botToggle');
-      if (data.active !== false) {
-        tog.classList.add('on');
-      } else {
-        tog.classList.remove('on');
-      }
+      tog.classList.toggle('on', data.active !== false);
       updateToggleLabel(data.active !== false);
-      
-      renderTags();
-      renderFaq();
-      setStatus('warn','Modo offline — alterações não sincronizadas', true);
-      showToast('Dados locais carregados','info');
+      renderTags(); renderFaq();
+      setStatus('warn','Modo offline — nao sincronizado', true);
+      showToast('Dados locais','info');
     } else {
       createDefaultLocal();
     }
-    isReady = true;
-    useLocal = true;
-    pendingSync = true;
-  } catch(e) {
-    console.error('Erro localStorage:', e);
-    createDefaultLocal();
-  }
+    isReady = true; useLocal = true; pendingSync = true;
+  } catch(e) { createDefaultLocal(); }
 }
 
 function createDefaultLocal() {
   const d = {
-    bot_name:'Assistente', 
-    company_name:'Minha Empresa',
-    greeting_message:'Olá! Seja bem-vindo(a). Como posso ajudá-lo(a) hoje? ✨',
-    personality:'Seja cordial, elegante e objetivo. Use linguagem profissional.',
-    services:'Conserto de celulares, notebooks, tablets e acessórios.',
-    business_hours:'Seg–Sex: 9h às 18h | Sáb: 9h às 13h',
-    pricing_info:'Realizamos orçamento gratuito e sem compromisso.',
-    fallback_message:'Peço desculpas, não compreendi. Como posso ajudar?',
-    faq_data:[], 
-    escalation_keywords:escalation, 
-    active:true
+    bot_name:'Assistente', company_name:'Minha Empresa',
+    greeting_message:'Ola! Seja bem-vindo(a). Como posso ajuda-lo(a) hoje?',
+    personality:'Seja cordial, elegante e objetivo.',
+    services:'Conserto de celulares, notebooks, tablets.',
+    business_hours:'Seg-Sex: 9h as 18h | Sab: 9h as 13h',
+    pricing_info:'Orcamento gratuito e sem compromisso.',
+    fallback_message:'Nao compreendi. Posso ajudar com orcamentos, horarios e servicos.',
+    faq_data:[], escalation_keywords:escalation, active:true
   };
   training = d;
   localStorage.setItem('bot_training_v2', JSON.stringify(d));
@@ -778,51 +607,28 @@ function createDefaultLocal() {
 
 async function createDefaultSupabase() {
   const d = {
-    bot_name:'Assistente', 
-    company_name:'Minha Empresa',
-    greeting_message:'Olá! Seja bem-vindo(a). Como posso ajudá-lo(a) hoje? ✨',
-    personality:'Seja cordial, elegante e objetivo. Use linguagem profissional.',
-    services:'Conserto de celulares, notebooks, tablets e acessórios.',
-    business_hours:'Seg–Sex: 9h às 18h | Sáb: 9h às 13h',
-    pricing_info:'Realizamos orçamento gratuito e sem compromisso.',
-    fallback_message:'Peço desculpas, não compreendi. Como posso ajudar?',
-    faq_data:[], 
-    escalation_keywords:escalation, 
-    active:true
+    bot_name:'Assistente', company_name:'Minha Empresa',
+    greeting_message:'Ola! Seja bem-vindo(a). Como posso ajuda-lo(a) hoje?',
+    personality:'Seja cordial, elegante e objetivo.',
+    services:'Conserto de celulares, notebooks, tablets.',
+    business_hours:'Seg-Sex: 9h as 18h | Sab: 9h as 13h',
+    pricing_info:'Orcamento gratuito e sem compromisso.',
+    fallback_message:'Nao compreendi. Posso ajudar com orcamentos, horarios e servicos.',
+    faq_data:[], escalation_keywords:escalation, active:true
   };
-  
   try {
     const { data, error } = await db.from('bot_training').insert(d).select().single();
-    if (error) {
-      console.warn('Erro ao criar padrão no Supabase:', error);
-      useLocal = true;
-      pendingSync = true;
-      createDefaultLocal();
-      return;
-    }
+    if (error) { useLocal = true; pendingSync = true; createDefaultLocal(); return; }
     if (data) training = data;
     load();
-  } catch(e) {
-    console.error('Erro createDefault:', e);
-    useLocal = true;
-    pendingSync = true;
-    createDefaultLocal();
-  }
+  } catch(e) { useLocal = true; pendingSync = true; createDefaultLocal(); }
 }
 
-/* ── FORCE SYNC ───────────────────────────────────────────────────────── */
 async function forceSync() {
-  if (!db) {
-    showToast('Supabase não disponível','error');
-    return;
-  }
-  
-  showToast('Sincronizando…','info',99999);
-  
+  if (!db) { showToast('Supabase nao disponivel','error'); return; }
+  showToast('Sincronizando...','info',99999);
   try {
-    // Tentar enviar dados locais para o Supabase
     const localData = JSON.parse(localStorage.getItem('bot_training_v2') || '{}');
-    
     if (training?.id) {
       const res = await db.from('bot_training').update(localData).eq('id', training.id);
       if (res.error) throw res.error;
@@ -831,26 +637,41 @@ async function forceSync() {
       if (res.error) throw res.error;
       if (res.data) training = res.data;
     }
-    
-    // Atualizar cache
     localStorage.setItem('bot_training_cache', JSON.stringify(localData));
-    pendingSync = false;
-    useLocal = false;
-    
+    pendingSync = false; useLocal = false;
+    await notifyWebhookClearCache();
     setStatus('ok','Sincronizado com Supabase ✓', false);
-    showToast('Sincronizado com sucesso ✓','success');
+    showToast('Sincronizado!','success');
   } catch(e) {
-    console.error('Erro sync:', e);
-    showToast('Erro ao sincronizar: ' + e.message,'error');
+    showToast('Erro: ' + e.message,'error');
   }
 }
 
-/* ── TOGGLE ───────────────────────────────────────────────────────────── */
+async function notifyWebhookClearCache() {
+  try {
+    console.log('Notificando webhook:', WEBHOOK_URL + '?action=clearcache');
+    const response = await fetch(WEBHOOK_URL + '?action=clearcache', {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    if (response.ok) {
+      const data = await response.json();
+      console.log('Webhook notificado:', data);
+      return true;
+    }
+    console.warn('Webhook nao respondeu:', response.status);
+    return false;
+  } catch(e) {
+    console.warn('Erro notificar webhook:', e.message);
+    return false;
+  }
+}
+
 function toggleBot() {
   const tog = document.getElementById('botToggle');
   tog.classList.toggle('on');
   updateToggleLabel(tog.classList.contains('on'));
-  showToast(tog.classList.contains('on') ? 'Bot será ativado ao salvar' : 'Bot será desativado ao salvar','info');
+  showToast(tog.classList.contains('on') ? 'Bot sera ativado ao salvar' : 'Bot sera desativado ao salvar','info');
 }
 
 function updateToggleLabel(on) {
@@ -860,15 +681,12 @@ function updateToggleLabel(on) {
     : 'Mensagens direcionadas ao atendimento humano';
 }
 
-/* ── TAGS ─────────────────────────────────────────────────────────────── */
 function renderTags() {
   const container = document.getElementById('escalationTags');
   if (!container) return;
-  container.innerHTML =
-    escalation.map((t,i)=>`
-      <div class="tag-pill">${esc(t)}
-        <button onclick="removeTag(${i})" aria-label="remover">×</button>
-      </div>`).join('');
+  container.innerHTML = escalation.map((t,i) =>
+    '<div class="tag-pill">' + esc(t) + '<button onclick="removeTag(' + i + ')" aria-label="remover">×</button></div>'
+  ).join('');
 }
 
 function addTag() {
@@ -876,72 +694,50 @@ function addTag() {
   if (!inp) return;
   const v = inp.value.trim().toLowerCase();
   if (!v) return;
-  if (escalation.includes(v)) { showToast('Palavra já existe','info'); return; }
-  escalation.push(v); 
-  inp.value=''; 
-  renderTags();
+  if (escalation.includes(v)) { showToast('Palavra ja existe','info'); return; }
+  escalation.push(v); inp.value=''; renderTags();
   showToast('Adicionada — salve para aplicar','info');
 }
 
 function removeTag(i) {
-  escalation.splice(i,1); 
-  renderTags();
+  escalation.splice(i,1); renderTags();
   showToast('Removida — salve para aplicar','info');
 }
 
-/* ── FAQ ──────────────────────────────────────────────────────────────── */
 function renderFaq() {
   const el = document.getElementById('faqList');
   if (!el) return;
-  if (!faqData.length) { 
-    el.innerHTML='<div class="faq-empty">Nenhuma entrada ainda</div>'; 
-    return; 
-  }
-  el.innerHTML = faqData.map((f,i)=>`
-    <div class="faq-item">
-      <div class="faq-q">❓ ${esc(f.question)}</div>
-      <div class="faq-a">${esc(f.answer)}</div>
-      <button class="faq-del" onclick="removeFaq(${i})" title="Remover">🗑</button>
-    </div>`).join('');
+  if (!faqData.length) { el.innerHTML='<div class="faq-empty">Nenhuma entrada ainda</div>'; return; }
+  el.innerHTML = faqData.map((f,i) =>
+    '<div class="faq-item"><div class="faq-q">❓ ' + esc(f.question) + '</div>' +
+    '<div class="faq-a">' + esc(f.answer) + '</div>' +
+    '<button class="faq-del" onclick="removeFaq(' + i + ')" title="Remover">🗑</button></div>'
+  ).join('');
 }
 
-function removeFaq(i) {
-  faqData.splice(i,1); 
-  renderFaq();
-  showToast('Removida — salve para aplicar','info');
-}
+function removeFaq(i) { faqData.splice(i,1); renderFaq(); showToast('Removida','info'); }
 
 function openFaqModal() {
   const modal = document.getElementById('faqModal');
   const q = document.getElementById('modalQ');
   const a = document.getElementById('modalA');
-  if (q) q.value='';
-  if (a) a.value='';
+  if (q) q.value=''; if (a) a.value='';
   if (modal) modal.classList.add('open');
-  setTimeout(()=>{ if(q) q.focus(); },120);
+  setTimeout(() => { if(q) q.focus(); }, 120);
 }
 
-function closeFaqModal() { 
+function closeFaqModal() {
   const modal = document.getElementById('faqModal');
-  if (modal) modal.classList.remove('open'); 
+  if (modal) modal.classList.remove('open');
 }
 
 function saveFaqItem() {
   const q = document.getElementById('modalQ');
   const a = document.getElementById('modalA');
   if (!q || !a) return;
-  
-  const qv = q.value.trim();
-  const av = a.value.trim();
-  
-  if (!qv || !av) { 
-    showToast('Preencha pergunta e resposta','error'); 
-    return; 
-  }
-  
-  faqData.push({question:qv, answer:av}); 
-  renderFaq(); 
-  closeFaqModal();
+  const qv = q.value.trim(); const av = a.value.trim();
+  if (!qv || !av) { showToast('Preencha pergunta e resposta','error'); return; }
+  faqData.push({question:qv, answer:av}); renderFaq(); closeFaqModal();
   showToast('Adicionada — salve para aplicar','info');
 }
 
@@ -949,132 +745,100 @@ document.addEventListener('click', function(e) {
   const modal = document.getElementById('faqModal');
   if (modal && e.target === modal) closeFaqModal();
 });
-
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') closeFaqModal();
 });
 
-/* ── SIMULATE ─────────────────────────────────────────────────────────── */
 function simulate() {
   const qInput = document.getElementById('testQ');
   const out = document.getElementById('previewOut');
   const txt = document.getElementById('previewTxt');
-  
   if (!qInput || !out || !txt) return;
-  
   const q = qInput.value.trim();
   if (!q) { out.classList.remove('show'); return; }
-
   const live = {
     greeting_message: document.getElementById('greeting')?.value || '',
-    personality:      document.getElementById('personality')?.value || '',
-    services:         document.getElementById('services')?.value || '',
-    business_hours:   document.getElementById('businessHours')?.value || '',
-    pricing_info:     document.getElementById('pricing')?.value || '',
+    personality: document.getElementById('personality')?.value || '',
+    services: document.getElementById('services')?.value || '',
+    business_hours: document.getElementById('businessHours')?.value || '',
+    pricing_info: document.getElementById('pricing')?.value || '',
     fallback_message: document.getElementById('fallback')?.value || '',
-    faq_data:         faqData,
+    faq_data: faqData,
     escalation_keywords: escalation
   };
-
   txt.textContent = genResponse(q, live);
   out.classList.add('show');
 }
 
-/* ── GENERATE RESPONSE ───────────────────────────────────────────────── */
 function genResponse(userMsg, t) {
   const msg = userMsg.toLowerCase().trim();
-
-  const greetings = ['oi','olá','ola','bom dia','boa tarde','boa noite','hey','hi','hello','eai','eae'];
-  if (greetings.some(g => msg===g || msg.startsWith(g+' ') || msg.endsWith(' '+g)))
-    return t.greeting_message || 'Olá! Como posso ajudar?';
-
+  const greetings = ['oi','ola','olá','bom dia','boa tarde','boa noite','hey','hi','hello'];
+  if (greetings.some(g => msg===g || msg.startsWith(g+' '))) return t.greeting_message || 'Ola! Como posso ajudar?';
   for (const item of (t.faq_data||[])) {
     const words = item.question.toLowerCase().split(/\s+/).filter(w=>w.length>2);
-    if (words.filter(w=>msg.includes(w)).length>=2 || msg.includes(item.question.toLowerCase()))
-      return item.answer;
+    if (words.filter(w=>msg.includes(w)).length>=2 || msg.includes(item.question.toLowerCase())) return item.answer;
   }
-
-  if (/preço|valor|custa|quanto|cobrar|custo/i.test(msg))
-    return (t.pricing_info||'Consulte-nos para orçamento.')+'\n\nPosso agendar um orçamento gratuito! Qual equipamento?';
-  if (/horário|horario|aberto|funciona|atende|abre|fecha/i.test(msg))
-    return '⏰ '+(t.business_hours||'Horário comercial.')+'\n\nEstamos prontos para atendê-lo! 😊';
-  if (/serviço|servico|conserta|reparo|arruma|troca/i.test(msg))
-    return '🔧 '+(t.services||'Diversos serviços disponíveis.')+'\n\nQual serviço você precisa?';
-  if (/garantia/i.test(msg))
-    return '✅ Todos os serviços possuem garantia de 30 a 90 dias conforme o reparo.';
-  if (/prazo|demora|rápido|rapido|tempo/i.test(msg))
-    return '⏱️ O prazo varia conforme o defeito. Diagnóstico em até 24h!';
-  if (/agendar|marcar|agendamento/i.test(msg))
-    return '📅 Para agendar, preciso saber:\n1️⃣ Qual equipamento?\n2️⃣ Qual o problema?\n3️⃣ Dia e horário?\n\nOu diga "atendente" para falar com uma pessoa!';
-
+  if (/preco|valor|custa|quanto|orcamento/i.test(msg))
+    return (t.pricing_info||'Consulte-nos para orcamento.') + '\n\nPosso agendar um orcamento gratuito!';
+  if (/horario|hora|aberto|funciona/i.test(msg))
+    return '⏰ ' + (t.business_hours||'Horario comercial') + '\n\nEstamos prontos!';
+  if (/servico|conserta|reparo|arruma/i.test(msg))
+    return '🔧 ' + (t.services||'Diversos servicos.') + '\n\nQual voce precisa?';
   const esc2 = t.escalation_keywords||[];
-  if (esc2.some(w=>msg.includes(w.toLowerCase())))
-    return '👨‍💼 Transferindo para um atendente. Aguarde um momento… ⏳';
-
-  return (t.fallback_message||'Não compreendi.')+
-    '\n\nPosso ajudar com:\n• 💰 Preços\n• ⏰ Horários\n• 🔧 Serviços\n• 📅 Agendamentos\n\nOu diga "atendente"!';
+  if (esc2.some(w=>msg.includes(w.toLowerCase()))) return '👨‍💼 Transferindo para atendente humano. Aguarde...';
+  return (t.fallback_message||'Nao compreendi.') + '\n\nOu digite "atendente"!';
 }
 
-/* ── SAVE ─────────────────────────────────────────────────────────────── */
 async function save() {
   const btn = document.getElementById('saveBtn');
   if (!btn) return;
-  
-  btn.innerHTML='<span class="spin"></span>Salvando…';
+  btn.innerHTML='<span class="spin"></span>Salvando...';
   btn.disabled=true;
 
   const active = document.getElementById('botToggle').classList.contains('on');
   const payload = {
-    bot_name:            document.getElementById('botName')?.value || '',
-    company_name:        document.getElementById('companyName')?.value || '',
-    greeting_message:    document.getElementById('greeting')?.value || '',
-    personality:         document.getElementById('personality')?.value || '',
-    services:            document.getElementById('services')?.value || '',
-    business_hours:      document.getElementById('businessHours')?.value || '',
-    pricing_info:        document.getElementById('pricing')?.value || '',
-    fallback_message:    document.getElementById('fallback')?.value || '',
-    faq_data:            faqData,
+    bot_name: document.getElementById('botName')?.value || '',
+    company_name: document.getElementById('companyName')?.value || '',
+    greeting_message: document.getElementById('greeting')?.value || '',
+    personality: document.getElementById('personality')?.value || '',
+    services: document.getElementById('services')?.value || '',
+    business_hours: document.getElementById('businessHours')?.value || '',
+    pricing_info: document.getElementById('pricing')?.value || '',
+    fallback_message: document.getElementById('fallback')?.value || '',
+    faq_data: faqData,
     escalation_keywords: escalation,
     active,
     updated_at: new Date().toISOString()
   };
 
-  // SEMPRE salvar no localStorage primeiro
   localStorage.setItem('bot_training_v2', JSON.stringify(payload));
-  console.log('💾 Salvo no localStorage');
+  console.log('Salvo no localStorage');
 
-  // TENTAR sincronizar com Supabase
   let supabaseSuccess = false;
-  
+  let webhookNotified = false;
+
   try {
     if (db) {
       if (training?.id) {
-        const res = await db.from('bot_training').update(payload).eq('id',training.id);
+        const res = await db.from('bot_training').update(payload).eq('id', training.id);
         if (res.error) {
-          // Tentar nomes alternativos
           if (res.error.message?.includes('column') || res.error.code === 'PGRST204') {
             const altPayload = {
-              name: payload.bot_name,
-              company: payload.company_name,
-              greeting: payload.greeting_message,
-              behavior: payload.personality,
-              services: payload.services,
-              hours: payload.business_hours,
-              pricing: payload.pricing_info,
-              fallback: payload.fallback_message,
-              faq_data: payload.faq_data,
-              escalation_keywords: payload.escalation_keywords,
-              active: payload.active,
-              updated_at: payload.updated_at
+              name: payload.bot_name, company: payload.company_name,
+              greeting: payload.greeting_message, behavior: payload.personality,
+              services: payload.services, hours: payload.business_hours,
+              pricing: payload.pricing_info, fallback: payload.fallback_message,
+              faq_data: payload.faq_data, escalation_keywords: payload.escalation_keywords,
+              active: payload.active, updated_at: payload.updated_at
             };
-            const altRes = await db.from('bot_training').update(altPayload).eq('id',training.id);
+            const altRes = await db.from('bot_training').update(altPayload).eq('id', training.id);
             if (altRes.error) throw altRes.error;
-            training = {...training,...altPayload};
+            training = {...training, ...altPayload};
           } else {
             throw res.error;
           }
         } else {
-          training = {...training,...payload};
+          training = {...training, ...payload};
         }
         supabaseSuccess = true;
       } else {
@@ -1089,46 +853,46 @@ async function save() {
     supabaseSuccess = false;
   }
 
-  // Atualizar status baseado no resultado
   if (supabaseSuccess) {
-    useLocal = false;
-    pendingSync = false;
-    // Atualizar cache
+    try { webhookNotified = await notifyWebhookClearCache(); } catch(e) { console.warn(e); }
+    useLocal = false; pendingSync = false;
     localStorage.setItem('bot_training_cache', JSON.stringify(payload));
-    setStatus('ok','Salvo no Supabase ✓ — webhook vai usar estas configurações', false);
-    showToast('✓ Configurações salvas e ativas no WhatsApp!','success');
+    if (webhookNotified) {
+      setStatus('ok','Salvo + Webhook atualizado ✓', false);
+      showToast('Configuracoes ativas! Proxima mensagem ja usa nova configuracao.','success');
+    } else {
+      setStatus('ok','Salvo no Supabase (webhook em 10s)', false);
+      showToast('Salvo! Webhook atualizado em ate 10 segundos.','success');
+    }
   } else {
-    useLocal = true;
-    pendingSync = true;
-    setStatus('warn','Salvo localmente — clique ↻ Sincronizar para ativar no WhatsApp', true);
-    showToast('Salvo localmente. Clique "Sincronizar" para ativar no WhatsApp.','info');
+    useLocal = true; pendingSync = true;
+    setStatus('warn','Salvo localmente — clique Sincronizar', true);
+    showToast('Salvo localmente. Clique Sincronizar para ativar.','info');
   }
 
-  btn.innerHTML='Salvar Configurações';
+  btn.innerHTML='Salvar Configuracoes';
   btn.disabled=false;
 }
 
-/* ── TOAST ────────────────────────────────────────────────────────────── */
 let _tt;
-function showToast(msg, type='info', dur=3500) {
+function showToast(msg, type, dur) {
   clearTimeout(_tt);
   const el = document.getElementById('toast');
   if (!el) return;
-  el.textContent=msg; 
-  el.className=`toast show ${type}`;
-  if (dur<99999) _tt=setTimeout(()=>el.classList.remove('show'),dur);
+  el.textContent = msg;
+  el.className = 'toast show ' + type;
+  if (dur < 99999) _tt = setTimeout(() => el.classList.remove('show'), dur);
 }
 
-/* ── HELPERS ──────────────────────────────────────────────────────────── */
-function esc(t){
-  const d=document.createElement('div');
-  d.textContent=t||'';
+function esc(t) {
+  const d = document.createElement('div');
+  d.textContent = t || '';
   return d.innerHTML;
 }
 
-/* ── INIT ─────────────────────────────────────────────────────────────── */
 document.addEventListener('DOMContentLoaded', function() {
-  console.log('🚀 AI Training Studio iniciando...');
+  console.log('AI Training Studio iniciando...');
+  console.log('Webhook URL:', WEBHOOK_URL);
   load();
 });
 

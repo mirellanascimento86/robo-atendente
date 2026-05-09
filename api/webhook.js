@@ -10,20 +10,20 @@ const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || SUPABASE_K
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const TELEGRAM_GROUP_ID = process.env.TELEGRAM_GROUP_ID;
 
-// Usar SERVICE_ROLE_KEY para ter permissão total (ignora RLS)
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
   auth: { autoRefreshToken: false, persistSession: false }
 });
 
+// DEFAULT MINIMAL — só usa se o banco estiver VAZIO (primeira vez)
 const defaultTraining = {
   bot_name: 'Assistente',
   company_name: 'Minha Empresa',
-  greeting_message: 'Ola! Seja bem-vindo(a). Como posso ajuda-lo(a) hoje?',
-  personality: 'Seja cordial, elegante e objetivo.',
-  services: 'Conserto de celulares, notebooks, tablets e acessorios.',
-  business_hours: 'Seg-Sex: 9h as 18h | Sab: 9h as 13h',
-  pricing_info: 'Realizamos orcamento gratuito e sem compromisso.',
-  fallback_message: 'Nao compreendi bem. Posso te ajudar com orcamentos, horarios, servicos e agendamentos.',
+  greeting_message: 'Ola! Como posso ajudar?',
+  personality: '',
+  services: '',
+  business_hours: '',
+  pricing_info: '',
+  fallback_message: 'Nao compreendi. Posso ajudar com orcamentos, horarios e servicos.',
   faq_data: [],
   escalation_keywords: ['atendente', 'humano', 'pessoa', 'reclamacao', 'cancelar', 'chefe', 'gerente', 'supervisor'],
   active: true
@@ -58,41 +58,35 @@ async function alertVisitScheduled(phone, contactName, details) {
 }
 
 export default async function handler(req, res) {
-  // CORS PRIMEIRO
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, PATCH');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
-
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  console.log('\n=== WEBHOOK === Method:', req.method, '| URL:', req.url);
+  console.log('\n=== WEBHOOK === Method:', req.method);
 
   try {
     // ========== GET ==========
     if (req.method === 'GET') {
       const mode = req.query['hub.mode'];
       const challenge = req.query['hub.challenge'];
-
-      if (mode === 'subscribe' && challenge) {
-        return res.status(200).send(challenge);
-      }
+      if (mode === 'subscribe' && challenge) return res.status(200).send(challenge);
 
       const action = req.query.action;
 
-      // GET: UPDATE CONFIG (fallback do painel)
       if (action === 'updateconfig') {
         console.log('=== UPDATE VIA GET ===');
-
+        
         let faqData = [], escalationKeywords = [];
         try {
           if (req.query.faq_data) faqData = JSON.parse(req.query.faq_data);
           if (req.query.escalation_keywords) escalationKeywords = JSON.parse(req.query.escalation_keywords);
-        } catch (e) { console.log('Parse arrays erro:', e.message); }
+        } catch (e) { console.log('Parse erro:', e.message); }
 
         const config = {
-          bot_name: req.query.bot_name || defaultTraining.bot_name,
-          company_name: req.query.company_name || defaultTraining.company_name,
-          greeting_message: req.query.greeting_message || req.query.greeting || defaultTraining.greeting_message,
+          bot_name: req.query.bot_name || '',
+          company_name: req.query.company_name || '',
+          greeting_message: req.query.greeting_message || req.query.greeting || '',
           personality: req.query.personality || '',
           services: req.query.services || '',
           business_hours: req.query.business_hours || req.query.hours || '',
@@ -105,7 +99,7 @@ export default async function handler(req, res) {
         };
 
         const result = await saveTrainingToSupabase(config);
-        return res.status(200).json({ success: true, message: 'Config atualizada', greeting: config.greeting_message, saved: result });
+        return res.status(200).json({ success: true, message: 'Config atualizada', saved: result });
       }
 
       if (action === 'list') {
@@ -139,8 +133,6 @@ export default async function handler(req, res) {
     // ========== POST ==========
     if (req.method === 'POST') {
       let body = req.body || {};
-      
-      // Parse se vier como string
       if (typeof body === 'string') {
         try { body = JSON.parse(body); } catch (e) {}
       }
@@ -151,16 +143,16 @@ export default async function handler(req, res) {
       const isPanelUpdate = hasPanelFields && !isWhatsApp && !hasWhatsAppStructure;
       const hasAction = !!req.query.action;
 
-      console.log('Detectado:', { isWhatsApp, hasWhatsAppStructure, isPanelUpdate, hasAction });
+      console.log('Detectado:', { isPanelUpdate, isWhatsApp, hasAction });
 
       // --- POST DO PAINEL ---
       if (isPanelUpdate && !hasAction) {
         console.log('=== SALVANDO CONFIG DO PAINEL ===');
 
         const trainingData = {
-          bot_name: body.bot_name || 'Assistente',
-          company_name: body.company_name || 'Minha Empresa',
-          greeting_message: body.greeting_message || body.greeting || 'Ola! Como posso ajudar?',
+          bot_name: body.bot_name || '',
+          company_name: body.company_name || '',
+          greeting_message: body.greeting_message || body.greeting || '',
           personality: body.personality || '',
           services: body.services || '',
           business_hours: body.business_hours || body.hours || '',
@@ -176,7 +168,7 @@ export default async function handler(req, res) {
 
         const saved = await saveTrainingToSupabase(trainingData);
         
-        // CONFIRMAR que salvou buscando do banco
+        // CONFIRMAR buscando do banco
         const refreshed = await getTraining();
         console.log('Confirmado no banco:', refreshed?.greeting_message);
 
@@ -233,9 +225,13 @@ export default async function handler(req, res) {
 
         console.log(`Msg de ${from}: ${text}`);
 
-        // SEMPRE buscar do banco - SEM CACHE
+        // SEMPRE buscar do banco — SEM CACHE, SEM DEFAULT hardcoded
         const training = await getTraining();
-        console.log('Training atual:', training?.greeting_message?.substring(0, 50));
+        console.log('Training do banco:', JSON.stringify({
+          greeting: training?.greeting_message,
+          active: training?.active,
+          company: training?.company_name
+        }));
 
         if (training.active === false) {
           await saveMessage(from, text, 'inbound', 'human', contactName);
@@ -253,11 +249,11 @@ export default async function handler(req, res) {
 
         if (convStatus === 'human') return res.status(200).send('Human mode');
 
-        // Gerar resposta
+        // Gerar resposta com o training do BANCO
         const responseData = generateResponse(text, training, from, contactName);
         const response = responseData.text;
 
-        console.log('Resposta:', response.substring(0, 100));
+        console.log('Resposta gerada:', response.substring(0, 100));
 
         if (WHATSAPP_TOKEN && WHATSAPP_PHONE_ID) {
           try { await sendWhatsAppMessage(from, response); } catch (e) { console.error('Erro WA:', e.message); }
@@ -288,13 +284,12 @@ export default async function handler(req, res) {
   }
 }
 
-// ========== SUPABASE - CORRIGIDO ==========
+// ========== SUPABASE ==========
 
 async function saveTrainingToSupabase(data) {
   try {
     console.log('=== saveTrainingToSupabase ===');
     
-    // Buscar o registro mais recente
     const { data: existing, error: findError } = await supabase
       .from('bot_training')
       .select('id')
@@ -309,7 +304,6 @@ async function saveTrainingToSupabase(data) {
     if (existing?.id) {
       console.log('UPDATE no ID:', existing.id);
       
-      // CORREÇÃO CRÍTICA: .select() DEPOIS do .eq() conforme docs Supabase [^3^]
       const { data: updatedData, error: updateError } = await supabase
         .from('bot_training')
         .update(data)
@@ -349,7 +343,7 @@ async function saveTrainingToSupabase(data) {
 
 async function getTraining() {
   try {
-    console.log('=== getTraining (sem cache) ===');
+    console.log('=== getTraining ===');
     
     const { data, error } = await supabase
       .from('bot_training')
@@ -368,7 +362,7 @@ async function getTraining() {
       return data;
     }
 
-    console.log('Nenhum training, usando default');
+    console.log('Nenhum training no banco, usando default MINIMAL');
     return defaultTraining;
   } catch (e) {
     console.error('Excecao getTraining:', e.message);
@@ -378,17 +372,31 @@ async function getTraining() {
 
 function generateResponse(userMessage, training, phone, contactName) {
   const msg = (userMessage || '').toLowerCase().trim();
-  if (!msg) return { text: training.greeting_message || defaultTraining.greeting_message, escalate: false, isVisit: false };
+  
+  // Usar EXATAMENTE o training do banco, com fallback só se campo estiver vazio
+  const t = training || defaultTraining;
+
+  if (!msg) {
+    return { 
+      text: t.greeting_message || 'Ola! Como posso ajudar?', 
+      escalate: false, 
+      isVisit: false 
+    };
+  }
 
   const greetings = ['oi', 'ola', 'olá', 'bom dia', 'boa tarde', 'boa noite', 'hey', 'hi', 'hello', 'eai', 'eae', 'fala'];
   if (greetings.some(g => msg === g || msg.startsWith(g + ' '))) {
-    return { text: training.greeting_message || defaultTraining.greeting_message, escalate: false, isVisit: false };
+    return { 
+      text: t.greeting_message || 'Ola! Como posso ajudar?', 
+      escalate: false, 
+      isVisit: false 
+    };
   }
 
   const visitKeywords = ['agendar', 'visita', 'marcar', 'horario', 'quando', 'dia', 'data', 'chegar', 'ir ai', 'ir até', 'passar ai', 'ir na loja', 'vir buscar', 'entregar', 'levar'];
   const isVisitIntent = visitKeywords.some(kw => msg.includes(kw));
 
-  const faq = training.faq_data || [];
+  const faq = t.faq_data || [];
   for (const item of faq) {
     if (!item.question || !item.answer) continue;
     const words = item.question.toLowerCase().split(/\s+/).filter(w => w.length > 2);
@@ -399,29 +407,53 @@ function generateResponse(userMessage, training, phone, contactName) {
   }
 
   if (/preco|valor|custa|quanto|orcamento/i.test(msg)) {
-    return { text: (training.pricing_info || defaultTraining.pricing_info) + '\n\nPosso agendar um orcamento gratuito!', escalate: false, isVisit: isVisitIntent };
+    return { 
+      text: (t.pricing_info || 'Consulte-nos para orcamento.') + '\n\nPosso agendar um orcamento gratuito!', 
+      escalate: false, 
+      isVisit: isVisitIntent 
+    };
   }
 
   if (/horario|hora|aberto|funciona/i.test(msg)) {
-    return { text: '⏰ ' + (training.business_hours || defaultTraining.business_hours) + '\n\nEstamos prontos!', escalate: false, isVisit: isVisitIntent };
+    return { 
+      text: '⏰ ' + (t.business_hours || 'Horario comercial') + '\n\nEstamos prontos!', 
+      escalate: false, 
+      isVisit: isVisitIntent 
+    };
   }
 
   if (/servico|conserta|reparo|arruma|troca/i.test(msg)) {
-    return { text: '🔧 ' + (training.services || defaultTraining.services) + '\n\nQual voce precisa?', escalate: false, isVisit: isVisitIntent };
+    return { 
+      text: '🔧 ' + (t.services || 'Diversos servicos.') + '\n\nQual voce precisa?', 
+      escalate: false, 
+      isVisit: isVisitIntent 
+    };
   }
 
-  const esc = training.escalation_keywords || defaultTraining.escalation_keywords;
+  const esc = t.escalation_keywords || [];
   const shouldEscalate = esc.some(w => msg.includes(w.toLowerCase()));
 
   if (shouldEscalate) {
-    return { text: '👨‍💼 Entendido! Transferindo para atendente humano. Aguarde...', escalate: true, isVisit: false };
+    return { 
+      text: '👨‍💼 Entendido! Transferindo para atendente humano. Aguarde...', 
+      escalate: true, 
+      isVisit: false 
+    };
   }
 
   if (isVisitIntent) {
-    return { text: 'Perfeito! Vou registrar seu interesse em agendamento.\n\n' + (training.business_hours || defaultTraining.business_hours), escalate: false, isVisit: true };
+    return { 
+      text: 'Perfeito! Vou registrar seu interesse em agendamento.\n\n' + (t.business_hours || ''), 
+      escalate: false, 
+      isVisit: true 
+    };
   }
 
-  return { text: (training.fallback_message || defaultTraining.fallback_message) + '\n\nOu digite "atendente"!', escalate: false, isVisit: false };
+  return { 
+    text: (t.fallback_message || 'Nao compreendi.') + '\n\nOu digite "atendente"!', 
+    escalate: false, 
+    isVisit: false 
+  };
 }
 
 async function saveMessage(phone, content, direction, senderType, contactName = null) {

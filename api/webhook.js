@@ -9,24 +9,29 @@ const WHATSAPP_PHONE_ID = process.env.WHATSAPP_PHONE_ID;
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 export default async function handler(req, res) {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
-    if (req.method === 'OPTIONS') return res.status(200).end();
-
-    // ==========================================
-    // VERIFICAÇÃO DO WEBHOOK (Meta)
-    // ==========================================
-    if (req.method === 'GET' && req.query['hub.mode']) {
-        const mode = req.query['hub.mode'];
-        const challenge = req.query['hub.challenge'];
-        if (mode === 'subscribe') {
-            console.log('✅ Webhook verificado pelo Meta');
-            return res.status(200).send(challenge);
-        }
-        return res.status(403).send('Forbidden');
+    // ═══════════════════════════════════════════════════════
+    // CORS — Permite acesso do navegador à página de treinamento
+    // ═══════════════════════════════════════════════════════
+    const allowedOrigins = [
+        '*',  // Permite qualquer origem (troque pelo seu domínio em produção)
+        // 'https://seudominio.vercel.app',
+        // 'https://seudominio.com'
+    ];
+    const origin = req.headers.origin;
+    if (allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
+        res.setHeader('Access-Control-Allow-Origin', origin || '*');
     }
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, Authorization');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Max-Age', '86400');
+
+    if (req.method === 'OPTIONS') {
+        console.log('✅ CORS preflight respondido');
+        return res.status(200).end();
+    }
+
+    // ... resto do seu código continua igual ...
 
     // ==========================================
     // API DO PAINEL - STATUS/TREINAMENTO

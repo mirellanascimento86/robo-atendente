@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
@@ -101,9 +102,9 @@ body{font-family:'DM Sans',system-ui,sans-serif;background:var(--cream);color:va
 .status-bar .bar .dot.ok{background:#2d6a4f;}
 .status-bar .bar .dot.warn{background:#b8965a;}
 .status-bar .bar .dot.err{background:#c0392b;}
-.debug-panel{max-width:560px;margin:10px auto;padding:0 14px;}
-.debug-box{background:#1e1e1e;color:#00ff00;border-radius:var(--r);padding:12px 14px;font-family:'Courier New',monospace;font-size:11px;line-height:1.5;max-height:300px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;}
-.debug-title{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin-bottom:6px;font-weight:500;}
+.load-banner{max-width:560px;margin:10px auto 0;padding:0 14px;}
+.load-banner .inner{background:var(--gold-pale);border:1px solid var(--line);border-radius:var(--r);padding:10px 14px;font-size:12px;color:var(--smoke);display:flex;align-items:center;gap:8px;}
+.load-banner .inner.hidden{display:none;}
 </style>
 </head>
 <body>
@@ -118,8 +119,14 @@ body{font-family:'DM Sans',system-ui,sans-serif;background:var(--cream);color:va
 
 <div class="status-bar">
   <div class="bar" id="statusBar">
-    <div class="dot ok" id="statusDot"></div>
-    <span id="statusText">Painel pronto</span>
+    <div class="dot warn" id="statusDot"></div>
+    <span id="statusText">Carregando configuracoes do servidor...</span>
+  </div>
+</div>
+
+<div class="load-banner">
+  <div class="inner" id="loadBanner">
+    ⏳ Buscando dados do servidor. Aguarde...
   </div>
 </div>
 
@@ -154,7 +161,7 @@ body{font-family:'DM Sans',system-ui,sans-serif;background:var(--cream);color:va
       <div class="field">
         <label>Saudacao Inicial</label>
         <textarea id="greeting" placeholder="Primeira mensagem enviada ao cliente..."></textarea>
-        <div class="hint">Enviada automaticamente no primeiro contato.</div>
+        <div class="hint">Enviada automaticamente no primeiro contato e ao digitar oi/ola/hello.</div>
       </div>
     </div>
   </div>
@@ -236,11 +243,6 @@ body{font-family:'DM Sans',system-ui,sans-serif;background:var(--cream);color:va
   <button class="save-btn" id="saveBtn" onclick="save()">Salvar e Ativar no WhatsApp</button>
 </div>
 
-<div class="debug-panel" id="debugPanel" style="display:none;">
-  <div class="debug-title">Debug - Logs de Comunicacao</div>
-  <div class="debug-box" id="debugBox"></div>
-</div>
-
 <nav class="nav-bar">
   <a href="painel.html" class="nav-item">
     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
@@ -255,6 +257,8 @@ body{font-family:'DM Sans',system-ui,sans-serif;background:var(--cream);color:va
     Treinamento
   </a>
 </nav>
+
+<!-- Modal FAQ -->
 
 <div class="modal-ov" id="faqModal">
   <div class="modal">
@@ -277,13 +281,17 @@ body{font-family:'DM Sans',system-ui,sans-serif;background:var(--cream);color:va
 <div class="toast" id="toast"></div>
 
 <script>
+// ============================================================
+// CONFIG
+// ============================================================
 const WEBHOOK_URL = 'https://robo-atendente.vercel.app/api/webhook';
 
-let training = null;
 let faqData = [];
-let escalation = ['atendente','humano','pessoa','reclamacao','cancelar','chefe','gerente'];
-let isReady = false;
+let escalation = ['atendente','humano','pessoa','reclamacao','cancelar','chefe','gerente','supervisor'];
 
+// ============================================================
+// UTILS
+// ============================================================
 function setStatus(type, text) {
   const dot = document.getElementById('statusDot');
   const txt = document.getElementById('statusText');
@@ -296,10 +304,15 @@ function showToast(msg, type, dur) {
   const el = document.getElementById('toast');
   if (!el) return;
   el.textContent = msg;
-  el.className = 'toast show ' + type;
+  el.className = 'toast show ' + (type || '');
   if (dur && dur < 99999) {
     window._tt = setTimeout(() => el.classList.remove('show'), dur);
   }
+}
+
+function hideBanner() {
+  const b = document.getElementById('loadBanner');
+  if (b) b.classList.add('hidden');
 }
 
 function esc(t) {
@@ -308,86 +321,109 @@ function esc(t) {
   return d.innerHTML;
 }
 
-function logDebug(title, obj) {
-  const panel = document.getElementById('debugPanel');
-  const box = document.getElementById('debugBox');
-  if (!panel || !box) return;
-  panel.style.display = 'block';
-  const timestamp = new Date().toLocaleTimeString();
-  const text = typeof obj === 'string' ? obj : JSON.stringify(obj, null, 2);
-  box.textContent = `[${timestamp}] ${title}\n${text}\n\n` + box.textContent;
-}
-
-function load() {
-  showToast('Carregando...', 'info', 1500);
+// ============================================================
+// CARREGAR CONFIG DO SERVIDOR (Supabase via webhook)
+// ============================================================
+async function loadFromServer() {
   try {
-    const saved = localStorage.getItem('bot_training_v2');
-    if (saved) {
-      const data = JSON.parse(saved);
-      applyData(data);
-      setStatus('ok', 'Configuracoes carregadas');
-      showToast('Pronto!', 'success', 2000);
+    setStatus('warn', 'Conectando ao servidor...');
+    const res = await fetch(WEBHOOK_URL, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+      cache: 'no-store'
+    });
+
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+
+    const data = await res.json();
+    console.log('Dados do servidor:', data);
+
+    if (data && data.greeting) {
+      // Servidor retornou config — mas precisamos dos dados completos.
+      // Vamos usar o status endpoint que retorna campos básicos,
+      // e complementar com o que tiver no localStorage como cache temporário.
+      const cached = getCachedData();
+      const merged = { ...cached, ...data };
+
+      // Normalizar campos do status endpoint para campos do formulário
+      applyData({
+        bot_name: merged.bot_name || merged.botName || '',
+        company_name: merged.company_name || merged.company || '',
+        greeting_message: merged.greeting || merged.greeting_message || '',
+        personality: merged.personality || '',
+        services: merged.services || '',
+        business_hours: merged.business_hours || '',
+        pricing_info: merged.pricing_info || '',
+        fallback_message: merged.fallback_message || '',
+        faq_data: merged.faq_data || [],
+        escalation_keywords: merged.escalation_keywords || escalation,
+        active: merged.bot_active !== false && merged.active !== false
+      });
+
+      setStatus('ok', 'Configuracoes sincronizadas ✓');
+      hideBanner();
+      showToast('Dados carregados do servidor', 'success', 3000);
     } else {
-      createDefaultData();
+      throw new Error('Resposta inesperada do servidor');
     }
-    isReady = true;
-  } catch(e) {
-    console.error('Erro ao carregar:', e);
-    createDefaultData();
+  } catch (e) {
+    console.warn('Erro ao carregar do servidor:', e.message);
+    // Fallback: usar cache local
+    const cached = getCachedData();
+    if (cached && cached.greeting_message) {
+      applyData(cached);
+      setStatus('warn', 'Usando cache local — servidor indisponivel');
+      hideBanner();
+      showToast('Cache local carregado', 'info', 3000);
+    } else {
+      setStatus('err', 'Sem conexao e sem cache');
+      hideBanner();
+      showToast('Preencha os campos e salve', 'info', 4000);
+    }
   }
 }
 
-function createDefaultData() {
-  const d = {
-    bot_name: 'Assistente',
-    company_name: 'Minha Empresa',
-    greeting_message: 'Ola! Seja bem-vindo(a). Como posso ajuda-lo(a) hoje?',
-    personality: 'Seja cordial, elegante e objetivo.',
-    services: 'Conserto de celulares, notebooks, tablets.',
-    business_hours: 'Seg-Sex: 9h as 18h | Sab: 9h as 13h',
-    pricing_info: 'Orcamento gratuito e sem compromisso.',
-    fallback_message: 'Nao compreendi. Posso ajudar com orcamentos, horarios e servicos.',
-    faq_data: [],
-    escalation_keywords: escalation,
-    active: true,
-    updated_at: new Date().toISOString()
-  };
-  applyData(d);
-  localStorage.setItem('bot_training_v2', JSON.stringify(d));
-  setStatus('ok', 'Configuracao padrao criada');
-  showToast('Configuracao padrao criada', 'info', 2000);
-  isReady = true;
+function getCachedData() {
+  try {
+    const s = localStorage.getItem('bot_training_v2');
+    return s ? JSON.parse(s) : null;
+  } catch(e) { return null; }
 }
 
 function applyData(data) {
-  training = data;
-  faqData = data.faq_data || [];
-  escalation = data.escalation_keywords || escalation;
-  
-  document.getElementById('botName').value = data.bot_name || '';
-  document.getElementById('companyName').value = data.company_name || '';
-  document.getElementById('greeting').value = data.greeting_message || '';
-  document.getElementById('personality').value = data.personality || '';
-  document.getElementById('services').value = data.services || '';
-  document.getElementById('businessHours').value = data.business_hours || '';
-  document.getElementById('pricing').value = data.pricing_info || '';
-  document.getElementById('fallback').value = data.fallback_message || '';
-  
+  if (!data) return;
+
+  faqData = Array.isArray(data.faq_data) ? data.faq_data : [];
+  escalation = Array.isArray(data.escalation_keywords) ? data.escalation_keywords
+    : ['atendente','humano','pessoa','reclamacao','cancelar','chefe','gerente','supervisor'];
+
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
+  set('botName',       data.bot_name);
+  set('companyName',   data.company_name);
+  set('greeting',      data.greeting_message);
+  set('personality',   data.personality);
+  set('services',      data.services);
+  set('businessHours', data.business_hours);
+  set('pricing',       data.pricing_info);
+  set('fallback',      data.fallback_message);
+
   const tog = document.getElementById('botToggle');
   const isActive = data.active !== false;
-  tog.classList.toggle('on', isActive);
+  if (tog) { tog.classList.toggle('on', isActive); }
   updateToggleLabel(isActive);
-  
+
   renderTags();
   renderFaq();
 }
 
+// ============================================================
+// TOGGLE
+// ============================================================
 function toggleBot() {
   const tog = document.getElementById('botToggle');
   tog.classList.toggle('on');
-  const isOn = tog.classList.contains('on');
-  updateToggleLabel(isOn);
-  showToast(isOn ? 'Bot sera ativado ao salvar' : 'Bot sera desativado ao salvar', 'info', 2000);
+  updateToggleLabel(tog.classList.contains('on'));
+  showToast('Altere e salve para aplicar', 'info', 2000);
 }
 
 function updateToggleLabel(on) {
@@ -397,11 +433,14 @@ function updateToggleLabel(on) {
     : 'Mensagens direcionadas ao atendimento humano';
 }
 
+// ============================================================
+// TAGS ESCALATION
+// ============================================================
 function renderTags() {
-  const container = document.getElementById('escalationTags');
-  if (!container) return;
-  container.innerHTML = escalation.map((t, i) =>
-    '<div class="tag-pill">' + esc(t) + '<button onclick="removeTag(' + i + ')" aria-label="remover">×</button></div>'
+  const c = document.getElementById('escalationTags');
+  if (!c) return;
+  c.innerHTML = escalation.map((t, i) =>
+    `<div class="tag-pill">${esc(t)}<button onclick="removeTag(${i})" aria-label="remover">×</button></div>`
   ).join('');
 }
 
@@ -423,6 +462,9 @@ function removeTag(i) {
   showToast('Removida — salve para aplicar', 'info', 2000);
 }
 
+// ============================================================
+// FAQ
+// ============================================================
 function renderFaq() {
   const el = document.getElementById('faqList');
   if (!el) return;
@@ -431,9 +473,11 @@ function renderFaq() {
     return;
   }
   el.innerHTML = faqData.map((f, i) =>
-    '<div class="faq-item"><div class="faq-q">❓ ' + esc(f.question) + '</div>' +
-    '<div class="faq-a">' + esc(f.answer) + '</div>' +
-    '<button class="faq-del" onclick="removeFaq(' + i + ')" title="Remover">🗑</button></div>'
+    `<div class="faq-item">
+      <div class="faq-q">❓ ${esc(f.question)}</div>
+      <div class="faq-a">${esc(f.answer)}</div>
+      <button class="faq-del" onclick="removeFaq(${i})" title="Remover">🗑</button>
+    </div>`
   ).join('');
 }
 
@@ -444,266 +488,201 @@ function removeFaq(i) {
 }
 
 function openFaqModal() {
-  const modal = document.getElementById('faqModal');
-  const q = document.getElementById('modalQ');
-  const a = document.getElementById('modalA');
-  if (q) q.value = '';
-  if (a) a.value = '';
-  if (modal) modal.classList.add('open');
-  setTimeout(() => { if (q) q.focus(); }, 120);
+  document.getElementById('modalQ').value = '';
+  document.getElementById('modalA').value = '';
+  document.getElementById('faqModal').classList.add('open');
+  setTimeout(() => document.getElementById('modalQ').focus(), 120);
 }
 
 function closeFaqModal() {
-  const modal = document.getElementById('faqModal');
-  if (modal) modal.classList.remove('open');
+  document.getElementById('faqModal').classList.remove('open');
 }
 
 function saveFaqItem() {
-  const q = document.getElementById('modalQ');
-  const a = document.getElementById('modalA');
-  if (!q || !a) return;
-  const qv = q.value.trim();
-  const av = a.value.trim();
-  if (!qv || !av) {
-    showToast('Preencha pergunta e resposta', 'error', 3000);
-    return;
-  }
-  faqData.push({ question: qv, answer: av });
+  const q = document.getElementById('modalQ').value.trim();
+  const a = document.getElementById('modalA').value.trim();
+  if (!q || !a) { showToast('Preencha pergunta e resposta', 'error', 3000); return; }
+  faqData.push({ question: q, answer: a });
   renderFaq();
   closeFaqModal();
   showToast('Adicionada — salve para aplicar', 'info', 2000);
 }
 
-document.addEventListener('click', function(e) {
-  const modal = document.getElementById('faqModal');
-  if (modal && e.target === modal) closeFaqModal();
+document.addEventListener('click', e => {
+  const m = document.getElementById('faqModal');
+  if (m && e.target === m) closeFaqModal();
 });
-document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape') closeFaqModal();
-});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeFaqModal(); });
 
+// ============================================================
+// SIMULADOR
+// ============================================================
 function simulate() {
-  const qInput = document.getElementById('testQ');
+  const q = document.getElementById('testQ').value.trim();
   const out = document.getElementById('previewOut');
   const txt = document.getElementById('previewTxt');
-  if (!qInput || !out || !txt) return;
-  const q = qInput.value.trim();
   if (!q) { out.classList.remove('show'); return; }
-  
+
   const live = {
     greeting_message: document.getElementById('greeting')?.value || '',
-    personality: document.getElementById('personality')?.value || '',
-    services: document.getElementById('services')?.value || '',
-    business_hours: document.getElementById('businessHours')?.value || '',
-    pricing_info: document.getElementById('pricing')?.value || '',
+    services:         document.getElementById('services')?.value || '',
+    business_hours:   document.getElementById('businessHours')?.value || '',
+    pricing_info:     document.getElementById('pricing')?.value || '',
     fallback_message: document.getElementById('fallback')?.value || '',
-    faq_data: faqData,
+    faq_data:         faqData,
     escalation_keywords: escalation
   };
-  
+
   txt.textContent = genResponse(q, live);
   out.classList.add('show');
 }
 
 function genResponse(userMsg, t) {
   const msg = userMsg.toLowerCase().trim();
-  const greetings = ['oi', 'ola', 'olá', 'bom dia', 'boa tarde', 'boa noite', 'hey', 'hi', 'hello'];
-  
-  if (greetings.some(g => msg === g || msg.startsWith(g + ' '))) {
+  const greetings = ['oi','ola','olá','bom dia','boa tarde','boa noite','hey','hi','hello'];
+  if (greetings.some(g => msg === g || msg.startsWith(g + ' ')))
     return t.greeting_message || 'Ola! Como posso ajudar?';
-  }
-  
+
   for (const item of (t.faq_data || [])) {
+    if (!item.question || !item.answer) continue;
     const words = item.question.toLowerCase().split(/\s+/).filter(w => w.length > 2);
-    const matches = words.filter(w => msg.includes(w)).length;
-    if (matches >= 2 || msg.includes(item.question.toLowerCase())) {
+    if (words.filter(w => msg.includes(w)).length >= 2 || msg.includes(item.question.toLowerCase()))
       return item.answer;
-    }
   }
-  
-  if (/preco|valor|custa|quanto|orcamento/i.test(msg)) {
-    return (t.pricing_info || 'Consulte-nos para orcamento.') + '\n\nPosso agendar um orcamento gratuito!';
-  }
-  
-  if (/horario|hora|aberto|funciona/i.test(msg)) {
+  if (/preco|valor|custa|quanto|orcamento/i.test(msg))
+    return (t.pricing_info || 'Consulte-nos.') + '\n\nPosso agendar um orcamento gratuito!';
+  if (/horario|hora|aberto|funciona/i.test(msg))
     return '⏰ ' + (t.business_hours || 'Horario comercial') + '\n\nEstamos prontos!';
-  }
-  
-  if (/servico|conserta|reparo|arruma/i.test(msg)) {
+  if (/servico|conserta|reparo|arruma/i.test(msg))
     return '🔧 ' + (t.services || 'Diversos servicos.') + '\n\nQual voce precisa?';
-  }
-  
-  const esc = t.escalation_keywords || [];
-  if (esc.some(w => msg.includes(w.toLowerCase()))) {
+  if ((t.escalation_keywords || []).some(w => msg.includes(w.toLowerCase())))
     return '👨‍💼 Transferindo para atendente humano. Aguarde...';
-  }
-  
   return (t.fallback_message || 'Nao compreendi.') + '\n\nOu digite "atendente"!';
 }
 
-// ============================================
-// SALVAR - COMUNICACAO COM WEBHOOK
-// ============================================
+// ============================================================
+// SALVAR — ENVIA DIRETO PARA O WEBHOOK (Supabase via servidor)
+// ============================================================
 async function save() {
   const btn = document.getElementById('saveBtn');
-  if (!btn) return;
   btn.innerHTML = '<span class="spin"></span>Salvando...';
   btn.disabled = true;
+  setStatus('warn', 'Enviando para servidor...');
+  showToast('Enviando...', 'info', 99999);
 
-  const active = document.getElementById('botToggle').classList.contains('on');
-  const greeting = document.getElementById('greeting')?.value?.trim() || '';
-  
-  // MONTAR PAYLOAD EXATO que o webhook espera
   const payload = {
-    bot_name: document.getElementById('botName')?.value?.trim() || '',
-    company_name: document.getElementById('companyName')?.value?.trim() || '',
-    greeting_message: greeting,
-    personality: document.getElementById('personality')?.value?.trim() || '',
-    services: document.getElementById('services')?.value?.trim() || '',
-    business_hours: document.getElementById('businessHours')?.value?.trim() || '',
-    pricing_info: document.getElementById('pricing')?.value?.trim() || '',
-    fallback_message: document.getElementById('fallback')?.value?.trim() || '',
-    faq_data: faqData,
+    bot_name:            document.getElementById('botName')?.value?.trim() || '',
+    company_name:        document.getElementById('companyName')?.value?.trim() || '',
+    greeting_message:    document.getElementById('greeting')?.value?.trim() || '',
+    personality:         document.getElementById('personality')?.value?.trim() || '',
+    services:            document.getElementById('services')?.value?.trim() || '',
+    business_hours:      document.getElementById('businessHours')?.value?.trim() || '',
+    pricing_info:        document.getElementById('pricing')?.value?.trim() || '',
+    fallback_message:    document.getElementById('fallback')?.value?.trim() || '',
+    faq_data:            faqData,
     escalation_keywords: escalation,
-    active: active,
-    updated_at: new Date().toISOString()
+    active:              document.getElementById('botToggle').classList.contains('on'),
+    updated_at:          new Date().toISOString()
   };
 
-  // Salvar localStorage primeiro (backup)
-  localStorage.setItem('bot_training_v2', JSON.stringify(payload));
-  logDebug('PAYLOAD MONTADO', payload);
+  console.log('Salvando payload:', { greeting: payload.greeting_message, active: payload.active });
 
-  // ===== METODO 1: POST =====
+  // Salvar cache local (backup)
+  try { localStorage.setItem('bot_training_v2', JSON.stringify(payload)); } catch(e) {}
+
+  // ===== MÉTODO 1: POST direto =====
   let success = false;
   let serverResponse = null;
-  
+
   try {
-    showToast('Enviando para servidor...', 'info', 99999);
-    logDebug('TENTANDO POST', WEBHOOK_URL);
-    
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000);
-    
-    const response = await fetch(WEBHOOK_URL, {
+    const tid = setTimeout(() => controller.abort(), 15000);
+
+    const res = await fetch(WEBHOOK_URL, {
       method: 'POST',
-      headers: { 
+      headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
       },
       body: JSON.stringify(payload),
-      signal: controller.signal,
-      mode: 'cors'
+      signal: controller.signal
     });
-    
-    clearTimeout(timeoutId);
-    
-    const text = await response.text();
-    logDebug('POST RESPOSTA RAW', { status: response.status, body: text.substring(0, 500) });
-    
-    try {
-      serverResponse = JSON.parse(text);
-    } catch(e) {
-      serverResponse = { raw: text };
-    }
-    
-    if (response.ok && serverResponse && (serverResponse.success || serverResponse.ok)) {
+
+    clearTimeout(tid);
+    const text = await res.text();
+    console.log('POST resposta:', res.status, text.substring(0, 300));
+
+    try { serverResponse = JSON.parse(text); } catch(e) { serverResponse = { raw: text }; }
+
+    if (res.ok && serverResponse?.success) {
       success = true;
-      logDebug('POST SUCESSO', serverResponse);
-    } else {
-      logDebug('POST FALHOU', { status: response.status, response: serverResponse });
+      console.log('POST sucesso! Greeting confirmada:', serverResponse.confirmed_greeting);
     }
-    
   } catch (e) {
-    logDebug('POST ERRO', e.message);
+    console.warn('POST falhou:', e.message);
   }
 
-  // ===== METODO 2: GET FALLBACK =====
+  // ===== MÉTODO 2: GET fallback =====
   if (!success) {
     try {
-      showToast('POST falhou, tentando GET...', 'info', 99999);
-      
+      showToast('Tentando metodo alternativo...', 'info', 99999);
       const params = new URLSearchParams({
         action: 'updateconfig',
         bot_name: payload.bot_name,
         company_name: payload.company_name,
-        greeting: payload.greeting_message,
         greeting_message: payload.greeting_message,
+        greeting: payload.greeting_message,
         personality: payload.personality,
         services: payload.services,
-        hours: payload.business_hours,
         business_hours: payload.business_hours,
-        pricing: payload.pricing_info,
+        hours: payload.business_hours,
         pricing_info: payload.pricing_info,
-        fallback: payload.fallback_message,
+        pricing: payload.pricing_info,
         fallback_message: payload.fallback_message,
+        fallback: payload.fallback_message,
         active: payload.active ? 'true' : 'false'
       });
-      
-      if (payload.faq_data && payload.faq_data.length > 0) {
+      if (payload.faq_data?.length)
         params.append('faq_data', JSON.stringify(payload.faq_data));
-      }
-      if (payload.escalation_keywords && payload.escalation_keywords.length > 0) {
+      if (payload.escalation_keywords?.length)
         params.append('escalation_keywords', JSON.stringify(payload.escalation_keywords));
-      }
-      
-      const getUrl = WEBHOOK_URL + '?' + params.toString();
-      logDebug('TENTANDO GET', getUrl.substring(0, 200));
-      
-      const response = await fetch(getUrl, {
+
+      const res = await fetch(WEBHOOK_URL + '?' + params, {
         method: 'GET',
-        headers: { 'Accept': 'application/json' },
-        mode: 'cors'
+        headers: { 'Accept': 'application/json' }
       });
-      
-      const text = await response.text();
-      logDebug('GET RESPOSTA RAW', { status: response.status, body: text.substring(0, 500) });
-      
+      const text = await res.text();
+      console.log('GET resposta:', res.status, text.substring(0, 300));
       try {
         const data = JSON.parse(text);
-        if (response.ok && data.success) {
-          success = true;
-          serverResponse = data;
-          logDebug('GET SUCESSO', data);
-        } else {
-          logDebug('GET FALHOU', { status: response.status, data });
-        }
-      } catch(e) {
-        logDebug('GET PARSE ERROR', text);
-      }
-      
+        if (res.ok && data.success) { success = true; serverResponse = data; }
+      } catch(e) {}
     } catch (e) {
-      logDebug('GET ERRO', e.message);
+      console.warn('GET falhou:', e.message);
     }
   }
 
-  // ===== FEEDBACK FINAL =====
+  // ===== FEEDBACK =====
   if (success) {
-    setStatus('ok', 'WhatsApp atualizado! ✓');
-    showToast('✓ Sucesso! Configuracao ativa.', 'success', 4000);
-    logDebug('FINAL', 'Configuracao salva e ativa no servidor');
-    
-    if (serverResponse && serverResponse.confirmed_greeting) {
-      logDebug('SAUDACAO CONFIRMADA', serverResponse.confirmed_greeting);
+    setStatus('ok', 'WhatsApp atualizado! Resposta ativa agora ✓');
+    showToast('✓ Configuracao salva e ativa!', 'success', 5000);
+    if (serverResponse?.confirmed_greeting) {
+      console.log('✓ Servidor confirmou greeting:', serverResponse.confirmed_greeting);
     }
   } else {
-    setStatus('warn', 'Salvo localmente — webhook offline');
-    showToast('⚠ Salvo localmente. Verifique conexao.', 'info', 6000);
-    logDebug('FINAL', 'Apenas localStorage - webhook nao respondeu');
+    setStatus('warn', 'Salvo localmente — verifique conexao com o servidor');
+    showToast('⚠ Salvo no cache. Verifique conexao.', 'info', 6000);
   }
 
   btn.innerHTML = 'Salvar e Ativar no WhatsApp';
   btn.disabled = false;
 }
 
-document.addEventListener('DOMContentLoaded', function() {
-  console.log('=== AI Training Studio ===');
-  console.log('Webhook:', WEBHOOK_URL);
-  load();
-});
-
-if (document.readyState === 'complete' || document.readyState === 'interactive') {
-  setTimeout(load, 100);
-}
+// ============================================================
+// INIT — carrega do servidor ao abrir
+// ============================================================
+document.addEventListener('DOMContentLoaded', loadFromServer);
 </script>
+
 </body>
 </html>

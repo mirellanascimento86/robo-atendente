@@ -10,13 +10,9 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 export default async function handler(req, res) {
     // ═══════════════════════════════════════════════════════
-    // CORS — Permite acesso do navegador à página de treinamento
+    // CORS
     // ═══════════════════════════════════════════════════════
-    const allowedOrigins = [
-        '*',  // Permite qualquer origem (troque pelo seu domínio em produção)
-        // 'https://seudominio.vercel.app',
-        // 'https://seudominio.com'
-    ];
+    const allowedOrigins = ['*'];
     const origin = req.headers.origin;
     if (allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
         res.setHeader('Access-Control-Allow-Origin', origin || '*');
@@ -27,15 +23,12 @@ export default async function handler(req, res) {
     res.setHeader('Access-Control-Max-Age', '86400');
 
     if (req.method === 'OPTIONS') {
-        console.log('✅ CORS preflight respondido');
         return res.status(200).end();
     }
 
-    // ... resto do seu código continua igual ...
-
-    // ==========================================
-    // API DO PAINEL - STATUS/TREINAMENTO
-    // ==========================================
+    // ═══════════════════════════════════════════════════════
+    // API DO PAINEL — STATUS (GET ?action=status)
+    // ═══════════════════════════════════════════════════════
     if (req.method === 'GET' && req.query.action === 'status') {
         try {
             const { data: training, error } = await supabase
@@ -55,14 +48,14 @@ export default async function handler(req, res) {
                 bot_active: training?.active
             });
         } catch (error) {
-            console.error('❌ Erro status:', error);
+            console.error('Erro status:', error);
             return res.status(500).json({ error: error.message });
         }
     }
 
-    // ==========================================
-    // API DO PAINEL - LISTAR CONVERSAS
-    // ==========================================
+    // ═══════════════════════════════════════════════════════
+    // API DO PAINEL — LISTAR CONVERSAS (GET ?action=list)
+    // ═══════════════════════════════════════════════════════
     if (req.method === 'GET' && req.query.action === 'list') {
         try {
             const { data: conversations, error } = await supabase
@@ -84,14 +77,14 @@ export default async function handler(req, res) {
 
             return res.status(200).json(conversas);
         } catch (error) {
-            console.error('❌ Erro listar:', error);
+            console.error('Erro listar:', error);
             return res.status(500).json({ error: error.message, conversas: [] });
         }
     }
 
-    // ==========================================
-    // API DO PAINEL - BUSCAR MENSAGENS
-    // ==========================================
+    // ═══════════════════════════════════════════════════════
+    // API DO PAINEL — BUSCAR MENSAGENS (GET ?action=messages&phone=...)
+    // ═══════════════════════════════════════════════════════
     if (req.method === 'GET' && req.query.action === 'messages') {
         const phone = req.query.phone;
         if (!phone) return res.status(400).json({ error: 'Phone required' });
@@ -128,18 +121,18 @@ export default async function handler(req, res) {
                 emIntervencao: conversation?.status === 'human'
             });
         } catch (error) {
-            console.error('❌ Erro mensagens:', error);
+            console.error('Erro mensagens:', error);
             return res.status(500).json({ error: error.message, mensagens: [] });
         }
     }
 
-    // ==========================================
+    // ═══════════════════════════════════════════════════════
     // SALVAR TREINAMENTO (POST sem action ou action=saveconfig)
-    // ==========================================
+    // ═══════════════════════════════════════════════════════
     if (req.method === 'POST' && (!req.query.action || req.query.action === 'saveconfig')) {
         try {
             const body = req.body;
-            console.log('💾 Salvando treinamento:', JSON.stringify(body).substring(0, 200));
+            console.log('Salvando treinamento:', JSON.stringify(body).substring(0, 200));
 
             const trainingData = {
                 bot_name: body.bot_name || '',
@@ -167,7 +160,6 @@ export default async function handler(req, res) {
             let result, error;
 
             if (existing?.id) {
-                // Atualizar
                 ({ data: result, error } = await supabase
                     .from('bot_training')
                     .update(trainingData)
@@ -175,7 +167,6 @@ export default async function handler(req, res) {
                     .select()
                     .single());
             } else {
-                // Inserir novo
                 trainingData.created_at = new Date().toISOString();
                 ({ data: result, error } = await supabase
                     .from('bot_training')
@@ -186,7 +177,7 @@ export default async function handler(req, res) {
 
             if (error) throw error;
 
-            console.log('✅ Treinamento salvo:', result?.id);
+            console.log('Treinamento salvo:', result?.id);
 
             return res.status(200).json({
                 success: true,
@@ -196,14 +187,14 @@ export default async function handler(req, res) {
             });
 
         } catch (error) {
-            console.error('❌ Erro salvar treinamento:', error);
+            console.error('Erro salvar treinamento:', error);
             return res.status(500).json({ error: error.message });
         }
     }
 
-    // ==========================================
-    // AÇÕES DO PAINEL - INTERVIR / LIBERAR / ENVIAR
-    // ==========================================
+    // ═══════════════════════════════════════════════════════
+    // AÇÕES DO PAINEL — INTERVIR / LIBERAR / ENVIAR
+    // ═══════════════════════════════════════════════════════
     if (req.method === 'POST' && req.query.action) {
         const action = req.query.action;
         const body = req.body;
@@ -217,7 +208,7 @@ export default async function handler(req, res) {
                     .update({ status: 'human', updated_at: new Date().toISOString() })
                     .eq('phone_number', phone);
 
-                await saveMessage(phone, '👨‍💼 Atendente humano assumiu o controle da conversa.', 'outbound', 'system');
+                await saveMessage(phone, 'Atendente humano assumiu o controle da conversa.', 'outbound', 'system');
 
                 return res.status(200).json({ ok: true, message: 'Intervencao ativada' });
             } catch (error) {
@@ -233,7 +224,7 @@ export default async function handler(req, res) {
                     .update({ status: 'bot', updated_at: new Date().toISOString() })
                     .eq('phone_number', phone);
 
-                await saveMessage(phone, '🤖 Robo reassumiu o atendimento.', 'outbound', 'system');
+                await saveMessage(phone, 'Robo reassumiu o atendimento.', 'outbound', 'system');
 
                 return res.status(200).json({ ok: true, message: 'Robo liberado' });
             } catch (error) {
@@ -260,13 +251,13 @@ export default async function handler(req, res) {
         }
     }
 
-    // ==========================================
+    // ═══════════════════════════════════════════════════════
     // RECEBIMENTO DE MENSAGENS DO WHATSAPP (POST)
-    // ==========================================
+    // ═══════════════════════════════════════════════════════
     if (req.method === 'POST') {
         try {
             const body = req.body;
-            console.log('📩 Webhook recebido:', JSON.stringify(body).substring(0, 500));
+            console.log('Webhook recebido:', JSON.stringify(body).substring(0, 500));
 
             const entry = body.entry?.[0];
             const changes = entry?.changes?.[0];
@@ -281,7 +272,7 @@ export default async function handler(req, res) {
             const text = message.text?.body || '';
             const contactName = value?.contacts?.[0]?.profile?.name || from;
 
-            // 1. Buscar configuração atual do bot
+            // 1. BUSCAR CONFIGURACAO ATUAL DO BOT (SEMPRE DO SUPABASE - TEMPO REAL)
             const { data: training, error: trainingError } = await supabase
                 .from('bot_training')
                 .select('*')
@@ -295,16 +286,16 @@ export default async function handler(req, res) {
                 return res.status(200).send('OK - Sem treinamento');
             }
 
-            // 2. Verificar se bot está ativo
+            // 2. VERIFICAR SE BOT ESTA ATIVO
             if (!training.active) {
                 await saveMessage(from, text, 'inbound', 'human', contactName);
                 return res.status(200).send('Bot desativado');
             }
 
-            // 3. Salvar mensagem do cliente
+            // 3. SALVAR MENSAGEM DO CLIENTE
             await saveMessage(from, text, 'inbound', 'bot', contactName);
 
-            // 4. Verificar se conversa está em modo humano
+            // 4. VERIFICAR SE CONVERSA ESTA EM MODO HUMANO
             const { data: conversation } = await supabase
                 .from('conversations')
                 .select('status')
@@ -315,27 +306,27 @@ export default async function handler(req, res) {
                 return res.status(200).send('Modo humano ativo');
             }
 
-            // 5. Gerar resposta do bot
+            // 5. GERAR RESPOSTA DO BOT (USA O TREINAMENTO DO SUPABASE EM TEMPO REAL)
             const botResponse = generateResponse(text, training, from);
 
-            // 6. Enviar resposta pelo WhatsApp
+            // 6. ENVIAR RESPOSTA PELO WHATSAPP
             if (WHATSAPP_TOKEN && WHATSAPP_PHONE_ID) {
                 await sendWhatsAppMessage(from, botResponse);
             } else {
-                console.log('⚠️ Token nao configurado. Resposta simulada:', botResponse.substring(0, 100));
+                console.log('Token nao configurado. Resposta simulada:', botResponse.substring(0, 100));
             }
 
-            // 7. Salvar resposta do bot
+            // 7. SALVAR RESPOSTA DO BOT
             await saveMessage(from, botResponse, 'outbound', 'bot', contactName);
 
-            return res.status(200).json({ 
-                success: true, 
+            return res.status(200).json({
+                success: true,
                 response: botResponse.substring(0, 100),
-                phone: from 
+                phone: from
             });
 
         } catch (error) {
-            console.error('❌ Erro no webhook:', error);
+            console.error('Erro no webhook:', error);
             return res.status(500).json({ error: error.message });
         }
     }
@@ -343,31 +334,31 @@ export default async function handler(req, res) {
     return res.status(405).send('Method not allowed');
 }
 
-// ==========================================
-// GERAR RESPOSTA DO BOT
-// ==========================================
+// ═══════════════════════════════════════════════════════
+// GERAR RESPOSTA DO BOT (USA DIRETO O TREINAMENTO DO SUPABASE)
+// ═══════════════════════════════════════════════════════
 function generateResponse(userMessage, training, phoneNumber) {
     const msg = userMessage.toLowerCase().trim();
-    const from = phoneNumber; // Corrigido: recebe como parâmetro
-    
-    // 1. Saudações
+
+    // 1. SAUDACOES (usa greeting_message do painel)
     const greetings = ['oi', 'ola', 'olá', 'bom dia', 'boa tarde', 'boa noite', 'hey', 'hi', 'hello', 'eai', 'eae'];
     if (greetings.some(g => msg.includes(g))) {
         return training.greeting_message || 'Ola! Como posso ajudar?';
     }
 
-    // 2. FAQ Inteligente
+    // 2. FAQ INTELIGENTE (usa faq_data do painel)
     const faq = training.faq_data || [];
     for (const item of faq) {
-        const questionWords = item.question.toLowerCase().split(' ').filter(w => w.length > 2);
+        if (!item.question || !item.answer) continue;
+        const questionWords = item.question.toLowerCase().split(/\s+/).filter(w => w.length > 2);
         const matchCount = questionWords.filter(word => msg.includes(word)).length;
         if (matchCount >= 2 || msg.includes(item.question.toLowerCase())) {
             return item.answer;
         }
     }
 
-    // 3. Palavras-chave por categoria
-    if (msg.includes('preco') || msg.includes('valor') || msg.includes('custa') || msg.includes('quanto') || msg.includes('cobrar')) {
+    // 3. PALAVRAS-CHAVE POR CATEGORIA (usa campos do painel)
+    if (msg.includes('preco') || msg.includes('valor') || msg.includes('custa') || msg.includes('quanto') || msg.includes('cobrar') || msg.includes('orcamento')) {
         return (training.pricing_info || 'Entre em contato para orcamento.') + '\n\nPosso agendar um orcamento gratuito para voce! Qual equipamento precisa de assistencia?';
     }
 
@@ -395,27 +386,27 @@ function generateResponse(userMessage, training, phoneNumber) {
         return '📅 Perfeito! Para agendar, preciso saber:\n1️⃣ Qual equipamento?\n2️⃣ Qual o problema/defeito?\n3️⃣ Qual dia e horario prefere?\n\nOu se preferir, posso transferir voce para um atendente humano agora mesmo! 👨‍💼';
     }
 
-    // 4. Escalonamento para humano
+    // 4. ESCALONAMENTO PARA HUMANO (usa escalation_keywords do painel)
     const escalationWords = training.escalation_keywords || ['atendente', 'humano', 'pessoa', 'reclamacao', 'problema grave', 'cancelar', 'chefe', 'gerente', 'supervisor'];
     if (escalationWords.some(word => msg.includes(word))) {
         // Transferir para humano
         supabase
             .from('conversations')
             .update({ status: 'human', updated_at: new Date().toISOString() })
-            .eq('phone_number', from)
-            .then(() => console.log('🔄 Conversa transferida para humano'))
+            .eq('phone_number', phoneNumber)
+            .then(() => console.log('Conversa transferida para humano'))
             .catch(err => console.error('Erro ao transferir:', err));
-        
+
         return '👨‍💼 Entendido! Vou transferir voce para um atendente humano agora mesmo. Por favor, aguarde um momento... ⏳\n\n(Seu atendente ja foi notificado e respondera em breve!)';
     }
 
-    // 5. Fallback
+    // 5. FALLBACK (usa fallback_message do painel)
     return (training.fallback_message || 'Nao entendi bem. Posso te ajudar com orcamentos, horarios, servicos e agendamentos.') + '\n\nOu digite "atendente" para falar com uma pessoa!';
 }
 
-// ==========================================
+// ═══════════════════════════════════════════════════════
 // SALVAR MENSAGEM NO BANCO
-// ==========================================
+// ═══════════════════════════════════════════════════════
 async function saveMessage(phone, content, direction, senderType, contactName = null) {
     try {
         // Buscar ou criar conversa
@@ -438,7 +429,7 @@ async function saveMessage(phone, content, direction, senderType, contactName = 
                 })
                 .select()
                 .single();
-            
+
             if (convError) {
                 console.error('Erro criar conversa:', convError);
                 return;
@@ -470,13 +461,13 @@ async function saveMessage(phone, content, direction, senderType, contactName = 
         }
 
     } catch (error) {
-        console.error('❌ Erro ao salvar mensagem:', error);
+        console.error('Erro ao salvar mensagem:', error);
     }
 }
 
-// ==========================================
+// ═══════════════════════════════════════════════════════
 // ENVIAR MENSAGEM PELO WHATSAPP (API META)
-// ==========================================
+// ═══════════════════════════════════════════════════════
 async function sendWhatsAppMessage(to, text) {
     try {
         const response = await fetch(`https://graph.facebook.com/v18.0/${WHATSAPP_PHONE_ID}/messages`, {
@@ -495,17 +486,17 @@ async function sendWhatsAppMessage(to, text) {
         });
 
         const data = await response.json();
-        
+
         if (!response.ok) {
-            console.error('❌ Erro WhatsApp API:', data);
+            console.error('Erro WhatsApp API:', data);
             throw new Error(data.error?.message || 'Erro ao enviar mensagem');
         }
 
-        console.log('✅ Mensagem enviada:', data.messages?.[0]?.id);
+        console.log('Mensagem enviada:', data.messages?.[0]?.id);
         return data;
 
     } catch (error) {
-        console.error('❌ Erro ao enviar WhatsApp:', error);
+        console.error('Erro ao enviar WhatsApp:', error);
         throw error;
     }
 }

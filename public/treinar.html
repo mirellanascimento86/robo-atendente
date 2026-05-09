@@ -1,548 +1,5 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>AI Training Studio</title>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
-<style>
-:root{--ink:#0e0e0e;--cream:#f5f3ef;--gold:#b8965a;--gold-l:#d4b07a;--gold-pale:#f0e6d3;--smoke:#6b6560;--line:rgba(184,150,90,.18);--card:#fff;--field:#f2f0ec;--r:6px;--sh:0 2px 20px rgba(0,0,0,.07);}
-*{margin:0;padding:0;box-sizing:border-box;}
-body{font-family:'DM Sans',system-ui,sans-serif;background:var(--cream);color:var(--ink);min-height:100vh;padding-bottom:120px;}
-.hero{background:#0e0e0e;padding:52px 24px 38px;position:relative;}
-.hero::after{content:'';position:absolute;bottom:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,#b8965a,transparent);}
-.hero-inner{max-width:560px;margin:0 auto;}
-.eyebrow{font-size:10px;letter-spacing:4px;text-transform:uppercase;color:#b8965a;margin-bottom:16px;display:flex;align-items:center;gap:10px;}
-.eyebrow::before{content:'';display:block;width:28px;height:1px;background:#b8965a;}
-.hero h1{font-family:'Cormorant Garamond',Georgia,serif;font-size:2.5rem;font-weight:300;color:#fff;line-height:1.15;letter-spacing:-.3px;margin-bottom:10px;}
-.hero h1 em{color:#d4b07a;font-style:italic;}
-.hero-sub{font-size:13px;color:rgba(255,255,255,.45);font-weight:300;line-height:1.5;}
-.live-badge{display:inline-flex;align-items:center;gap:7px;background:rgba(184,150,90,.12);border:1px solid rgba(184,150,90,.3);color:#d4b07a;padding:5px 13px;border-radius:20px;font-size:10.5px;letter-spacing:1.5px;text-transform:uppercase;margin-top:18px;}
-.live-dot{width:6px;height:6px;background:#d4b07a;border-radius:50%;animation:pulse 2s ease-in-out infinite;}
-@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(1.4)}}
-.wrap{max-width:560px;margin:0 auto;padding:0 14px;}
-.status-card{background:var(--card);border-radius:var(--r);padding:16px 18px;margin:20px 0 0;display:flex;align-items:center;justify-content:space-between;box-shadow:var(--sh);border:1px solid rgba(0,0,0,.05);}
-.status-lbl{font-size:13.5px;font-weight:500;color:var(--ink);}
-.status-hint{font-size:11.5px;color:var(--smoke);margin-top:2px;}
-.tog-row{display:flex;align-items:center;gap:9px;}
-.tog-txt{font-size:11.5px;color:var(--smoke);font-weight:500;}
-.tog{width:44px;height:24px;background:#ccc;border-radius:12px;position:relative;cursor:pointer;transition:background .3s;flex-shrink:0;}
-.tog.on{background:var(--gold);}
-.tog::after{content:'';position:absolute;width:20px;height:20px;background:#fff;border-radius:50%;top:2px;left:2px;transition:left .3s;box-shadow:0 1px 4px rgba(0,0,0,.25);}
-.tog.on::after{left:22px;}
-.content{max-width:560px;margin:0 auto;padding:20px 14px 0;}
-.section{background:var(--card);border-radius:var(--r);box-shadow:var(--sh);border:1px solid rgba(0,0,0,.05);overflow:hidden;margin-bottom:16px;transition:box-shadow .2s;}
-.section:focus-within{box-shadow:0 4px 28px rgba(184,150,90,.13);}
-.sec-head{padding:16px 18px 13px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;}
-.sec-title{font-family:'Cormorant Garamond',Georgia,serif;font-size:1.1rem;font-weight:400;display:flex;align-items:center;gap:10px;color:var(--ink);}
-.sec-icon{width:26px;height:26px;border-radius:50%;background:var(--gold-pale);display:flex;align-items:center;justify-content:center;font-size:13px;}
-.sec-badge{font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);background:var(--gold-pale);padding:3px 8px;border-radius:10px;font-weight:500;}
-.sec-body{padding:16px 18px;}
-.field{margin-bottom:15px;}
-.field:last-child{margin-bottom:0;}
-.field label{display:block;font-size:10px;letter-spacing:1.8px;text-transform:uppercase;color:var(--smoke);font-weight:500;margin-bottom:7px;}
-.field input,.field textarea{width:100%;padding:11px 13px;background:var(--field);border:1.5px solid transparent;border-radius:var(--r);font-size:14px;color:var(--ink);font-family:'DM Sans',system-ui,sans-serif;transition:all .2s;outline:none;resize:vertical;}
-.field input:focus,.field textarea:focus{background:#fff;border-color:var(--gold);box-shadow:0 0 0 3px rgba(184,150,90,.09);}
-.field textarea{min-height:76px;line-height:1.55;}
-.hint{font-size:11px;color:#aaa;margin-top:5px;line-height:1.4;}
-.div{height:1px;background:var(--line);margin:4px 0 15px;}
-.tags{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:11px;}
-.tag-pill{display:inline-flex;align-items:center;gap:5px;background:#fff0f0;border:1px solid #ffd6d6;color:#c0392b;padding:5px 11px;border-radius:20px;font-size:12px;font-weight:500;}
-.tag-pill button{background:none;border:none;color:#c0392b;cursor:pointer;font-size:14px;line-height:1;padding:0;transition:opacity .15s;}
-.tag-pill button:hover{opacity:.55;}
-.tag-add{display:flex;gap:8px;}
-.tag-add input{flex:1;padding:10px 12px;background:var(--field);border:1.5px solid transparent;border-radius:var(--r);font-size:13.5px;font-family:'DM Sans',system-ui,sans-serif;outline:none;color:var(--ink);transition:all .2s;}
-.tag-add input:focus{background:#fff;border-color:var(--gold);}
-.tag-add button{padding:10px 15px;background:var(--ink);color:#fff;border:none;border-radius:var(--r);font-size:13px;font-family:'DM Sans',system-ui,sans-serif;font-weight:500;cursor:pointer;transition:background .2s;white-space:nowrap;}
-.tag-add button:hover{background:var(--gold);}
-.faq-item{background:var(--field);border-radius:var(--r);padding:13px 15px;margin-bottom:8px;border-left:2px solid var(--gold);position:relative;}
-.faq-q{font-size:13px;font-weight:500;color:var(--ink);margin-bottom:4px;}
-.faq-a{font-size:12.5px;color:var(--smoke);line-height:1.5;}
-.faq-del{position:absolute;top:10px;right:12px;background:none;border:none;font-size:16px;color:#c0392b;cursor:pointer;opacity:.4;transition:opacity .15s;}
-.faq-del:hover{opacity:1;}
-.faq-add-btn{width:100%;padding:13px;background:none;border:1.5px dashed var(--line);border-radius:var(--r);color:var(--smoke);font-family:'DM Sans',system-ui,sans-serif;font-size:13.5px;cursor:pointer;transition:all .2s;margin-top:4px;display:flex;align-items:center;justify-content:center;gap:6px;}
-.faq-add-btn:hover{border-color:var(--gold);color:var(--gold);background:var(--gold-pale);}
-.faq-empty{text-align:center;color:var(--smoke);font-size:13px;padding:18px 0;font-style:italic;}
-.preview-out{background:linear-gradient(135deg,#f8f4ed,#f0eade);border-top:1px solid var(--line);padding:16px 18px;display:none;}
-.preview-out.show{display:block;}
-.preview-lbl{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);font-weight:500;margin-bottom:10px;display:flex;align-items:center;gap:8px;}
-.preview-lbl::after{content:'';flex:1;height:1px;background:var(--line);}
-.preview-txt{font-size:13.5px;color:var(--ink);line-height:1.65;white-space:pre-wrap;}
-.save-wrap{max-width:560px;margin:0 auto;padding:0 14px 14px;}
-.save-btn{width:100%;padding:16px;background:var(--ink);color:#fff;border:none;border-radius:var(--r);font-family:'DM Sans',system-ui,sans-serif;font-size:13.5px;font-weight:500;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;transition:all .25s;}
-.save-btn:hover{background:#1e1e1e;}
-.save-btn:active{transform:scale(.99);}
-.save-btn:disabled{opacity:.5;cursor:not-allowed;}
-.toast{position:fixed;bottom:88px;left:50%;transform:translateX(-50%) translateY(16px);background:var(--ink);color:#fff;padding:11px 22px;border-radius:30px;font-size:13px;font-weight:500;opacity:0;pointer-events:none;transition:all .3s cubic-bezier(.34,1.56,.64,1);z-index:999;white-space:nowrap;box-shadow:0 8px 28px rgba(0,0,0,.18);}
-.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
-.toast.success{background:#2d6a4f;}
-.toast.error{background:#b5211e;}
-.toast.info{background:var(--gold);color:var(--ink);}
-.nav-bar{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid rgba(0,0,0,.07);display:flex;justify-content:center;z-index:100;box-shadow:0 -3px 20px rgba(0,0,0,.06);}
-.nav-item{text-decoration:none;display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 40px;color:#bbb;font-size:10px;letter-spacing:1px;text-transform:uppercase;font-weight:500;border-top:2px solid transparent;transition:color .2s;}
-.nav-item.active{color:var(--gold);border-top-color:var(--gold);}
-.nav-item svg{width:22px;height:22px;}
-.modal-ov{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:500;display:none;align-items:flex-end;justify-content:center;backdrop-filter:blur(2px);}
-.modal-ov.open{display:flex;}
-.modal{background:#fff;border-radius:14px 14px 0 0;padding:24px 20px 36px;width:100%;max-width:560px;animation:slideUp .3s cubic-bezier(.34,1.2,.64,1);}
-@keyframes slideUp{from{transform:translateY(60px);opacity:0}to{transform:none;opacity:1}}
-.modal h3{font-family:'Cormorant Garamond',Georgia,serif;font-size:1.3rem;font-weight:400;margin-bottom:16px;color:var(--ink);}
-.modal .field{margin-bottom:13px;}
-.modal-acts{display:flex;gap:10px;margin-top:6px;}
-.modal-acts button{flex:1;padding:13px;border:none;border-radius:var(--r);font-family:'DM Sans',system-ui,sans-serif;font-size:14px;font-weight:500;cursor:pointer;transition:all .2s;}
-.m-cancel{background:var(--field);color:var(--smoke);}
-.m-ok{background:var(--ink);color:#fff;}
-.m-ok:hover{background:var(--gold);}
-.spin{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spinA .8s linear infinite;vertical-align:middle;margin-right:6px;}
-@keyframes spinA{to{transform:rotate(360deg)}}
-.status-bar{max-width:560px;margin:0 auto;padding:0 14px;}
-.status-bar .bar{background:#fff;border-radius:var(--r);padding:10px 14px;margin:10px 0 0;display:flex;align-items:center;gap:8px;box-shadow:var(--sh);border:1px solid rgba(0,0,0,.05);font-size:11.5px;color:var(--smoke);}
-.status-bar .bar .dot{width:8px;height:8px;border-radius:50%;}
-.status-bar .bar .dot.ok{background:#2d6a4f;}
-.status-bar .bar .dot.warn{background:#b8965a;}
-.status-bar .bar .dot.err{background:#c0392b;}
-.debug-panel{max-width:560px;margin:10px auto;padding:0 14px;}
-.debug-box{background:#1e1e1e;color:#00ff00;border-radius:var(--r);padding:12px 14px;font-family:'Courier New',monospace;font-size:11px;line-height:1.5;max-height:300px;overflow-y:auto;white-space:pre-wrap;word-break:break-all;}
-.debug-title{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin-bottom:6px;font-weight:500;}
-</style>
-</head>
-<body>
-<div class="hero">
-  <div class="hero-inner">
-    <div class="eyebrow">AI Training Studio</div>
-    <h1>Shape your<br><em>Intelligence</em></h1>
-    <p class="hero-sub">Configure a personalidade do seu assistente em tempo real</p>
-    <div class="live-badge"><div class="live-dot"></div>Live Sync</div>
-  </div>
-</div>
-
-<div class="status-bar">
-  <div class="bar" id="statusBar">
-    <div class="dot ok" id="statusDot"></div>
-    <span id="statusText">Painel pronto</span>
-  </div>
-</div>
-
-<div class="wrap">
-  <div class="status-card">
-    <div>
-      <div class="status-lbl">Assistente Ativo</div>
-      <div class="status-hint" id="togHint">Todas as mensagens processadas pelo bot</div>
-    </div>
-    <div class="tog-row">
-      <span class="tog-txt" id="togLbl">ON</span>
-      <div class="tog on" id="botToggle" onclick="toggleBot()"></div>
-    </div>
-  </div>
-</div>
-
-<div class="content">
-  <div class="section">
-    <div class="sec-head">
-      <div class="sec-title"><div class="sec-icon">&#10022;</div>Identidade</div>
-      <span class="sec-badge">Obrigatorio</span>
-    </div>
-    <div class="sec-body">
-      <div class="field">
-        <label>Nome do Assistente</label>
-        <input type="text" id="botName" placeholder="Ex: ARIA, NOVA, TecBot...">
-      </div>
-      <div class="field">
-        <label>Nome da Empresa</label>
-        <input type="text" id="companyName" placeholder="Ex: Assistencia Express Premium">
-      </div>
-      <div class="field">
-        <label>Saudacao Inicial</label>
-        <textarea id="greeting" placeholder="Primeira mensagem enviada ao cliente..."></textarea>
-        <div class="hint">Enviada automaticamente no primeiro contato.</div>
-      </div>
-    </div>
-  </div>
-
-  <div class="section">
-    <div class="sec-head">
-      <div class="sec-title"><div class="sec-icon">&#9672;</div>Personalidade & Servicos</div>
-    </div>
-    <div class="sec-body">
-      <div class="field">
-        <label>Instrucoes de Comportamento</label>
-        <textarea id="personality" placeholder="Ex: Seja elegante e objetivo..."></textarea>
-      </div>
-      <div class="div"></div>
-      <div class="field">
-        <label>Servicos Disponiveis</label>
-        <textarea id="services" placeholder="Liste os servicos..."></textarea>
-      </div>
-      <div class="field">
-        <label>Horario de Funcionamento</label>
-        <textarea id="businessHours" placeholder="Seg-Sex: 9h as 18h..."></textarea>
-      </div>
-      <div class="field">
-        <label>Politica de Precos</label>
-        <textarea id="pricing" placeholder="O que o assistente responde sobre valores..."></textarea>
-      </div>
-      <div class="field">
-        <label>Mensagem de Fallback</label>
-        <textarea id="fallback" placeholder="Quando o assistente nao entende..."></textarea>
-      </div>
-    </div>
-  </div>
-
-  <div class="section">
-    <div class="sec-head">
-      <div class="sec-title"><div class="sec-icon">&#9889;</div>Transferencia para Humano</div>
-      <span class="sec-badge">Auto</span>
-    </div>
-    <div class="sec-body">
-      <p class="hint" style="margin-bottom:12px;">Ao detectar estas palavras, a conversa e transferida automaticamente.</p>
-      <div class="tags" id="escalationTags"></div>
-      <div class="tag-add">
-        <input type="text" id="newTagInput" placeholder="Nova palavra-chave..." onkeypress="if(event.key==='Enter')addTag()">
-        <button onclick="addTag()">+ Adicionar</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="section">
-    <div class="sec-head">
-      <div class="sec-title"><div class="sec-icon">&#10075;</div>Base de Conhecimento</div>
-      <span class="sec-badge">FAQ</span>
-    </div>
-    <div class="sec-body">
-      <p class="hint" style="margin-bottom:13px;">O assistente reconhece palavras das perguntas e responde automaticamente.</p>
-      <div id="faqList"></div>
-      <button class="faq-add-btn" onclick="openFaqModal()"><span>+</span> Nova Pergunta & Resposta</button>
-    </div>
-  </div>
-
-  <div class="section" style="margin-bottom:16px;">
-    <div class="sec-head">
-      <div class="sec-title"><div class="sec-icon">&#9678;</div>Simulador de Resposta</div>
-    </div>
-    <div class="sec-body">
-      <div class="field" style="margin-bottom:0;">
-        <label>Mensagem do cliente</label>
-        <input type="text" id="testQ" placeholder="Ex: Quanto custa trocar a tela?" oninput="simulate()">
-      </div>
-    </div>
-    <div class="preview-out" id="previewOut">
-      <div class="preview-lbl">Resposta do Assistente</div>
-      <div class="preview-txt" id="previewTxt"></div>
-    </div>
-  </div>
-</div>
-
-<div class="save-wrap">
-  <button class="save-btn" id="saveBtn" onclick="save()">Salvar e Ativar no WhatsApp</button>
-</div>
-
-<div class="debug-panel" id="debugPanel" style="display:none;">
-  <div class="debug-title">Debug - Logs de Comunicacao</div>
-  <div class="debug-box" id="debugBox"></div>
-</div>
-
-<nav class="nav-bar">
-  <a href="painel.html" class="nav-item">
-    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
-      <path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
-    </svg>
-    Intervencao
-  </a>
-  <a href="treinar.html" class="nav-item active">
-    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
-      <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
-    </svg>
-    Treinamento
-  </a>
-</nav>
-
-<div class="modal-ov" id="faqModal">
-  <div class="modal">
-    <h3>Nova Pergunta & Resposta</h3>
-    <div class="field">
-      <label>Pergunta do Cliente</label>
-      <input type="text" id="modalQ" placeholder="Ex: Quanto custa trocar a tela?">
-    </div>
-    <div class="field">
-      <label>Resposta do Assistente</label>
-      <textarea id="modalA" placeholder="Ex: O valor varia de R$150 a R$400..." style="min-height:90px;"></textarea>
-    </div>
-    <div class="modal-acts">
-      <button class="m-cancel" onclick="closeFaqModal()">Cancelar</button>
-      <button class="m-ok" onclick="saveFaqItem()">Salvar</button>
-    </div>
-  </div>
-</div>
-
-<div class="toast" id="toast"></div>
-
-<script>
-const WEBHOOK_URL = 'https://robo-atendente.vercel.app/api/webhook';
-
-let training = null;
-let faqData = [];
-let escalation = ['atendente','humano','pessoa','reclamacao','cancelar','chefe','gerente'];
-let isReady = false;
-
-function setStatus(type, text) {
-  const dot = document.getElementById('statusDot');
-  const txt = document.getElementById('statusText');
-  if (dot) dot.className = 'dot ' + type;
-  if (txt) txt.textContent = text;
-}
-
-function showToast(msg, type, dur) {
-  clearTimeout(window._tt);
-  const el = document.getElementById('toast');
-  if (!el) return;
-  el.textContent = msg;
-  el.className = 'toast show ' + type;
-  if (dur && dur < 99999) {
-    window._tt = setTimeout(() => el.classList.remove('show'), dur);
-  }
-}
-
-function esc(t) {
-  const d = document.createElement('div');
-  d.textContent = t || '';
-  return d.innerHTML;
-}
-
-function logDebug(title, obj) {
-  const panel = document.getElementById('debugPanel');
-  const box = document.getElementById('debugBox');
-  if (!panel || !box) return;
-  panel.style.display = 'block';
-  const timestamp = new Date().toLocaleTimeString();
-  const text = typeof obj === 'string' ? obj : JSON.stringify(obj, null, 2);
-  box.textContent = `[${timestamp}] ${title}\n${text}\n\n` + box.textContent;
-}
-
-function load() {
-  showToast('Carregando...', 'info', 1500);
-  try {
-    const saved = localStorage.getItem('bot_training_v2');
-    if (saved) {
-      const data = JSON.parse(saved);
-      applyData(data);
-      setStatus('ok', 'Configuracoes carregadas');
-      showToast('Pronto!', 'success', 2000);
-    } else {
-      createDefaultData();
-    }
-    isReady = true;
-  } catch(e) {
-    console.error('Erro ao carregar:', e);
-    createDefaultData();
-  }
-}
-
-function createDefaultData() {
-  const d = {
-    bot_name: 'Assistente',
-    company_name: 'Minha Empresa',
-    greeting_message: 'Ola! Seja bem-vindo(a). Como posso ajuda-lo(a) hoje?',
-    personality: 'Seja cordial, elegante e objetivo.',
-    services: 'Conserto de celulares, notebooks, tablets.',
-    business_hours: 'Seg-Sex: 9h as 18h | Sab: 9h as 13h',
-    pricing_info: 'Orcamento gratuito e sem compromisso.',
-    fallback_message: 'Nao compreendi. Posso ajudar com orcamentos, horarios e servicos.',
-    faq_data: [],
-    escalation_keywords: escalation,
-    active: true,
-    updated_at: new Date().toISOString()
-  };
-  applyData(d);
-  localStorage.setItem('bot_training_v2', JSON.stringify(d));
-  setStatus('ok', 'Configuracao padrao criada');
-  showToast('Configuracao padrao criada', 'info', 2000);
-  isReady = true;
-}
-
-function applyData(data) {
-  training = data;
-  faqData = data.faq_data || [];
-  escalation = data.escalation_keywords || escalation;
-  
-  document.getElementById('botName').value = data.bot_name || '';
-  document.getElementById('companyName').value = data.company_name || '';
-  document.getElementById('greeting').value = data.greeting_message || '';
-  document.getElementById('personality').value = data.personality || '';
-  document.getElementById('services').value = data.services || '';
-  document.getElementById('businessHours').value = data.business_hours || '';
-  document.getElementById('pricing').value = data.pricing_info || '';
-  document.getElementById('fallback').value = data.fallback_message || '';
-  
-  const tog = document.getElementById('botToggle');
-  const isActive = data.active !== false;
-  tog.classList.toggle('on', isActive);
-  updateToggleLabel(isActive);
-  
-  renderTags();
-  renderFaq();
-}
-
-function toggleBot() {
-  const tog = document.getElementById('botToggle');
-  tog.classList.toggle('on');
-  const isOn = tog.classList.contains('on');
-  updateToggleLabel(isOn);
-  showToast(isOn ? 'Bot sera ativado ao salvar' : 'Bot sera desativado ao salvar', 'info', 2000);
-}
-
-function updateToggleLabel(on) {
-  document.getElementById('togLbl').textContent = on ? 'ON' : 'OFF';
-  document.getElementById('togHint').textContent = on
-    ? 'Todas as mensagens processadas pelo assistente'
-    : 'Mensagens direcionadas ao atendimento humano';
-}
-
-function renderTags() {
-  const container = document.getElementById('escalationTags');
-  if (!container) return;
-  container.innerHTML = escalation.map((t, i) =>
-    '<div class="tag-pill">' + esc(t) + '<button onclick="removeTag(' + i + ')" aria-label="remover">×</button></div>'
-  ).join('');
-}
-
-function addTag() {
-  const inp = document.getElementById('newTagInput');
-  if (!inp) return;
-  const v = inp.value.trim().toLowerCase();
-  if (!v) return;
-  if (escalation.includes(v)) { showToast('Palavra ja existe', 'info', 2000); return; }
-  escalation.push(v);
-  inp.value = '';
-  renderTags();
-  showToast('Adicionada — salve para aplicar', 'info', 2000);
-}
-
-function removeTag(i) {
-  escalation.splice(i, 1);
-  renderTags();
-  showToast('Removida — salve para aplicar', 'info', 2000);
-}
-
-function renderFaq() {
-  const el = document.getElementById('faqList');
-  if (!el) return;
-  if (!faqData.length) {
-    el.innerHTML = '<div class="faq-empty">Nenhuma entrada ainda</div>';
-    return;
-  }
-  el.innerHTML = faqData.map((f, i) =>
-    '<div class="faq-item"><div class="faq-q">❓ ' + esc(f.question) + '</div>' +
-    '<div class="faq-a">' + esc(f.answer) + '</div>' +
-    '<button class="faq-del" onclick="removeFaq(' + i + ')" title="Remover">🗑</button></div>'
-  ).join('');
-}
-
-function removeFaq(i) {
-  faqData.splice(i, 1);
-  renderFaq();
-  showToast('Removida', 'info', 2000);
-}
-
-function openFaqModal() {
-  const modal = document.getElementById('faqModal');
-  const q = document.getElementById('modalQ');
-  const a = document.getElementById('modalA');
-  if (q) q.value = '';
-  if (a) a.value = '';
-  if (modal) modal.classList.add('open');
-  setTimeout(() => { if (q) q.focus(); }, 120);
-}
-
-function closeFaqModal() {
-  const modal = document.getElementById('faqModal');
-  if (modal) modal.classList.remove('open');
-}
-
-function saveFaqItem() {
-  const q = document.getElementById('modalQ');
-  const a = document.getElementById('modalA');
-  if (!q || !a) return;
-  const qv = q.value.trim();
-  const av = a.value.trim();
-  if (!qv || !av) {
-    showToast('Preencha pergunta e resposta', 'error', 3000);
-    return;
-  }
-  faqData.push({ question: qv, answer: av });
-  renderFaq();
-  closeFaqModal();
-  showToast('Adicionada — salve para aplicar', 'info', 2000);
-}
-
-document.addEventListener('click', function(e) {
-  const modal = document.getElementById('faqModal');
-  if (modal && e.target === modal) closeFaqModal();
-});
-document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape') closeFaqModal();
-});
-
-function simulate() {
-  const qInput = document.getElementById('testQ');
-  const out = document.getElementById('previewOut');
-  const txt = document.getElementById('previewTxt');
-  if (!qInput || !out || !txt) return;
-  const q = qInput.value.trim();
-  if (!q) { out.classList.remove('show'); return; }
-  
-  const live = {
-    greeting_message: document.getElementById('greeting')?.value || '',
-    personality: document.getElementById('personality')?.value || '',
-    services: document.getElementById('services')?.value || '',
-    business_hours: document.getElementById('businessHours')?.value || '',
-    pricing_info: document.getElementById('pricing')?.value || '',
-    fallback_message: document.getElementById('fallback')?.value || '',
-    faq_data: faqData,
-    escalation_keywords: escalation
-  };
-  
-  txt.textContent = genResponse(q, live);
-  out.classList.add('show');
-}
-
-function genResponse(userMsg, t) {
-  const msg = userMsg.toLowerCase().trim();
-  const greetings = ['oi', 'ola', 'olá', 'bom dia', 'boa tarde', 'boa noite', 'hey', 'hi', 'hello'];
-  
-  if (greetings.some(g => msg === g || msg.startsWith(g + ' '))) {
-    return t.greeting_message || 'Ola! Como posso ajudar?';
-  }
-  
-  for (const item of (t.faq_data || [])) {
-    const words = item.question.toLowerCase().split(/\s+/).filter(w => w.length > 2);
-    const matches = words.filter(w => msg.includes(w)).length;
-    if (matches >= 2 || msg.includes(item.question.toLowerCase())) {
-      return item.answer;
-    }
-  }
-  
-  if (/preco|valor|custa|quanto|orcamento/i.test(msg)) {
-    return (t.pricing_info || 'Consulte-nos para orcamento.') + '\n\nPosso agendar um orcamento gratuito!';
-  }
-  
-  if (/horario|hora|aberto|funciona/i.test(msg)) {
-    return '⏰ ' + (t.business_hours || 'Horario comercial') + '\n\nEstamos prontos!';
-  }
-  
-  if (/servico|conserta|reparo|arruma/i.test(msg)) {
-    return '🔧 ' + (t.services || 'Diversos servicos.') + '\n\nQual voce precisa?';
-  }
-  
-  const esc = t.escalation_keywords || [];
-  if (esc.some(w => msg.includes(w.toLowerCase()))) {
-    return '👨‍💼 Transferindo para atendente humano. Aguarde...';
-  }
-  
-  return (t.fallback_message || 'Nao compreendi.') + '\n\nOu digite "atendente"!';
-}
-
 // ============================================
-// SALVAR COM DOIS METODOS (POST + GET FALLBACK)
+// SALVAR COM COMUNICAÇÃO GARANTIDA
 // ============================================
 async function save() {
   const btn = document.getElementById('saveBtn');
@@ -568,16 +25,16 @@ async function save() {
     updated_at: new Date().toISOString()
   };
 
-  // Salvar localStorage
+  // Salvar localStorage (backup local)
   localStorage.setItem('bot_training_v2', JSON.stringify(payload));
-  logDebug('PAYLOAD LOCAL', { greeting: greeting });
+  logDebug('PAYLOAD LOCAL', { greeting: greeting, faqCount: faqData.length, escCount: escalation.length });
 
-  // ===== METODO 1: POST =====
   let postOk = false;
   let postResult = null;
   
+  // ===== MÉTODO 1: POST (preferencial) =====
   try {
-    showToast('Enviando POST...', 'info', 99999);
+    showToast('Enviando configuração...', 'info', 99999);
     logDebug('TENTANDO POST', WEBHOOK_URL);
     
     const controller = new AbortController();
@@ -596,7 +53,7 @@ async function save() {
     clearTimeout(timeoutId);
     
     const text = await response.text();
-    logDebug('POST RESPOSTA', { status: response.status, body: text.substring(0, 200) });
+    logDebug('POST RESPOSTA', { status: response.status, body: text.substring(0, 300) });
     
     try {
       postResult = JSON.parse(text);
@@ -613,11 +70,12 @@ async function save() {
     logDebug('POST ERRO', e.message);
   }
 
-  // ===== METODO 2: GET FALLBACK (se POST falhar) =====
+  // ===== MÉTODO 2: GET FALLBACK (com arrays completos) =====
   if (!postOk) {
     try {
-      showToast('POST falhou, tentando GET...', 'info', 99999);
+      showToast('POST falhou, usando GET fallback...', 'info', 99999);
       
+      // ✅ CORREÇÃO: Enviar FAQ e escalation como JSON string no GET
       const params = new URLSearchParams({
         action: 'updateconfig',
         bot_name: payload.bot_name,
@@ -628,11 +86,14 @@ async function save() {
         hours: payload.business_hours,
         pricing: payload.pricing_info,
         fallback: payload.fallback_message,
-        active: payload.active ? 'true' : 'false'
+        active: payload.active ? 'true' : 'false',
+        // ✅ NOVO: Enviar arrays como JSON string
+        faq_data: JSON.stringify(payload.faq_data),
+        escalation_keywords: JSON.stringify(payload.escalation_keywords)
       });
       
       const getUrl = WEBHOOK_URL + '?' + params.toString();
-      logDebug('TENTANDO GET', getUrl.substring(0, 100));
+      logDebug('TENTANDO GET', getUrl.substring(0, 150));
       
       const response = await fetch(getUrl, {
         method: 'GET',
@@ -640,7 +101,7 @@ async function save() {
       });
       
       const text = await response.text();
-      logDebug('GET RESPOSTA', { status: response.status, body: text.substring(0, 200) });
+      logDebug('GET RESPOSTA', { status: response.status, body: text.substring(0, 300) });
       
       try {
         const data = JSON.parse(text);
@@ -658,30 +119,27 @@ async function save() {
     }
   }
 
+  // ===== MÉTODO 3: Forçar limpeza de cache no servidor =====
+  if (postOk) {
+    try {
+      await fetch(WEBHOOK_URL + '?action=clearcache', { method: 'GET' });
+      logDebug('CACHE LIMPO', 'OK');
+    } catch (e) {
+      logDebug('CACHE ERRO', e.message);
+    }
+  }
+
   // ===== FEEDBACK =====
   if (postOk) {
     setStatus('ok', 'WhatsApp atualizado! ✓');
-    showToast('Sucesso! Configuracao ativa.', 'success', 4000);
-    logDebug('FINAL', 'Configuracao salva no servidor');
+    showToast('Sucesso! Configuração ativa no WhatsApp.', 'success', 4000);
+    logDebug('FINAL', 'Configuração sincronizada com sucesso');
   } else {
     setStatus('warn', 'Salvo localmente — webhook offline');
-    showToast('Salvo localmente. O WhatsApp usara em ate 30s.', 'info', 5000);
-    logDebug('FINAL', 'Apenas localStorage');
+    showToast('Salvo localmente. O WhatsApp usará em até 30s.', 'info', 5000);
+    logDebug('FINAL', 'Apenas localStorage - verifique o webhook');
   }
 
   btn.innerHTML = 'Salvar e Ativar no WhatsApp';
   btn.disabled = false;
 }
-
-document.addEventListener('DOMContentLoaded', function() {
-  console.log('=== AI Training Studio ===');
-  console.log('Webhook:', WEBHOOK_URL);
-  load();
-});
-
-if (document.readyState === 'complete' || document.readyState === 'interactive') {
-  setTimeout(load, 100);
-}
-</script>
-</body>
-</html>

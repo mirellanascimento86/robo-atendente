@@ -11,7 +11,6 @@ const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
 const WHATSAPP_PHONE_ID = process.env.WHATSAPP_PHONE_ID;
 
 // IMPORTANTE: Usar SERVICE ROLE KEY no servidor para bypassar RLS
-// Configure no Vercel: SUPABASE_SERVICE_ROLE_KEY
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || SUPABASE_KEY;
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
@@ -24,7 +23,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
 let trainingCache = null;
 let cacheTimestamp = 0;
 let cacheUpdatedAt = null;
-const CACHE_TTL = 5000; // Reduzido para 5 segundos
+const CACHE_TTL = 5000; // 5 segundos
 
 // ==========================================
 // CONFIGURACAO PADRAO (FALLBACK)
@@ -56,7 +55,102 @@ export default async function handler(req, res) {
 
     if (req.method === 'OPTIONS') return res.status(200).end();
 
+    // ==========================================
+    // POST SEM ACTION = DADOS DO PAINEL DE TREINAMENTO
+    // ==========================================
+    if (req.method === 'POST' && !req.query.action) {
+        try {
+            console.log('=== RECEBENDO CONFIG DO PAINEL ===');
+            console.log('Body recebido:', JSON.stringify(req.body, null, 2));
+
+            const data = req.body;
+            
+            if (!data || typeof data !== 'object') {
+                return res.status(400).json({ error: 'Body invalido' });
+            }
+
+            // Montar objeto para salvar no Supabase
+            const trainingData = {
+                bot_name: data.bot_name || 'Assistente',
+                company_name: data.company_name || 'Minha Empresa',
+                greeting_message: data.greeting_message || 'Ola! Como posso ajudar?',
+                personality: data.personality || '',
+                services: data.services || '',
+                business_hours: data.business_hours || '',
+                pricing_info: data.pricing_info || '',
+                fallback_message: data.fallback_message || '',
+                faq_data: data.faq_data || [],
+                escalation_keywords: data.escalation_keywords || [],
+                active: data.active !== false,
+                updated_at: new Date().toISOString()
+            };
+
+            console.log('Salvando no Supabase:', trainingData);
+
+            // Verificar se ja existe registro
+            const { data: existing } = await supabase
+                .from('bot_training')
+                .select('id')
+                .order('updated_at', { ascending: false })
+                .limit(1)
+                .single();
+
+            let result;
+            
+            if (existing) {
+                // Atualizar registro existente
+                console.log('Atualizando registro existente ID:', existing.id);
+                result = await supabase
+                    .from('bot_training')
+                    .update(trainingData)
+                    .eq('id', existing.id)
+                    .select()
+                    .single();
+            } else {
+                // Criar novo registro
+                console.log('Criando novo registro');
+                result = await supabase
+                    .from('bot_training')
+                    .insert(trainingData)
+                    .select()
+                    .single();
+            }
+
+            if (result.error) {
+                console.error('Erro Supabase:', result.error);
+                return res.status(500).json({ 
+                    error: 'Erro ao salvar no Supabase', 
+                    details: result.error.message 
+                });
+            }
+
+            // Limpar cache para forcar recarregamento
+            trainingCache = null;
+            cacheTimestamp = 0;
+            cacheUpdatedAt = null;
+
+            console.log('✓ Configuracao salva com sucesso!');
+            console.log('Greeting nova:', trainingData.greeting_message);
+
+            return res.status(200).json({
+                success: true,
+                message: 'Configuracao recebida e salva',
+                greeting: trainingData.greeting_message,
+                id: result.data?.id
+            });
+
+        } catch (error) {
+            console.error('Erro ao processar POST do painel:', error);
+            return res.status(500).json({ 
+                error: error.message,
+                stack: error.stack 
+            });
+        }
+    }
+
+    // ==========================================
     // GET - Verificacao Meta e acoes do painel
+    // ==========================================
     if (req.method === 'GET') {
         const mode = req.query['hub.mode'];
         const challenge = req.query['hub.challenge'];
@@ -123,7 +217,9 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'Invalid action' });
     }
 
-    // POST com action - Acoes do painel
+    // ==========================================
+    // POST COM ACTION - Acoes do painel (intervene, release, send)
+    // ==========================================
     if (req.method === 'POST' && req.query.action) {
         const action = req.query.action;
         const body = req.body;
@@ -160,7 +256,9 @@ export default async function handler(req, res) {
         }
     }
 
+    // ==========================================
     // POST - Recebimento de mensagens do WhatsApp
+    // ==========================================
     if (req.method === 'POST') {
         try {
             const body = req.body;
@@ -192,7 +290,6 @@ export default async function handler(req, res) {
             if (!training) {
                 console.log('Treinamento nao encontrado no Supabase, usando padrao...');
                 training = getDefaultTraining();
-                // Tentar criar no Supabase para proximas vezes
                 await createDefaultTrainingIfNotExists();
             }
 

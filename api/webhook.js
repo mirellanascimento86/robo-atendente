@@ -2,19 +2,23 @@ import { createClient } from '@supabase/supabase-js';
 
 // ✅ SEUS DADOS DO SUPABASE
 const SUPABASE_URL = 'https://fwcljognwdutsagppxcq.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ3Y2xqb2dud2R1dHNhZ3BweGNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4OTY4MjMsImV4cCI6MjA5MDQ3MjgyM30.6n8MejPbWRZlJnfZylrsK37_jwFha3FE7Xbj_Sn8VcE';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ3Y2xqb2dud2R1dHNhZ3BweGNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg5NjgyMzMsImV4cCI6MjA5MDQ3MjgyM30.6n8MejPbWRZlJnfZylrsK37_jwFha3FE7Xbj_Sn8VcE';
 
 // ⚠️ VARIAVEIS DE AMBIENTE DO META (configure no Vercel)
 const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
 const WHATSAPP_PHONE_ID = process.env.WHATSAPP_PHONE_ID;
 
 // Usar service role key no servidor para bypassar RLS
-// Se não tiver, usar anon (pode falhar com RLS ativo)
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || SUPABASE_KEY;
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
   auth: { autoRefreshToken: false, persistSession: false }
 });
+
+// Cache simples com TTL de 30 segundos para não sobrecarregar o Supabase
+let trainingCache = null;
+let cacheTimestamp = 0;
+const CACHE_TTL = 30000; // 30 segundos
 
 export default async function handler(req, res) {
     // ==========================================
@@ -214,26 +218,16 @@ export default async function handler(req, res) {
 
             console.log(`💬 Mensagem de ${from} (${contactName}): ${text}`);
 
-            // 1. Buscar configuracao atual do bot no Supabase
-            let training = null;
-            let trainingError = null;
+            // 🔄 BUSCAR CONFIGURACAO ATUALIZADA DO BOT (COM CACHE INTELIGENTE)
+            const training = await getLatestTraining();
             
-            try {
-                const result = await supabase
-                    .from('bot_training')
-                    .select('*')
-                    .order('created_at', { ascending: false })
-                    .limit(1)
-                    .single();
-                
-                training = result.data;
-                trainingError = result.error;
-            } catch (e) {
-                trainingError = e;
+            if (!training) {
+                console.error('❌ Nenhuma configuração de treinamento encontrada');
+                return res.status(500).json({ error: 'Configuração não encontrada' });
             }
 
             // Se nao conseguiu buscar do Supabase, usar configuracao padrao
-            if (trainingError || !training) {
+            if (!training) {
                 console.warn('⚠️ Sem treinamento no Supabase, usando padrao');
                 training = getDefaultTraining();
             }
@@ -269,8 +263,8 @@ export default async function handler(req, res) {
                 return res.status(200).send('Modo humano ativo');
             }
 
-            // 5. Gerar resposta do bot baseada no treinamento
-            const botResponse = generateResponse(text, training, from, supabase);
+            // 5. Gerar resposta do bot baseada no treinamento ATUALIZADO
+            const botResponse = await generateResponse(text, training, from);
             console.log('🤖 Resposta gerada:', botResponse);
 
             // 6. Enviar resposta pelo WhatsApp
@@ -307,6 +301,65 @@ export default async function handler(req, res) {
 }
 
 // ==========================================
+// BUSCAR TREINAMENTO MAIS RECENTE DO SUPABASE
+// ==========================================
+async function getLatestTraining() {
+    const now = Date.now();
+    
+    // Se cache ainda válido (menos de 30s), usar cache
+    if (trainingCache && (now - cacheTimestamp) < CACHE_TTL) {
+        console.log('📦 Usando cache do treinamento (TTL ativo)');
+        return trainingCache;
+    }
+    
+    try {
+        // Buscar SEMPRE o registro mais recente (ordena por updated_at desc)
+        const { data, error } = await supabase
+            .from('bot_training')
+            .select('*')
+            .order('updated_at', { ascending: false })
+            .limit(1)
+            .single();
+        
+        if (error) {
+            console.error('❌ Erro ao buscar treinamento:', error);
+            // Se erro, tentar usar cache antigo mesmo expirado
+            if (trainingCache) {
+                console.log('⚠️ Usando cache expirado devido a erro');
+                return trainingCache;
+            }
+            return null;
+        }
+        
+        if (data) {
+            trainingCache = data;
+            cacheTimestamp = now;
+            console.log('✅ Treinamento atualizado do Supabase:', data.bot_name, '| Ativo:', data.active);
+            return data;
+        }
+        
+        return null;
+    } catch (e) {
+        console.error('❌ Exceção ao buscar treinamento:', e);
+        // Fallback para cache expirado
+        if (trainingCache) {
+            console.log('⚠️ Usando cache expirado devido a exceção');
+            return trainingCache;
+        }
+        return null;
+    }
+}
+
+// ==========================================
+// LIMPAR CACHE (chamar quando painel salvar)
+// ==========================================
+async function clearTrainingCache() {
+    trainingCache = null;
+    cacheTimestamp = 0;
+    console.log('🧹 Cache de treinamento limpo');
+}
+
+// ==========================================
 // CONFIGURACAO PADRAO (quando Supabase falha)
 // ==========================================
 function getDefaultTraining() {
@@ -326,9 +379,9 @@ function getDefaultTraining() {
 }
 
 // ==========================================
-// FUNCAO PRINCIPAL DE GERACAO DE RESPOSTA
+// FUNCAO PRINCIPAL DE GERACAO DE RESPOSTA (ASYNC)
 // ==========================================
-function generateResponse(userMessage, training, phoneNumber, supabaseClient) {
+async function generateResponse(userMessage, training, phoneNumber) {
     const msg = userMessage.toLowerCase().trim();
     
     // 1. Saudacoes
@@ -376,12 +429,12 @@ function generateResponse(userMessage, training, phoneNumber, supabaseClient) {
         return '📅 Perfeito! Para agendar, preciso saber:\n1️⃣ Qual equipamento?\n2️⃣ Qual o problema/defeito?\n3️⃣ Qual dia e horario prefere?\n\nOu se preferir, posso transferir voce para um atendente humano agora mesmo! 👨‍💼';
     }
 
-    // 4. Escalonamento para humano - CORRIGIDO: passar phoneNumber e supabaseClient
+    // 4. Escalonamento para humano
     const escalationWords = training.escalation_keywords || ['atendente', 'humano', 'pessoa', 'reclamacao', 'problema grave', 'cancelar', 'chefe', 'gerente', 'supervisor'];
     if (escalationWords.some(word => msg.includes(word.toLowerCase()))) {
         // Transferir para humano (async, nao bloquear resposta)
-        if (supabaseClient && phoneNumber) {
-            supabaseClient
+        if (phoneNumber) {
+            supabase
                 .from('conversations')
                 .upsert({ 
                     phone_number: phoneNumber, 

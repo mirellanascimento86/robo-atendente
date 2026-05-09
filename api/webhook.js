@@ -7,14 +7,17 @@ const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
 const WHATSAPP_PHONE_ID = process.env.WHATSAPP_PHONE_ID;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || SUPABASE_KEY;
 
+// ===== TELEGRAM CONFIG =====
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+const TELEGRAM_GROUP_ID = process.env.TELEGRAM_GROUP_ID; // ID do grupo (negativo para grupos)
+
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
   auth: { autoRefreshToken: false, persistSession: false }
 });
 
-// Cache com TTL curto para garantir atualizações rápidas
 let trainingCache = null;
 let cacheTimestamp = 0;
-const CACHE_TTL = 2000; // 2 segundos
+const CACHE_TTL = 2000;
 
 const defaultTraining = {
   bot_name: 'Assistente',
@@ -38,6 +41,68 @@ export const config = {
   },
 };
 
+// ===== FUNÇÃO TELEGRAM =====
+async function sendTelegramAlert(message, parseMode = 'HTML') {
+  if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_GROUP_ID) {
+    console.log('Telegram não configurado:', { token: !!TELEGRAM_BOT_TOKEN, group: !!TELEGRAM_GROUP_ID });
+    return { skipped: true };
+  }
+
+  try {
+    const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: TELEGRAM_GROUP_ID,
+        text: message,
+        parse_mode: parseMode,
+        disable_web_page_preview: true
+      })
+    });
+
+    const data = await response.json();
+    if (!response.ok || !data.ok) {
+      console.error('Erro Telegram:', data);
+      return { error: data.description || 'Unknown error' };
+    }
+
+    console.log('✅ Alerta Telegram enviado');
+    return { ok: true, message_id: data.result?.message_id };
+  } catch (e) {
+    console.error('Erro ao enviar Telegram:', e.message);
+    return { error: e.message };
+  }
+}
+
+// ===== FUNÇÃO: FORMATAR ALERTA DE INTERVENÇÃO =====
+async function alertHumanIntervention(phone, contactName, userMessage) {
+  const message = `🚨 <b>INTERVENÇÃO HUMANA SOLICITADA</b>
+
+📱 <b>Cliente:</b> ${contactName || 'Desconhecido'}
+🔢 <b>Telefone:</b> ${phone}
+💬 <b>Mensagem:</b> "${userMessage}"
+
+⚡ O cliente pediu para falar com um atendente humano.
+🔗 <a href="https://wa.me/${phone.replace(/\D/g, '')}">Clique para atender no WhatsApp</a>`;
+
+  return await sendTelegramAlert(message);
+}
+
+// ===== FUNÇÃO: FORMATAR ALERTA DE VISITA =====
+async function alertVisitScheduled(phone, contactName, details) {
+  const message = `📅 <b>VISITA AGENDADA / ORÇAMENTO</b>
+
+📱 <b>Cliente:</b> ${contactName || 'Desconhecido'}
+🔢 <b>Telefone:</b> ${phone}
+📝 <b>Detalhes:</b> ${details || 'Cliente demonstrou interesse em agendamento'}
+
+✅ Entrar em contato para confirmar horário.
+🔗 <a href="https://wa.me/${phone.replace(/\D/g, '')}">Abrir WhatsApp</a>`;
+
+  return await sendTelegramAlert(message);
+}
+
 export default async function handler(req, res) {
   // CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -59,7 +124,6 @@ export default async function handler(req, res) {
       const mode = req.query['hub.mode'];
       const challenge = req.query['hub.challenge'];
 
-      // Verificação do Meta (WhatsApp Business)
       if (mode === 'subscribe') {
         console.log('Meta verification');
         return res.status(200).send(challenge);
@@ -67,11 +131,9 @@ export default async function handler(req, res) {
 
       const action = req.query.action;
 
-      // GET com action=updateconfig = receber config do painel
       if (action === 'updateconfig') {
         console.log('=== UPDATE CONFIG VIA GET ===');
         
-        // ✅ CORREÇÃO: Parsear arrays que vêm como JSON string
         let faqData = [];
         let escalationKeywords = [];
         
@@ -102,8 +164,6 @@ export default async function handler(req, res) {
         };
 
         const result = await saveTrainingToSupabase(config);
-        
-        // ✅ CORREÇÃO: Limpar cache imediatamente
         trainingCache = null;
         cacheTimestamp = 0;
         
@@ -158,7 +218,6 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true, message: 'Cache limpo' });
       }
 
-      // GET sem action = status/teste
       const training = await getTraining();
       return res.status(200).json({
         status: 'online',
@@ -170,20 +229,19 @@ export default async function handler(req, res) {
     // ========== POST ==========
     if (req.method === 'POST') {
       console.log('POST body type:', typeof req.body);
-      console.log('POST body:', JSON.stringify(req.body).substring(0, 500));
+      console.log('POST body:', JSON.stringify(req.body).substring(0, 800));
 
       const body = req.body || {};
       
-      // ✅ CORREÇÃO: Detectar POST do painel de forma mais robusta
-      // O painel envia um objeto com bot_name, mas o Vercel pode parsear de formas diferentes
-      const hasBotName = body.bot_name !== undefined || body.bot_name !== null;
-      const hasWhatsAppObject = body.object === 'whatsapp_business_account';
+      // DETECÇÃO ROBUSTA DO TIPO DE POST
+      const isWhatsApp = body.object === 'whatsapp_business_account';
+      const isPanelUpdate = body.bot_name !== undefined && !isWhatsApp;
       const hasAction = !!req.query.action;
 
-      console.log('Detectado:', { hasBotName, hasWhatsAppObject, hasAction, bodyKeys: Object.keys(body) });
+      console.log('Detectado:', { isWhatsApp, isPanelUpdate, hasAction, keys: Object.keys(body) });
 
-      // --- POST DO PAINEL (tem bot_name) ---
-      if (hasBotName && !hasAction) {
+      // --- POST DO PAINEL ---
+      if (isPanelUpdate && !hasAction) {
         console.log('=== SALVANDO CONFIG DO PAINEL ===');
 
         const trainingData = {
@@ -204,8 +262,6 @@ export default async function handler(req, res) {
         console.log('Greeting recebida:', trainingData.greeting_message);
 
         const saved = await saveTrainingToSupabase(trainingData);
-        
-        // ✅ CORREÇÃO: Limpar cache imediatamente após salvar
         trainingCache = null;
         cacheTimestamp = 0;
 
@@ -219,7 +275,7 @@ export default async function handler(req, res) {
         });
       }
 
-      // --- POST COM ACTION (intervene, release, send) ---
+      // --- POST COM ACTION ---
       if (hasAction) {
         const action = req.query.action;
         const phone = body.phone;
@@ -252,15 +308,24 @@ export default async function handler(req, res) {
       }
 
       // --- POST DO WHATSAPP ---
-      if (hasWhatsAppObject || !hasBotName) {
+      if (isWhatsApp || (!isPanelUpdate && !hasAction)) {
         console.log('=== MENSAGEM WHATSAPP ===');
 
         const entry = body.entry?.[0];
         const changes = entry?.changes?.[0];
         const value = changes?.value;
-        const message = value?.messages?.[0];
+        const messages = value?.messages;
 
-        if (!message || message.type !== 'text') {
+        // VERIFICAÇÃO CRÍTICA: WhatsApp envia array de mensagens
+        if (!messages || !Array.isArray(messages) || messages.length === 0) {
+          console.log('Nenhuma mensagem no payload WhatsApp');
+          return res.status(200).send('OK');
+        }
+
+        const message = messages[0];
+
+        if (message.type !== 'text') {
+          console.log('Tipo de mensagem não suportado:', message.type);
           return res.status(200).send('OK');
         }
 
@@ -268,9 +333,9 @@ export default async function handler(req, res) {
         const text = message.text?.body || '';
         const contactName = value?.contacts?.[0]?.profile?.name || from;
 
-        console.log(`Msg de ${from}: ${text}`);
+        console.log(`Msg de ${from} (${contactName}): ${text}`);
 
-        // ✅ CORREÇÃO: Sempre buscar treinamento atual do banco (cache curto)
+        // Buscar treinamento ATUAL
         const training = await getTraining();
 
         // Bot desativado?
@@ -293,9 +358,14 @@ export default async function handler(req, res) {
           return res.status(200).send('Human mode');
         }
 
-        // Gerar resposta com treinamento atualizado
-        const response = generateResponse(text, training);
+        // ===== GERAR RESPOSTA INTELIGENTE =====
+        const responseData = generateResponse(text, training, from, contactName);
+        const response = responseData.text;
+        const shouldEscalate = responseData.escalate;
+        const isVisit = responseData.isVisit;
+
         console.log('Resposta:', response);
+        console.log('Escalar?:', shouldEscalate, 'Visita?:', isVisit);
 
         // Enviar WhatsApp
         if (WHATSAPP_TOKEN && WHATSAPP_PHONE_ID) {
@@ -308,10 +378,26 @@ export default async function handler(req, res) {
 
         await saveMessage(from, response, 'outbound', 'bot', contactName);
 
+        // ===== ALERTA TELEGRAM: INTERVENÇÃO =====
+        if (shouldEscalate) {
+          console.log('🚨 Enviando alerta de intervenção para Telegram...');
+          await alertHumanIntervention(from, contactName, text);
+          
+          // Mudar status para humano automaticamente
+          await supabase.from('conversations').upsert({ 
+            phone_number: from, status: 'human', updated_at: new Date().toISOString() 
+          }, { onConflict: 'phone_number' });
+        }
+
+        // ===== ALERTA TELEGRAM: VISITA AGENDADA =====
+        if (isVisit) {
+          console.log('📅 Enviando alerta de visita para Telegram...');
+          await alertVisitScheduled(from, contactName, text);
+        }
+
         return res.status(200).json({ success: true, response });
       }
 
-      // Fallback para POST desconhecido
       return res.status(200).json({ message: 'Received' });
     }
 
@@ -331,7 +417,6 @@ export default async function handler(req, res) {
 
 async function saveTrainingToSupabase(data) {
   try {
-    // Tentar buscar existente
     const { data: existing, error: findError } = await supabase
       .from('bot_training')
       .select('id')
@@ -375,9 +460,7 @@ async function saveTrainingToSupabase(data) {
 async function getTraining() {
   const now = Date.now();
 
-  // ✅ CORREÇÃO: Cache mais curto e verificação mais rigorosa
   if (trainingCache && (now - cacheTimestamp) < CACHE_TTL) {
-    console.log('Usando cache (TTL ok)');
     return trainingCache;
   }
 
@@ -398,7 +481,7 @@ async function getTraining() {
     if (data) {
       trainingCache = data;
       cacheTimestamp = now;
-      console.log('Training carregado do banco:', data.greeting_message?.substring(0, 50));
+      console.log('Training carregado:', data.greeting_message?.substring(0, 50));
       return data;
     }
 
@@ -409,45 +492,102 @@ async function getTraining() {
   }
 }
 
-function generateResponse(userMessage, training) {
+// ===== GERAR RESPOSTA INTELIGENTE (com detecção de escalonamento e visita) =====
+function generateResponse(userMessage, training, phone, contactName) {
   const msg = (userMessage || '').toLowerCase().trim();
 
-  if (!msg) return training.greeting_message || defaultTraining.greeting_message;
-
-  const greetings = ['oi', 'ola', 'olá', 'bom dia', 'boa tarde', 'boa noite', 'hey', 'hi', 'hello', 'eai', 'eae', 'fala'];
-  if (greetings.some(g => msg === g || msg.startsWith(g + ' '))) {
-    return training.greeting_message || defaultTraining.greeting_message;
+  if (!msg) {
+    return { 
+      text: training.greeting_message || defaultTraining.greeting_message,
+      escalate: false,
+      isVisit: false
+    };
   }
 
-  // ✅ CORREÇÃO: Usar FAQ do treinamento atual
+  // Detectar saudações
+  const greetings = ['oi', 'ola', 'olá', 'bom dia', 'boa tarde', 'boa noite', 'hey', 'hi', 'hello', 'eai', 'eae', 'fala'];
+  if (greetings.some(g => msg === g || msg.startsWith(g + ' '))) {
+    return { 
+      text: training.greeting_message || defaultTraining.greeting_message,
+      escalate: false,
+      isVisit: false
+    };
+  }
+
+  // Detectar intenção de agendamento/visita ANTES de verificar FAQ
+  const visitKeywords = ['agendar', 'visita', 'marcar', 'horario', 'quando', 'dia', 'data', 'chegar', 'ir ai', 'ir até', 'passar ai', 'ir na loja', 'vir buscar', 'entregar', 'levar'];
+  const isVisitIntent = visitKeywords.some(kw => msg.includes(kw));
+
+  // Verificar FAQ primeiro
   const faq = training.faq_data || [];
   for (const item of faq) {
     if (!item.question || !item.answer) continue;
     const words = item.question.toLowerCase().split(/\s+/).filter(w => w.length > 2);
     const matches = words.filter(w => msg.includes(w)).length;
     if (matches >= 2 || msg.includes(item.question.toLowerCase())) {
-      return item.answer;
+      return { 
+        text: item.answer,
+        escalate: false,
+        isVisit: isVisitIntent // Se a FAQ for sobre agendamento, marca como visita
+      };
     }
   }
 
+  // Detectar preços
   if (/preco|valor|custa|quanto|orcamento/i.test(msg)) {
-    return (training.pricing_info || defaultTraining.pricing_info) + '\n\nPosso agendar um orcamento gratuito!';
+    return { 
+      text: (training.pricing_info || defaultTraining.pricing_info) + '\n\nPosso agendar um orcamento gratuito!',
+      escalate: false,
+      isVisit: isVisitIntent
+    };
   }
 
+  // Detectar horários
   if (/horario|hora|aberto|funciona/i.test(msg)) {
-    return '⏰ ' + (training.business_hours || defaultTraining.business_hours) + '\n\nEstamos prontos!';
+    return { 
+      text: '⏰ ' + (training.business_hours || defaultTraining.business_hours) + '\n\nEstamos prontos!',
+      escalate: false,
+      isVisit: isVisitIntent
+    };
   }
 
+  // Detectar serviços
   if (/servico|conserta|reparo|arruma|troca/i.test(msg)) {
-    return '🔧 ' + (training.services || defaultTraining.services) + '\n\nQual voce precisa?';
+    return { 
+      text: '🔧 ' + (training.services || defaultTraining.services) + '\n\nQual voce precisa?',
+      escalate: false,
+      isVisit: isVisitIntent
+    };
   }
 
+  // Detectar palavras de escalonamento (ATENDENTE HUMANO)
   const esc = training.escalation_keywords || defaultTraining.escalation_keywords;
-  if (esc.some(w => msg.includes(w.toLowerCase()))) {
-    return '👨‍💼 Transferindo para atendente humano. Aguarde...';
+  const shouldEscalate = esc.some(w => msg.includes(w.toLowerCase()));
+
+  if (shouldEscalate) {
+    return { 
+      text: '👨‍💼 Entendido! Estou transferindo voce para um atendente humano. Aguarde um momento...',
+      escalate: true,
+      isVisit: false
+    };
   }
 
-  return (training.fallback_message || defaultTraining.fallback_message) + '\n\nOu digite "atendente"!';
+  // Se detectou intenção de visita mas não caiu em nenhum caso acima
+  if (isVisitIntent) {
+    return {
+      text: 'Perfeito! Vou registrar seu interesse em agendamento. Um atendente entrará em contato para confirmar o melhor horário.\n\n' + 
+            (training.business_hours || defaultTraining.business_hours),
+      escalate: false,
+      isVisit: true
+    };
+  }
+
+  // Fallback
+  return { 
+    text: (training.fallback_message || defaultTraining.fallback_message) + '\n\nOu digite "atendente"!',
+    escalate: false,
+    isVisit: false
+  };
 }
 
 async function saveMessage(phone, content, direction, senderType, contactName = null) {

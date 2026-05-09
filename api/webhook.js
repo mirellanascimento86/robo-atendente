@@ -1,10 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 
-// ✅ SUPABASE (seus dados)
 const SUPABASE_URL = 'https://fwcljognwdutsagppxcq.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ3Y2xqb2dud2R1dHNhZ3BweGNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4OTY4MjMsImV4cCI6MjA5MDQ3MjgyM30.6n8MejPbWRZlJnfZylrsK37_jwFha3FE7Xbj_Sn8VcE';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ3Y2xqb2dud2R1dHNhZ3BweGNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg5NjgyMzMsImV4cCI6MjA5MDQ3MjgyM30.6n8MejPbWRZlJnfZylrsK37_jwFha3FE7Xbj_Sn8VcE';
 
-// ⚠️ META WHATSAPP (configure no Vercel → Environment Variables)
 const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
 const WHATSAPP_PHONE_ID = process.env.WHATSAPP_PHONE_ID;
 
@@ -28,6 +26,33 @@ export default async function handler(req, res) {
             return res.status(200).send(challenge);
         }
         return res.status(403).send('Forbidden');
+    }
+
+    // ==========================================
+    // API DO PAINEL - STATUS/TREINAMENTO
+    // ==========================================
+    if (req.method === 'GET' && req.query.action === 'status') {
+        try {
+            const { data: training, error } = await supabase
+                .from('bot_training')
+                .select('*')
+                .order('updated_at', { ascending: false })
+                .limit(1)
+                .maybeSingle();
+
+            if (error) throw error;
+
+            return res.status(200).json({
+                success: true,
+                status: 'online',
+                ...training,
+                greeting: training?.greeting_message,
+                bot_active: training?.active
+            });
+        } catch (error) {
+            console.error('❌ Erro status:', error);
+            return res.status(500).json({ error: error.message });
+        }
     }
 
     // ==========================================
@@ -100,6 +125,74 @@ export default async function handler(req, res) {
         } catch (error) {
             console.error('❌ Erro mensagens:', error);
             return res.status(500).json({ error: error.message, mensagens: [] });
+        }
+    }
+
+    // ==========================================
+    // SALVAR TREINAMENTO (POST sem action ou action=saveconfig)
+    // ==========================================
+    if (req.method === 'POST' && (!req.query.action || req.query.action === 'saveconfig')) {
+        try {
+            const body = req.body;
+            console.log('💾 Salvando treinamento:', JSON.stringify(body).substring(0, 200));
+
+            const trainingData = {
+                bot_name: body.bot_name || '',
+                company_name: body.company_name || '',
+                greeting_message: body.greeting_message || body.greeting || '',
+                personality: body.personality || '',
+                services: body.services || '',
+                business_hours: body.business_hours || body.hours || '',
+                pricing_info: body.pricing_info || body.pricing || '',
+                fallback_message: body.fallback_message || body.fallback || '',
+                faq_data: Array.isArray(body.faq_data) ? body.faq_data : [],
+                escalation_keywords: Array.isArray(body.escalation_keywords) ? body.escalation_keywords : [],
+                active: body.active !== false && body.active !== 'false',
+                updated_at: new Date().toISOString()
+            };
+
+            // Buscar registro existente
+            const { data: existing } = await supabase
+                .from('bot_training')
+                .select('id')
+                .order('updated_at', { ascending: false })
+                .limit(1)
+                .maybeSingle();
+
+            let result, error;
+
+            if (existing?.id) {
+                // Atualizar
+                ({ data: result, error } = await supabase
+                    .from('bot_training')
+                    .update(trainingData)
+                    .eq('id', existing.id)
+                    .select()
+                    .single());
+            } else {
+                // Inserir novo
+                trainingData.created_at = new Date().toISOString();
+                ({ data: result, error } = await supabase
+                    .from('bot_training')
+                    .insert(trainingData)
+                    .select()
+                    .single());
+            }
+
+            if (error) throw error;
+
+            console.log('✅ Treinamento salvo:', result?.id);
+
+            return res.status(200).json({
+                success: true,
+                message: 'Configuracao salva com sucesso',
+                id: result?.id,
+                greeting: trainingData.greeting_message
+            });
+
+        } catch (error) {
+            console.error('❌ Erro salvar treinamento:', error);
+            return res.status(500).json({ error: error.message });
         }
     }
 
@@ -187,7 +280,7 @@ export default async function handler(req, res) {
             const { data: training, error: trainingError } = await supabase
                 .from('bot_training')
                 .select('*')
-                .order('created_at', { ascending: false })
+                .order('updated_at', { ascending: false })
                 .limit(1)
                 .maybeSingle();
 
@@ -218,7 +311,7 @@ export default async function handler(req, res) {
             }
 
             // 5. Gerar resposta do bot
-            const botResponse = generateResponse(text, training);
+            const botResponse = generateResponse(text, training, from);
 
             // 6. Enviar resposta pelo WhatsApp
             if (WHATSAPP_TOKEN && WHATSAPP_PHONE_ID) {
@@ -248,11 +341,12 @@ export default async function handler(req, res) {
 // ==========================================
 // GERAR RESPOSTA DO BOT
 // ==========================================
-function generateResponse(userMessage, training) {
+function generateResponse(userMessage, training, phoneNumber) {
     const msg = userMessage.toLowerCase().trim();
+    const from = phoneNumber; // Corrigido: recebe como parâmetro
     
     // 1. Saudações
-    const greetings = ['oi', 'ola', 'ola', 'bom dia', 'boa tarde', 'boa noite', 'hey', 'hi', 'hello', 'eai', 'eae', 'ola!', 'oi!'];
+    const greetings = ['oi', 'ola', 'olá', 'bom dia', 'boa tarde', 'boa noite', 'hey', 'hi', 'hello', 'eai', 'eae'];
     if (greetings.some(g => msg.includes(g))) {
         return training.greeting_message || 'Ola! Como posso ajudar?';
     }

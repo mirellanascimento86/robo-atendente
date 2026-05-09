@@ -288,9 +288,9 @@ async function load() {
     console.warn('Supabase erro:', e.message);
   }
 
-  // 2. Fallback: webhook GET
+  // 2. Fallback: webhook GET status
   try {
-    const res = await fetch(WEBHOOK_URL + '?_=' + Date.now(), {
+    const res = await fetch(WEBHOOK_URL + '?action=status&_=' + Date.now(), {
       method: 'GET', headers: { Accept: 'application/json' }, cache: 'no-store'
     });
     if (res.ok) {
@@ -479,6 +479,7 @@ async function save() {
     if (existing?.id) {
       ({ error } = await sb.from('bot_training').update(payload).eq('id', existing.id));
     } else {
+      payload.created_at = new Date().toISOString();
       ({ error } = await sb.from('bot_training').insert(payload));
     }
 
@@ -509,48 +510,11 @@ async function save() {
         const d = await res.json().catch(() => ({}));
         if (d.success) {
           ok = true;
-          console.log('[save] Webhook POST OK, confirmado:', d.confirmed_greeting);
+          console.log('[save] Webhook POST OK');
         }
       }
     } catch (e) {
       console.warn('[save] Webhook POST falhou:', e.message);
-    }
-  }
-
-  // ══ MÉTODO 3: GET fallback (último recurso) ══════════════
-  if (!ok) {
-    try {
-      const p = new URLSearchParams({
-        action: 'updateconfig',
-        bot_name: payload.bot_name,
-        company_name: payload.company_name,
-        greeting_message: payload.greeting_message,
-        greeting: payload.greeting_message,
-        personality: payload.personality,
-        services: payload.services,
-        business_hours: payload.business_hours,
-        hours: payload.business_hours,
-        pricing_info: payload.pricing_info,
-        pricing: payload.pricing_info,
-        fallback_message: payload.fallback_message,
-        fallback: payload.fallback_message,
-        active: String(payload.active),
-        faq_data: JSON.stringify(payload.faq_data),
-        escalation_keywords: JSON.stringify(payload.escalation_keywords),
-      });
-      const res = await fetch(WEBHOOK_URL + '?' + p, {
-        method: 'GET',
-        headers: { Accept: 'application/json' },
-      });
-      if (res.ok) {
-        const d = await res.json().catch(() => ({}));
-        if (d.success) {
-          ok = true;
-          console.log('[save] GET fallback OK');
-        }
-      }
-    } catch (e) {
-      console.warn('[save] GET fallback falhou:', e.message);
     }
   }
 

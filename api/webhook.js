@@ -23,7 +23,7 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
 let trainingCache = null;
 let cacheTimestamp = 0;
 let cacheUpdatedAt = null;
-const CACHE_TTL = 5000; // 5 segundos
+const CACHE_TTL = 5000;
 
 // ==========================================
 // CONFIGURACAO PADRAO (FALLBACK)
@@ -49,316 +49,346 @@ function getDefaultTraining() {
 // HANDLER PRINCIPAL
 // ==========================================
 export default async function handler(req, res) {
+    // CORS sempre primeiro
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-    if (req.method === 'OPTIONS') return res.status(200).end();
-
-    // ==========================================
-    // GET - Verificacao Meta e acoes do painel
-    // ==========================================
-    if (req.method === 'GET') {
-        const mode = req.query['hub.mode'];
-        const challenge = req.query['hub.challenge'];
-
-        if (mode === 'subscribe') {
-            console.log('Webhook verificado pelo Meta');
-            return res.status(200).send(challenge);
-        }
-
-        const action = req.query.action;
-
-        if (action === 'list') {
-            try {
-                const { data: conversations, error } = await supabase
-                    .from('conversations')
-                    .select('*')
-                    .order('last_message_time', { ascending: false });
-                if (error) throw error;
-                const conversas = (conversations || []).map(conv => ({
-                    telefone: conv.phone_number,
-                    nome: conv.contact_name || conv.phone_number,
-                    emIntervencao: conv.status === 'human',
-                    etapa: conv.status,
-                    ultimaAtividade: conv.last_message_time,
-                    ultima: conv.last_message || 'Sem mensagens',
-                    mensagens: []
-                }));
-                return res.status(200).json(conversas);
-            } catch (error) {
-                return res.status(500).json({ error: error.message });
-            }
-        }
-
-        if (action === 'messages') {
-            const phone = req.query.phone;
-            if (!phone) return res.status(400).json({ error: 'Phone required' });
-            try {
-                const { data: conversation } = await supabase
-                    .from('conversations').select('*').eq('phone_number', phone).single();
-                const { data: messages, error } = await supabase
-                    .from('messages').select('*').eq('phone_number', phone).order('created_at', { ascending: true });
-                if (error) throw error;
-                const mensagens = (messages || []).map(msg => ({
-                    data: msg.created_at, timestamp: msg.created_at,
-                    tipo: msg.direction === 'outbound' ? (msg.sender_type === 'human' ? 'humano' : 'bot') : 'cliente',
-                    from: msg.direction === 'outbound' ? (msg.sender_type === 'human' ? 'humano' : 'bot') : 'cliente',
-                    mensagem: msg.content, texto: msg.content, content: msg.content, message: msg.content,
-                    nome: msg.sender_type === 'human' ? 'Voce' : (msg.sender_type === 'bot' ? 'Bot' : 'Cliente')
-                }));
-                return res.status(200).json({ mensagens, emIntervencao: conversation?.status === 'human' });
-            } catch (error) {
-                return res.status(500).json({ error: error.message });
-            }
-        }
-
-        if (action === 'clearcache') {
-            trainingCache = null;
-            cacheTimestamp = 0;
-            cacheUpdatedAt = null;
-            console.log('Cache LIMPO pelo painel');
-            return res.status(200).json({ ok: true, message: 'Cache limpo', timestamp: new Date().toISOString() });
-        }
-
-        return res.status(400).json({ error: 'Invalid action' });
+    if (req.method === 'OPTIONS') {
+        return res.status(200).end();
     }
 
-    // ==========================================
-    // POST - Verificacao do tipo de POST
-    // ==========================================
-    if (req.method === 'POST') {
-        
-        // VERIFICAR SE E POST DO PAINEL (tem bot_name no body)
-        const isPainelPost = req.body && 
-                           typeof req.body === 'object' && 
-                           req.body.bot_name !== undefined;
+    console.log('=== WEBHOOK CHAMADO ===');
+    console.log('Method:', req.method);
+    console.log('URL:', req.url);
+    console.log('Query:', req.query);
+    console.log('Content-Type:', req.headers['content-type']);
+    console.log('Body type:', typeof req.body);
+    console.log('Body keys:', req.body ? Object.keys(req.body) : 'null');
+    console.log('Body sample:', req.body ? JSON.stringify(req.body).substring(0, 200) : 'empty');
 
-        // VERIFICAR SE E POST DO WHATSAPP (tem object: whatsapp_business_account)
-        const isWhatsAppPost = req.body && 
-                               typeof req.body === 'object' && 
-                               req.body.object === 'whatsapp_business_account';
-
-        console.log('POST recebido:', {
-            isPainelPost,
-            isWhatsAppPost,
-            hasAction: !!req.query.action,
-            bodyKeys: req.body ? Object.keys(req.body) : 'no body'
-        });
-
+    try {
         // ==========================================
-        // POST DO PAINEL DE TREINAMENTO
+        // GET - Verificacao Meta e acoes do painel
         // ==========================================
-        if (isPainelPost && !req.query.action) {
-            try {
-                console.log('=== RECEBENDO CONFIG DO PAINEL ===');
-                
-                const data = req.body;
-                
-                // Montar objeto para salvar no Supabase
-                const trainingData = {
-                    bot_name: data.bot_name || 'Assistente',
-                    company_name: data.company_name || 'Minha Empresa',
-                    greeting_message: data.greeting_message || 'Ola! Como posso ajudar?',
-                    personality: data.personality || '',
-                    services: data.services || '',
-                    business_hours: data.business_hours || '',
-                    pricing_info: data.pricing_info || '',
-                    fallback_message: data.fallback_message || '',
-                    faq_data: data.faq_data || [],
-                    escalation_keywords: data.escalation_keywords || [],
-                    active: data.active !== false,
-                    updated_at: new Date().toISOString()
-                };
+        if (req.method === 'GET') {
+            const mode = req.query['hub.mode'];
+            const challenge = req.query['hub.challenge'];
 
-                console.log('Salvando no Supabase:', trainingData.greeting_message);
+            if (mode === 'subscribe') {
+                console.log('Webhook verificado pelo Meta');
+                return res.status(200).send(challenge);
+            }
 
-                // Verificar se ja existe registro
-                const { data: existing } = await supabase
-                    .from('bot_training')
-                    .select('id')
-                    .order('updated_at', { ascending: false })
-                    .limit(1)
-                    .single()
-                    .catch(() => ({ data: null }));
+            const action = req.query.action;
 
-                let result;
-                
-                if (existing) {
-                    console.log('Atualizando registro ID:', existing.id);
-                    result = await supabase
-                        .from('bot_training')
-                        .update(trainingData)
-                        .eq('id', existing.id)
-                        .select()
-                        .single();
-                } else {
-                    console.log('Criando novo registro');
-                    result = await supabase
-                        .from('bot_training')
-                        .insert(trainingData)
-                        .select()
-                        .single();
+            if (action === 'list') {
+                try {
+                    const { data: conversations, error } = await supabase
+                        .from('conversations')
+                        .select('*')
+                        .order('last_message_time', { ascending: false });
+                    if (error) throw error;
+                    const conversas = (conversations || []).map(conv => ({
+                        telefone: conv.phone_number,
+                        nome: conv.contact_name || conv.phone_number,
+                        emIntervencao: conv.status === 'human',
+                        etapa: conv.status,
+                        ultimaAtividade: conv.last_message_time,
+                        ultima: conv.last_message || 'Sem mensagens',
+                        mensagens: []
+                    }));
+                    return res.status(200).json(conversas);
+                } catch (error) {
+                    return res.status(500).json({ error: error.message });
                 }
+            }
 
-                if (result.error) {
-                    console.error('Erro Supabase:', result.error);
-                    return res.status(500).json({ 
-                        error: 'Erro ao salvar no Supabase', 
-                        details: result.error.message 
-                    });
+            if (action === 'messages') {
+                const phone = req.query.phone;
+                if (!phone) return res.status(400).json({ error: 'Phone required' });
+                try {
+                    const { data: conversation } = await supabase
+                        .from('conversations').select('*').eq('phone_number', phone).single();
+                    const { data: messages, error } = await supabase
+                        .from('messages').select('*').eq('phone_number', phone).order('created_at', { ascending: true });
+                    if (error) throw error;
+                    const mensagens = (messages || []).map(msg => ({
+                        data: msg.created_at, timestamp: msg.created_at,
+                        tipo: msg.direction === 'outbound' ? (msg.sender_type === 'human' ? 'humano' : 'bot') : 'cliente',
+                        from: msg.direction === 'outbound' ? (msg.sender_type === 'human' ? 'humano' : 'bot') : 'cliente',
+                        mensagem: msg.content, texto: msg.content, content: msg.content, message: msg.content,
+                        nome: msg.sender_type === 'human' ? 'Voce' : (msg.sender_type === 'bot' ? 'Bot' : 'Cliente')
+                    }));
+                    return res.status(200).json({ mensagens, emIntervencao: conversation?.status === 'human' });
+                } catch (error) {
+                    return res.status(500).json({ error: error.message });
                 }
+            }
 
-                // Limpar cache para forcar recarregamento
+            if (action === 'clearcache') {
                 trainingCache = null;
                 cacheTimestamp = 0;
                 cacheUpdatedAt = null;
-
-                console.log('✓ Configuracao salva! Greeting:', trainingData.greeting_message);
-
-                return res.status(200).json({
-                    success: true,
-                    message: 'Configuracao recebida e salva',
-                    greeting: trainingData.greeting_message
-                });
-
-            } catch (error) {
-                console.error('Erro ao processar POST do painel:', error);
-                return res.status(500).json({ 
-                    error: error.message 
-                });
+                console.log('Cache LIMPO pelo painel');
+                return res.status(200).json({ ok: true, message: 'Cache limpo', timestamp: new Date().toISOString() });
             }
+
+            return res.status(400).json({ error: 'Invalid action' });
         }
 
         // ==========================================
-        // POST COM ACTION - Acoes do painel (intervene, release, send)
+        // POST - Todos os tipos de POST
         // ==========================================
-        if (req.query.action) {
-            const action = req.query.action;
-            const body = req.body;
-            const phone = body.phone;
-
-            if (action === 'intervene') {
-                try {
-                    await supabase.from('conversations').upsert({ 
-                        phone_number: phone, status: 'human', updated_at: new Date().toISOString() 
-                    }, { onConflict: 'phone_number' });
-                    await saveMessage(phone, 'Atendente humano assumiu o controle.', 'outbound', 'system');
-                    return res.status(200).json({ ok: true });
-                } catch (error) { return res.status(500).json({ error: error.message }); }
+        if (req.method === 'POST') {
+            
+            // Body vazio ou invalido
+            if (!req.body || typeof req.body !== 'object') {
+                console.log('Body invalido, retornando OK');
+                return res.status(200).send('OK');
             }
 
-            if (action === 'release') {
+            // VERIFICAR SE E POST DO PAINEL (tem bot_name no body)
+            const isPainelPost = req.body.bot_name !== undefined;
+
+            // VERIFICAR SE E POST DO WHATSAPP (tem object: whatsapp_business_account)
+            const isWhatsAppPost = req.body.object === 'whatsapp_business_account';
+
+            console.log('Detectado:', { isPainelPost, isWhatsAppPost, hasAction: !!req.query.action });
+
+            // ==========================================
+            // POST DO PAINEL DE TREINAMENTO
+            // ==========================================
+            if (isPainelPost && !req.query.action) {
+                console.log('=== PROCESSANDO CONFIG DO PAINEL ===');
+                
                 try {
-                    await supabase.from('conversations').upsert({ 
-                        phone_number: phone, status: 'bot', updated_at: new Date().toISOString() 
-                    }, { onConflict: 'phone_number' });
-                    await saveMessage(phone, 'Robo reassumiu o atendimento.', 'outbound', 'system');
-                    return res.status(200).json({ ok: true });
-                } catch (error) { return res.status(500).json({ error: error.message }); }
-            }
+                    const data = req.body;
+                    
+                    // Montar objeto para salvar no Supabase
+                    const trainingData = {
+                        bot_name: data.bot_name || 'Assistente',
+                        company_name: data.company_name || 'Minha Empresa',
+                        greeting_message: data.greeting_message || 'Ola! Como posso ajudar?',
+                        personality: data.personality || '',
+                        services: data.services || '',
+                        business_hours: data.business_hours || '',
+                        pricing_info: data.pricing_info || '',
+                        fallback_message: data.fallback_message || '',
+                        faq_data: Array.isArray(data.faq_data) ? data.faq_data : [],
+                        escalation_keywords: Array.isArray(data.escalation_keywords) ? data.escalation_keywords : [],
+                        active: data.active !== false,
+                        updated_at: new Date().toISOString()
+                    };
 
-            if (action === 'send') {
-                try {
-                    const message = body.message;
-                    if (!message) return res.status(400).json({ error: 'Message required' });
-                    await saveMessage(phone, message, 'outbound', 'human');
-                    if (WHATSAPP_TOKEN && WHATSAPP_PHONE_ID) await sendWhatsAppMessage(phone, message);
-                    return res.status(200).json({ ok: true });
-                } catch (error) { return res.status(500).json({ error: error.message }); }
-            }
-        }
+                    console.log('Dados recebidos do painel:', {
+                        bot_name: trainingData.bot_name,
+                        greeting: trainingData.greeting_message,
+                        faq_count: trainingData.faq_data.length
+                    });
 
-        // ==========================================
-        // POST DO WHATSAPP (Meta Webhook)
-        // ==========================================
-        if (isWhatsAppPost || !isPainelPost) {
-            try {
-                const body = req.body;
-                console.log('Webhook WhatsApp recebido:', JSON.stringify(body, null, 2));
-
-                const entry = body.entry?.[0];
-                const changes = entry?.changes?.[0];
-                const value = changes?.value;
-                const message = value?.messages?.[0];
-
-                if (!message || message.type !== 'text') {
-                    return res.status(200).send('OK');
-                }
-
-                const from = message.from;
-                const text = message.text?.body || '';
-                const contactName = value?.contacts?.[0]?.profile?.name || from;
-
-                console.log(`Mensagem de ${from}: ${text}`);
-
-                // BUSCAR TREINAMENTO - com fallback automatico
-                let training = await getLatestTraining();
-
-                // Se nao encontrou no Supabase, usar padrao e tentar criar
-                if (!training) {
-                    console.log('Treinamento nao encontrado no Supabase, usando padrao...');
-                    training = getDefaultTraining();
-                    await createDefaultTrainingIfNotExists();
-                }
-
-                // Verificar se bot esta ativo
-                if (training.active === false) {
-                    console.log('Bot desativado pelo painel');
-                    await saveMessage(from, text, 'inbound', 'human', contactName);
-                    return res.status(200).send('Bot desativado');
-                }
-
-                // Salvar mensagem do cliente
-                await saveMessage(from, text, 'inbound', 'bot', contactName);
-
-                // Verificar modo humano
-                let conversationStatus = 'bot';
-                try {
-                    const { data: conversation } = await supabase
-                        .from('conversations').select('status').eq('phone_number', from).single();
-                    if (conversation) conversationStatus = conversation.status;
-                } catch (e) {}
-
-                if (conversationStatus === 'human') {
-                    console.log('Modo humano ativo');
-                    return res.status(200).send('Modo humano');
-                }
-
-                // Gerar resposta
-                const botResponse = generateResponse(text, training, from);
-                console.log('Resposta gerada:', botResponse);
-
-                // Enviar pelo WhatsApp
-                let whatsappSent = false;
-                if (WHATSAPP_TOKEN && WHATSAPP_PHONE_ID) {
+                    // Verificar se ja existe registro
+                    let existingId = null;
                     try {
-                        await sendWhatsAppMessage(from, botResponse);
-                        whatsappSent = true;
-                        console.log('Mensagem enviada para WhatsApp');
-                    } catch (waError) {
-                        console.error('Erro WhatsApp API:', waError.message);
+                        const { data: existing, error: findError } = await supabase
+                            .from('bot_training')
+                            .select('id')
+                            .order('updated_at', { ascending: false })
+                            .limit(1)
+                            .single();
+                        
+                        if (!findError && existing) {
+                            existingId = existing.id;
+                        }
+                    } catch (e) {
+                        console.log('Erro ao buscar existente:', e.message);
                     }
-                } else {
-                    console.log('Token WhatsApp nao configurado');
+
+                    let result;
+                    
+                    if (existingId) {
+                        console.log('Atualizando registro ID:', existingId);
+                        result = await supabase
+                            .from('bot_training')
+                            .update(trainingData)
+                            .eq('id', existingId)
+                            .select();
+                    } else {
+                        console.log('Criando novo registro');
+                        result = await supabase
+                            .from('bot_training')
+                            .insert(trainingData)
+                            .select();
+                    }
+
+                    if (result.error) {
+                        console.error('Erro Supabase:', result.error);
+                        return res.status(500).json({ 
+                            error: 'Erro ao salvar no Supabase', 
+                            details: result.error.message,
+                            code: result.error.code
+                        });
+                    }
+
+                    // Limpar cache para forcar recarregamento
+                    trainingCache = null;
+                    cacheTimestamp = 0;
+                    cacheUpdatedAt = null;
+
+                    const savedData = result.data?.[0] || result.data;
+                    console.log('✓ Configuracao salva! ID:', savedData?.id);
+
+                    return res.status(200).json({
+                        success: true,
+                        message: 'Configuracao recebida e salva',
+                        greeting: trainingData.greeting_message,
+                        id: savedData?.id
+                    });
+
+                } catch (error) {
+                    console.error('Erro ao processar POST do painel:', error);
+                    return res.status(500).json({ 
+                        error: error.message,
+                        stack: error.stack 
+                    });
+                }
+            }
+
+            // ==========================================
+            // POST COM ACTION - Acoes do painel
+            // ==========================================
+            if (req.query.action) {
+                const action = req.query.action;
+                const body = req.body;
+                const phone = body.phone;
+
+                if (action === 'intervene') {
+                    try {
+                        await supabase.from('conversations').upsert({ 
+                            phone_number: phone, status: 'human', updated_at: new Date().toISOString() 
+                        }, { onConflict: 'phone_number' });
+                        await saveMessage(phone, 'Atendente humano assumiu o controle.', 'outbound', 'system');
+                        return res.status(200).json({ ok: true });
+                    } catch (error) { return res.status(500).json({ error: error.message }); }
                 }
 
-                // Salvar resposta do bot
-                await saveMessage(from, botResponse, 'outbound', 'bot', contactName);
+                if (action === 'release') {
+                    try {
+                        await supabase.from('conversations').upsert({ 
+                            phone_number: phone, status: 'bot', updated_at: new Date().toISOString() 
+                        }, { onConflict: 'phone_number' });
+                        await saveMessage(phone, 'Robo reassumiu o atendimento.', 'outbound', 'system');
+                        return res.status(200).json({ ok: true });
+                    } catch (error) { return res.status(500).json({ error: error.message }); }
+                }
 
-                return res.status(200).json({ success: true, response: botResponse, whatsappSent });
-
-            } catch (error) {
-                console.error('Erro critico no webhook WhatsApp:', error);
-                return res.status(200).json({ error: error.message, handled: true });
+                if (action === 'send') {
+                    try {
+                        const message = body.message;
+                        if (!message) return res.status(400).json({ error: 'Message required' });
+                        await saveMessage(phone, message, 'outbound', 'human');
+                        if (WHATSAPP_TOKEN && WHATSAPP_PHONE_ID) await sendWhatsAppMessage(phone, message);
+                        return res.status(200).json({ ok: true });
+                    } catch (error) { return res.status(500).json({ error: error.message }); }
+                }
             }
+
+            // ==========================================
+            // POST DO WHATSAPP (Meta Webhook)
+            // ==========================================
+            if (isWhatsAppPost || !isPainelPost) {
+                try {
+                    const body = req.body;
+                    console.log('Processando mensagem WhatsApp...');
+
+                    const entry = body.entry?.[0];
+                    const changes = entry?.changes?.[0];
+                    const value = changes?.value;
+                    const message = value?.messages?.[0];
+
+                    if (!message || message.type !== 'text') {
+                        return res.status(200).send('OK');
+                    }
+
+                    const from = message.from;
+                    const text = message.text?.body || '';
+                    const contactName = value?.contacts?.[0]?.profile?.name || from;
+
+                    console.log(`Mensagem de ${from}: ${text}`);
+
+                    // BUSCAR TREINAMENTO
+                    let training = await getLatestTraining();
+
+                    if (!training) {
+                        console.log('Treinamento nao encontrado, usando padrao...');
+                        training = getDefaultTraining();
+                        await createDefaultTrainingIfNotExists();
+                    }
+
+                    // Verificar se bot esta ativo
+                    if (training.active === false) {
+                        console.log('Bot desativado pelo painel');
+                        await saveMessage(from, text, 'inbound', 'human', contactName);
+                        return res.status(200).send('Bot desativado');
+                    }
+
+                    // Salvar mensagem do cliente
+                    await saveMessage(from, text, 'inbound', 'bot', contactName);
+
+                    // Verificar modo humano
+                    let conversationStatus = 'bot';
+                    try {
+                        const { data: conversation } = await supabase
+                            .from('conversations').select('status').eq('phone_number', from).single();
+                        if (conversation) conversationStatus = conversation.status;
+                    } catch (e) {}
+
+                    if (conversationStatus === 'human') {
+                        console.log('Modo humano ativo');
+                        return res.status(200).send('Modo humano');
+                    }
+
+                    // Gerar resposta
+                    const botResponse = generateResponse(text, training, from);
+                    console.log('Resposta:', botResponse);
+
+                    // Enviar pelo WhatsApp
+                    let whatsappSent = false;
+                    if (WHATSAPP_TOKEN && WHATSAPP_PHONE_ID) {
+                        try {
+                            await sendWhatsAppMessage(from, botResponse);
+                            whatsappSent = true;
+                            console.log('Enviado para WhatsApp');
+                        } catch (waError) {
+                            console.error('Erro WhatsApp API:', waError.message);
+                        }
+                    }
+
+                    // Salvar resposta do bot
+                    await saveMessage(from, botResponse, 'outbound', 'bot', contactName);
+
+                    return res.status(200).json({ success: true, response: botResponse, whatsappSent });
+
+                } catch (error) {
+                    console.error('Erro no webhook WhatsApp:', error);
+                    return res.status(200).json({ error: error.message, handled: true });
+                }
+            }
+
+            // POST desconhecido
+            console.log('POST nao reconhecido');
+            return res.status(200).send('OK');
         }
 
-        // Se chegou aqui, e um POST desconhecido
-        return res.status(400).json({ error: 'POST nao reconhecido' });
-    }
+        return res.status(405).send('Method not allowed');
 
-    return res.status(405).send('Method not allowed');
+    } catch (globalError) {
+        console.error('ERRO GLOBAL no handler:', globalError);
+        return res.status(500).json({ 
+            error: 'Erro interno', 
+            message: globalError.message 
+        });
+    }
 }
 
 // ==========================================
@@ -368,7 +398,7 @@ async function getLatestTraining() {
     const now = Date.now();
 
     if (trainingCache && (now - cacheTimestamp) < CACHE_TTL) {
-        console.log('Usando cache do treinamento');
+        console.log('Usando cache');
         return trainingCache;
     }
 
@@ -381,9 +411,9 @@ async function getLatestTraining() {
             .single();
 
         if (error) {
-            console.error('Erro ao buscar treinamento:', error.message, 'Codigo:', error.code);
+            console.error('Erro buscar treinamento:', error.message, 'Codigo:', error.code);
             if (error.code === 'PGRST116') {
-                console.log('Nenhum treinamento encontrado no Supabase');
+                console.log('Nenhum treinamento encontrado');
                 return null;
             }
             if (trainingCache) return trainingCache;
@@ -391,26 +421,22 @@ async function getLatestTraining() {
         }
 
         if (data) {
-            if (cacheUpdatedAt && data.updated_at && new Date(data.updated_at) <= new Date(cacheUpdatedAt)) {
-                cacheTimestamp = now;
-                return trainingCache;
-            }
             trainingCache = data;
             cacheTimestamp = now;
             cacheUpdatedAt = data.updated_at;
-            console.log('Treinamento carregado do Supabase:', data.bot_name, 'FAQ:', (data.faq_data || []).length);
+            console.log('Treinamento carregado:', data.bot_name);
             return data;
         }
         return null;
     } catch (e) {
-        console.error('Excecao ao buscar treinamento:', e.message);
+        console.error('Excecao:', e.message);
         if (trainingCache) return trainingCache;
         return null;
     }
 }
 
 // ==========================================
-// CRIAR TREINAMENTO PADRAO SE NAO EXISTIR
+// CRIAR TREINAMENTO PADRAO
 // ==========================================
 async function createDefaultTrainingIfNotExists() {
     try {
@@ -418,38 +444,35 @@ async function createDefaultTrainingIfNotExists() {
         const { data, error } = await supabase
             .from('bot_training')
             .insert(defaultTraining)
-            .select()
-            .single();
+            .select();
 
         if (error) {
-            console.log('Nao foi possivel criar padrao no Supabase:', error.message);
+            console.log('Nao criou padrao:', error.message);
             return false;
         }
 
-        console.log('Treinamento padrao criado no Supabase com ID:', data.id);
-        trainingCache = data;
+        console.log('Padrao criado ID:', data?.[0]?.id);
+        trainingCache = data?.[0];
         cacheTimestamp = Date.now();
-        cacheUpdatedAt = data.updated_at;
+        cacheUpdatedAt = data?.[0]?.updated_at;
         return true;
     } catch (e) {
-        console.error('Erro ao criar padrao:', e.message);
+        console.error('Erro criar padrao:', e.message);
         return false;
     }
 }
 
 // ==========================================
-// GERAR RESPOSTA DO BOT
+// GERAR RESPOSTA
 // ==========================================
 function generateResponse(userMessage, training, phoneNumber) {
     const msg = userMessage.toLowerCase().trim();
 
-    // 1. Saudacoes
     const greetings = ['oi', 'ola', 'olá', 'bom dia', 'boa tarde', 'boa noite', 'hey', 'hi', 'hello', 'eai', 'eae'];
     if (greetings.some(g => msg === g || msg.startsWith(g + ' ') || msg.endsWith(' ' + g))) {
         return training.greeting_message || 'Ola! Como posso ajudar?';
     }
 
-    // 2. FAQ Inteligente
     const faq = training.faq_data || [];
     for (const item of faq) {
         if (!item.question || !item.answer) continue;
@@ -460,52 +483,33 @@ function generateResponse(userMessage, training, phoneNumber) {
         }
     }
 
-    // 3. Palavras-chave por categoria
-    if (/preco|preco|valor|custa|quanto|cobrar|custo|orcamento|orcamento/i.test(msg)) {
-        return (training.pricing_info || 'Entre em contato para orcamento.') + '\n\nPosso agendar um orcamento gratuito para voce! Qual equipamento precisa de assistencia?';
+    if (/preco|valor|custa|quanto|orcamento/i.test(msg)) {
+        return (training.pricing_info || 'Entre em contato para orcamento.') + '\n\nPosso agendar um orcamento gratuito!';
     }
 
-    if (/horario|hora|horario|aberto|funciona|atende|abre|fecha/i.test(msg)) {
-        return '⏰ ' + (training.business_hours || 'Horario comercial') + '\n\nEstamos prontos para te atender! 😊';
+    if (/horario|hora|aberto|funciona/i.test(msg)) {
+        return '⏰ ' + (training.business_hours || 'Horario comercial') + '\n\nEstamos prontos!';
     }
 
-    if (/servico|servico|servicos|faz|conserta|concerta|arruma|troca|reparo|reparar/i.test(msg)) {
-        return '🔧 ' + (training.services || 'Oferecemos diversos servicos.') + '\n\nQual desses servicos voce precisa? Posso te passar mais detalhes!';
+    if (/servico|conserta|reparo|arruma/i.test(msg)) {
+        return '🔧 ' + (training.services || 'Diversos servicos.') + '\n\nQual voce precisa?';
     }
 
-    if (/local|endereco|endereco|onde|fica|chegar|maps/i.test(msg)) {
-        return '📍 Nossa assistencia fica em local de facil acesso! Voce pode buscar no Google Maps por "' + (training.company_name || 'nossa empresa') + '".';
-    }
-
-    if (/garantia|garante|garantir/i.test(msg)) {
-        return '✅ Todos os nossos servicos possuem garantia! O prazo varia conforme o tipo de reparo (geralmente 30 a 90 dias).\n\nA garantia cobre o mesmo defeito reparado. Quer saber mais sobre algum servico especifico?';
-    }
-
-    if (/prazo|tempo|demora|rapido|demorar|urgente/i.test(msg)) {
-        return '⏱️ O prazo depende do defeito e da disponibilidade de pecas.\n\nFazemos orcamento em ate 24h! Qual equipamento voce tem?';
-    }
-
-    if (/agendar|marcar|quando|posso ir|visita|agendamento/i.test(msg)) {
-        return '📅 Perfeito! Para agendar, preciso saber:\n1️⃣ Qual equipamento?\n2️⃣ Qual o problema/defeito?\n3️⃣ Qual dia e horario prefere?\n\nOu se preferir, posso transferir voce para um atendente humano agora mesmo! 👨‍💼';
-    }
-
-    // 4. Escalonamento para humano
-    const escalationWords = training.escalation_keywords || ['atendente', 'humano', 'pessoa', 'reclamacao', 'problema grave', 'cancelar', 'chefe', 'gerente', 'supervisor'];
+    const escalationWords = training.escalation_keywords || [];
     if (escalationWords.some(word => msg.includes(word.toLowerCase()))) {
         if (phoneNumber) {
             supabase.from('conversations').upsert({ 
-                phone_number: phoneNumber, status: 'human', updated_at: new Date().toISOString(), contact_name: 'Cliente'
-            }, { onConflict: 'phone_number' }).then(() => console.log('Conversa transferida para humano:', phoneNumber)).catch(() => {});
+                phone_number: phoneNumber, status: 'human', updated_at: new Date().toISOString()
+            }, { onConflict: 'phone_number' }).catch(() => {});
         }
-        return '👨‍💼 Entendido! Vou transferir voce para um atendente humano agora mesmo. Por favor, aguarde um momento... ⏳\n\n(Seu atendente ja foi notificado e respondera em breve!)';
+        return '👨‍💼 Transferindo para atendente humano. Aguarde...';
     }
 
-    // 5. Fallback
-    return (training.fallback_message || 'Nao entendi bem. Posso te ajudar com orcamentos, horarios, servicos e agendamentos.') + '\n\nOu digite "atendente" para falar com uma pessoa!';
+    return (training.fallback_message || 'Nao entendi.') + '\n\nOu digite "atendente"!';
 }
 
 // ==========================================
-// SALVAR MENSAGEM NO BANCO
+// SALVAR MENSAGEM
 // ==========================================
 async function saveMessage(phone, content, direction, senderType, contactName = null) {
     try {
@@ -541,11 +545,10 @@ async function saveMessage(phone, content, direction, senderType, contactName = 
 }
 
 // ==========================================
-// ENVIAR MENSAGEM PELO WHATSAPP
+// ENVIAR WHATSAPP
 // ==========================================
 async function sendWhatsAppMessage(to, text) {
     if (!WHATSAPP_TOKEN || !WHATSAPP_PHONE_ID) {
-        console.log('WhatsApp nao configurado');
         return { simulated: true };
     }
     const url = `https://graph.facebook.com/v18.0/${WHATSAPP_PHONE_ID}/messages`;

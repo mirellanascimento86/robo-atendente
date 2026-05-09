@@ -1,424 +1,405 @@
 import { createClient } from '@supabase/supabase-js';
 
+// ✅ SEUS DADOS DO SUPABASE
 const SUPABASE_URL = 'https://fwcljognwdutsagppxcq.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ3Y2xqb2dud2R1dHNhZ3BweGNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg5NjgyMzMsImV4cCI6MjA5MDQ3MjgyM30.6n8MejPbWRZlJnfZylrsK37_jwFha3FE7Xbj_Sn8VcE';
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || SUPABASE_KEY;
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ3Y2xqb2dud2R1dHNhZ3BweGNxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4OTY4MjMsImV4cCI6MjA5MDQ3MjgyM30.6n8MejPbWRZlJnfZylrsK37_jwFha3FE7Xbj_Sn8VcE';
 
+// ⚠️ VARIAVEIS DE AMBIENTE DO META (configure no Vercel)
 const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
 const WHATSAPP_PHONE_ID = process.env.WHATSAPP_PHONE_ID;
-const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const TELEGRAM_GROUP_ID = process.env.TELEGRAM_GROUP_ID;
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
-  auth: { autoRefreshToken: false, persistSession: false }
-});
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-export const config = { api: { bodyParser: { sizeLimit: '2mb' } } };
-
-function cors(res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS,PUT,PATCH,DELETE');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Requested-With');
-}
-
-// Default MINIMAL — só se banco estiver VAZIO
-function defaultT() {
-  return {
-    bot_name: 'Assistente',
-    company_name: 'Empresa',
-    greeting_message: 'Ola! Como posso ajudar?',
-    personality: '',
-    services: '',
-    business_hours: '',
-    pricing_info: '',
-    fallback_message: 'Nao compreendi. Digite "atendente" para falar com humano.',
-    faq_data: [],
-    escalation_keywords: ['atendente','humano','pessoa','reclamacao','cancelar','chefe','gerente','supervisor'],
-    active: true,
-  };
-}
-
-// ══════════════════════════════════════════════════════════════
-// GET TRAINING — SEMPRE do banco, NUNCA do cache
-// ══════════════════════════════════════════════════════════════
-async function getTraining() {
-  try {
-    const { data, error } = await supabase
-      .from('bot_training')
-      .select('*')
-      .order('updated_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (error) {
-      console.error('[getTraining] ERRO:', error.message);
-      return defaultT();
-    }
-
-    if (!data) {
-      console.log('[getTraining] BANCO VAZIO — usando default');
-      return defaultT();
-    }
-
-    // Garantir arrays
-    if (!Array.isArray(data.faq_data)) data.faq_data = [];
-    if (!Array.isArray(data.escalation_keywords)) data.escalation_keywords = [];
-
-    console.log('[getTraining] OK — greeting:', data.greeting_message);
-    return data;
-  } catch (e) {
-    console.error('[getTraining] EXCECAO:', e.message);
-    return defaultT();
-  }
-}
-
-// ══════════════════════════════════════════════════════════════
-// SAVE TRAINING — salva no banco
-// ══════════════════════════════════════════════════════════════
-async function saveTraining(data) {
-  if (!Array.isArray(data.faq_data)) data.faq_data = [];
-  if (!Array.isArray(data.escalation_keywords)) data.escalation_keywords = [];
-  data.updated_at = new Date().toISOString();
-
-  console.log('[saveTraining] Salvando greeting:', data.greeting_message);
-
-  try {
-    const { data: existing } = await supabase
-      .from('bot_training')
-      .select('id')
-      .order('updated_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    let result, error;
-
-    if (existing?.id) {
-      console.log('[saveTraining] UPDATE id:', existing.id);
-      ({ data: result, error } = await supabase
-        .from('bot_training')
-        .update(data)
-        .eq('id', existing.id)
-        .select()
-        .single());
-    } else {
-      console.log('[saveTraining] INSERT novo');
-      ({ data: result, error } = await supabase
-        .from('bot_training')
-        .insert(data)
-        .select()
-        .single());
-    }
-
-    if (error) {
-      console.error('[saveTraining] ERRO:', error.message);
-      throw error;
-    }
-
-    console.log('[saveTraining] OK id:', result?.id);
-    return result;
-  } catch (e) {
-    console.error('[saveTraining] EXCECAO:', e.message);
-    throw e;
-  }
-}
-
-// ══════════════════════════════════════════════════════════════
-// EXTRAINdo DADOS — aceita qualquer formato (body, query, etc)
-// ══════════════════════════════════════════════════════════════
-function extractTraining(src) {
-  let faq = src.faq_data || [];
-  let esc = src.escalation_keywords || [];
-  
-  if (typeof faq === 'string') try { faq = JSON.parse(faq); } catch { faq = []; }
-  if (typeof esc === 'string') try { esc = JSON.parse(esc); } catch { esc = []; }
-
-  return {
-    bot_name: String(src.bot_name ?? ''),
-    company_name: String(src.company_name ?? ''),
-    greeting_message: String(src.greeting_message ?? src.greeting ?? ''),
-    personality: String(src.personality ?? ''),
-    services: String(src.services ?? ''),
-    business_hours: String(src.business_hours ?? src.hours ?? ''),
-    pricing_info: String(src.pricing_info ?? src.pricing ?? ''),
-    fallback_message: String(src.fallback_message ?? src.fallback ?? ''),
-    faq_data: Array.isArray(faq) ? faq : [],
-    escalation_keywords: Array.isArray(esc) ? esc : [],
-    active: src.active !== false && src.active !== 'false',
-  };
-}
-
-const TRAINING_KEYS = ['bot_name','company_name','greeting_message','greeting','personality','services','business_hours','pricing_info','fallback_message','faq_data','escalation_keywords','active'];
-
-// ══════════════════════════════════════════════════════════════
-// GERAR RESPOSTA
-// ══════════════════════════════════════════════════════════════
-function respond(userMsg, t) {
-  const msg = (userMsg || '').toLowerCase().trim();
-  if (!msg) return { text: t.greeting_message, escalate: false, isVisit: false };
-
-  const hi = ['oi','ola','olá','bom dia','boa tarde','boa noite','hey','hi','hello','eai','eae','fala'];
-  if (hi.some(g => msg === g || msg.startsWith(g + ' ')))
-    return { text: t.greeting_message, escalate: false, isVisit: false };
-
-  const visitKw = ['agendar','visita','marcar','horario','quando','dia','data','ir ai','passar ai','vir buscar','entregar','levar'];
-  const isVisit = visitKw.some(k => msg.includes(k));
-
-  for (const item of (t.faq_data || [])) {
-    if (!item.question || !item.answer) continue;
-    const words = item.question.toLowerCase().split(/\s+/).filter(w => w.length > 2);
-    if (words.filter(w => msg.includes(w)).length >= 2 || msg.includes(item.question.toLowerCase()))
-      return { text: item.answer, escalate: false, isVisit };
-  }
-
-  if (/preco|valor|custa|quanto|orcamento/i.test(msg))
-    return { text: (t.pricing_info||'Consulte-nos.')+'\n\nPosso agendar um orcamento gratuito!', escalate:false, isVisit };
-
-  if (/horario|hora|aberto|funciona/i.test(msg))
-    return { text: '⏰ '+(t.business_hours||'Horario comercial')+'\n\nEstamos prontos!', escalate:false, isVisit };
-
-  if (/servico|conserta|reparo|arruma|troca/i.test(msg))
-    return { text: '🔧 '+(t.services||'Diversos servicos.')+'\n\nQual voce precisa?', escalate:false, isVisit };
-
-  if ((t.escalation_keywords||[]).some(w => msg.includes(w.toLowerCase())))
-    return { text: '👨‍💼 Entendido! Transferindo para atendente humano. Aguarde...', escalate:true, isVisit:false };
-
-  if (isVisit)
-    return { text: 'Perfeito! Vou registrar seu interesse.\n\n'+(t.business_hours||''), escalate:false, isVisit:true };
-
-  return { text: (t.fallback_message||'Nao compreendi.')+'\n\nOu digite "atendente"!', escalate:false, isVisit:false };
-}
-
-// ══════════════════════════════════════════════════════════════
-// TELEGRAM
-// ══════════════════════════════════════════════════════════════
-async function telegram(msg) {
-  if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_GROUP_ID) return;
-  try {
-    await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chat_id: TELEGRAM_GROUP_ID, text: msg, parse_mode: 'HTML', disable_web_page_preview: true }),
-    });
-  } catch (e) { console.error('[telegram]', e.message); }
-}
-
-// ══════════════════════════════════════════════════════════════
-// SALVAR MENSAGEM
-// ══════════════════════════════════════════════════════════════
-async function saveMsg(phone, content, direction, senderType, contactName = null) {
-  try {
-    const { data: ex } = await supabase.from('conversations').select('id').eq('phone_number', phone).maybeSingle();
-    let convId;
-    if (ex?.id) {
-      convId = ex.id;
-      await supabase.from('conversations').update({
-        contact_name: contactName||undefined, last_message: content,
-        last_message_time: new Date().toISOString(), unread: direction==='inbound',
-        updated_at: new Date().toISOString(),
-      }).eq('id', convId);
-    } else {
-      const { data: nc } = await supabase.from('conversations').insert({
-        phone_number: phone, contact_name: contactName, status: 'bot', last_message: content,
-        last_message_time: new Date().toISOString(), unread: direction==='inbound',
-        created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
-      }).select().single();
-      convId = nc?.id;
-    }
-    await supabase.from('messages').insert({
-      conversation_id: convId, phone_number: phone,
-      direction, content, sender_type: senderType, created_at: new Date().toISOString(),
-    });
-  } catch (e) { console.error('[saveMsg]', e.message); }
-}
-
-// ══════════════════════════════════════════════════════════════
-// WHATSAPP SEND
-// ══════════════════════════════════════════════════════════════
-async function sendWA(to, text) {
-  if (!WHATSAPP_TOKEN || !WHATSAPP_PHONE_ID) return { simulated: true };
-  const r = await fetch(`https://graph.facebook.com/v18.0/${WHATSAPP_PHONE_ID}/messages`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${WHATSAPP_TOKEN}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ messaging_product:'whatsapp', recipient_type:'individual', to, type:'text', text:{ body:text } }),
-  });
-  const d = await r.json();
-  if (!r.ok) throw new Error(d.error?.message || `WA ${r.status}`);
-  return d;
-}
-
-// ══════════════════════════════════════════════════════════════
-// HANDLER PRINCIPAL
-// ══════════════════════════════════════════════════════════════
 export default async function handler(req, res) {
-  cors(res);
-  if (req.method === 'OPTIONS') return res.status(200).end();
-
-  let body = req.body || {};
-  if (typeof body === 'string') { try { body = JSON.parse(body); } catch { body = {}; } }
-
-  const q = req.query || {};
-  console.log(`\n=== ${req.method} action=${q.action || 'none'} ===`);
-
-  try {
-
-    // ══════ GET ═══════════════════════════════════════════════
+    // ==========================================
+    // VERIFICACAO DO WEBHOOK (Meta)
+    // ==========================================
     if (req.method === 'GET') {
+        const mode = req.query['hub.mode'];
+        const challenge = req.query['hub.challenge'];
 
-      // Verificação Meta
-      if (q['hub.mode'] === 'subscribe' && q['hub.challenge'])
-        return res.status(200).send(q['hub.challenge']);
-
-      // GET status — retorna TODOS os campos do training
-      if (!q.action || q.action === 'status') {
-        const t = await getTraining();
-        return res.status(200).json({
-          success: true,
-          status: 'online',
-          ...t,
-          greeting: t.greeting_message,
-          bot_active: t.active,
-        });
-      }
-
-      // Salvar config via GET (fallback)
-      if (q.action === 'updateconfig' || q.action === 'saveconfig') {
-        const d = extractTraining(q);
-        const saved = await saveTraining(d);
-        const confirmed = await getTraining();
-        return res.status(200).json({
-          success: true,
-          method: 'GET',
-          confirmed_greeting: confirmed.greeting_message,
-          confirmed_active: confirmed.active,
-          id: saved?.id,
-        });
-      }
-
-      if (q.action === 'list') {
-        const { data } = await supabase.from('conversations').select('*').order('last_message_time', { ascending: false });
-        return res.status(200).json((data||[]).map(c => ({
-          telefone: c.phone_number, nome: c.contact_name || c.phone_number,
-          emIntervencao: c.status === 'human', etapa: c.status,
-          ultimaAtividade: c.last_message_time, ultima: c.last_message || '',
-        })));
-      }
-
-      if (q.action === 'messages') {
-        if (!q.phone) return res.status(400).json({ error: 'Phone required' });
-        const { data: conv } = await supabase.from('conversations').select('*').eq('phone_number', q.phone).single();
-        const { data: msgs } = await supabase.from('messages').select('*').eq('phone_number', q.phone).order('created_at', { ascending: true });
-        return res.status(200).json({
-          mensagens: (msgs||[]).map(m => ({
-            data: m.created_at,
-            tipo: m.direction === 'outbound' ? (m.sender_type === 'human' ? 'humano' : 'bot') : 'cliente',
-            mensagem: m.content,
-            nome: m.sender_type === 'human' ? 'Voce' : (m.sender_type === 'bot' ? 'Bot' : 'Cliente'),
-          })),
-          emIntervencao: conv?.status === 'human',
-        });
-      }
-
-      return res.status(200).json({ ok: true });
+        if (mode === 'subscribe') {
+            console.log('✅ Webhook verificado pelo Meta');
+            return res.status(200).send(challenge);
+        }
+        return res.status(403).send('Forbidden');
     }
 
-    // ══════ POST ══════════════════════════════════════════════
+    // ==========================================
+    // API DO PAINEL DE INTERVENCAO (GET)
+    // ==========================================
+    if (req.method === 'GET' && req.query.action) {
+        const action = req.query.action;
+
+        // LISTAR CONVERSAS
+        if (action === 'list') {
+            try {
+                const { data: conversations, error } = await supabase
+                    .from('conversations')
+                    .select('*')
+                    .order('last_message_time', { ascending: false });
+
+                if (error) throw error;
+
+                const conversas = (conversations || []).map(conv => ({
+                    telefone: conv.phone_number,
+                    nome: conv.contact_name || conv.phone_number,
+                    emIntervencao: conv.status === 'human',
+                    etapa: conv.status,
+                    ultimaAtividade: conv.last_message_time,
+                    ultima: conv.last_message || 'Sem mensagens',
+                    mensagens: []
+                }));
+
+                return res.status(200).json(conversas);
+            } catch (error) {
+                console.error('❌ Erro listar:', error);
+                return res.status(500).json({ error: error.message });
+            }
+        }
+
+        // BUSCAR MENSAGENS DE UMA CONVERSA
+        if (action === 'messages') {
+            const phone = req.query.phone;
+            if (!phone) return res.status(400).json({ error: 'Phone required' });
+
+            try {
+                const { data: conversation } = await supabase
+                    .from('conversations')
+                    .select('*')
+                    .eq('phone_number', phone)
+                    .single();
+
+                const { data: messages, error } = await supabase
+                    .from('messages')
+                    .select('*')
+                    .eq('phone_number', phone)
+                    .order('created_at', { ascending: true });
+
+                if (error) throw error;
+
+                const mensagens = (messages || []).map(msg => ({
+                    data: msg.created_at,
+                    timestamp: msg.created_at,
+                    tipo: msg.direction === 'outbound' ? (msg.sender_type === 'human' ? 'humano' : 'bot') : 'cliente',
+                    from: msg.direction === 'outbound' ? (msg.sender_type === 'human' ? 'humano' : 'bot') : 'cliente',
+                    mensagem: msg.content,
+                    texto: msg.content,
+                    content: msg.content,
+                    message: msg.content,
+                    nome: msg.sender_type === 'human' ? 'Voce' : (msg.sender_type === 'bot' ? 'Bot' : 'Cliente')
+                }));
+
+                return res.status(200).json({
+                    mensagens: mensagens,
+                    emIntervencao: conversation?.status === 'human'
+                });
+            } catch (error) {
+                console.error('❌ Erro mensagens:', error);
+                return res.status(500).json({ error: error.message });
+            }
+        }
+    }
+
+    // ==========================================
+    // ACOES DO PAINEL (POST)
+    // ==========================================
+    if (req.method === 'POST' && req.query.action) {
+        const action = req.query.action;
+        const body = req.body;
+        const phone = body.phone;
+
+        // ASSUMIR CONTROLE (Intervencao Humana)
+        if (action === 'intervene') {
+            try {
+                await supabase
+                    .from('conversations')
+                    .update({ status: 'human', updated_at: new Date().toISOString() })
+                    .eq('phone_number', phone);
+
+                await saveMessage(phone, '👨‍💼 Atendente humano assumiu o controle da conversa.', 'outbound', 'system');
+
+                return res.status(200).json({ ok: true, message: 'Intervencao ativada' });
+            } catch (error) {
+                return res.status(500).json({ error: error.message });
+            }
+        }
+
+        // LIBERAR ROBO
+        if (action === 'release') {
+            try {
+                await supabase
+                    .from('conversations')
+                    .update({ status: 'bot', updated_at: new Date().toISOString() })
+                    .eq('phone_number', phone);
+
+                await saveMessage(phone, '🤖 Robo reassumiu o atendimento.', 'outbound', 'system');
+
+                return res.status(200).json({ ok: true, message: 'Robo liberado' });
+            } catch (error) {
+                return res.status(500).json({ error: error.message });
+            }
+        }
+
+        // ENVIAR MENSAGEM PELO PAINEL
+        if (action === 'send') {
+            try {
+                const message = body.message;
+                if (!message) return res.status(400).json({ error: 'Message required' });
+
+                await saveMessage(phone, message, 'outbound', 'human');
+
+                if (WHATSAPP_TOKEN && WHATSAPP_PHONE_ID) {
+                    await sendWhatsAppMessage(phone, message);
+                }
+
+                return res.status(200).json({ ok: true, message: 'Mensagem enviada' });
+            } catch (error) {
+                return res.status(500).json({ error: error.message });
+            }
+        }
+    }
+
+    // ==========================================
+    // RECEBIMENTO DE MENSAGENS DO WHATSAPP
+    // ==========================================
     if (req.method === 'POST') {
+        try {
+            const body = req.body;
+            console.log('📩 Webhook recebido:', JSON.stringify(body));
 
-      // Ações do painel
-      if (q.action === 'intervene') {
-        await supabase.from('conversations').upsert(
-          { phone_number: body.phone, status: 'human', updated_at: new Date().toISOString() },
-          { onConflict: 'phone_number' }
-        );
-        await saveMsg(body.phone, 'Atendente humano assumiu.', 'outbound', 'system');
-        return res.status(200).json({ ok: true });
-      }
+            const entry = body.entry?.[0];
+            const changes = entry?.changes?.[0];
+            const value = changes?.value;
+            const message = value?.messages?.[0];
 
-      if (q.action === 'release') {
-        await supabase.from('conversations').upsert(
-          { phone_number: body.phone, status: 'bot', updated_at: new Date().toISOString() },
-          { onConflict: 'phone_number' }
-        );
-        await saveMsg(body.phone, 'Bot reassumiu.', 'outbound', 'system');
-        return res.status(200).json({ ok: true });
-      }
+            if (!message || message.type !== 'text') {
+                return res.status(200).send('OK');
+            }
 
-      if (q.action === 'send') {
-        if (!body.message) return res.status(400).json({ error: 'Message required' });
-        await saveMsg(body.phone, body.message, 'outbound', 'human');
-        if (WHATSAPP_TOKEN) await sendWA(body.phone, body.message);
-        return res.status(200).json({ ok: true });
-      }
+            const from = message.from;
+            const text = message.text?.body || '';
+            const contactName = value?.contacts?.[0]?.profile?.name || from;
 
-      // ── WHATSAPP WEBHOOK ───────────────────────────────────
-      if (body.object === 'whatsapp_business_account') {
-        const msgs = body.entry?.[0]?.changes?.[0]?.value?.messages;
-        if (!msgs?.length) return res.status(200).send('OK');
-        
-        const message = msgs[0];
-        if (message.type !== 'text') return res.status(200).send('OK');
+            // 1. Buscar configuracao atual do bot no Supabase
+            const { data: training, error: trainingError } = await supabase
+                .from('bot_training')
+                .select('*')
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .single();
 
-        const from = message.from;
-        const text = message.text?.body || '';
-        const contactName = body.entry?.[0]?.changes?.[0]?.value?.contacts?.[0]?.profile?.name || from;
+            if (trainingError || !training) {
+                console.error('Erro ao buscar treinamento:', trainingError);
+                await saveMessage(from, text, 'inbound', 'human', contactName);
+                return res.status(200).send('OK - Sem treinamento');
+            }
 
-        console.log(`[WA] ${from}: "${text}"`);
+            // 2. Verificar se bot esta ativo
+            if (!training.active) {
+                await saveMessage(from, text, 'inbound', 'human', contactName);
+                return res.status(200).send('Bot desativado');
+            }
 
-        // BUSCAR TRAINING DO BANCO — SEMPRE
-        const t = await getTraining();
-        console.log('[WA] Training usado:', t.greeting_message?.substring(0, 50));
+            // 3. Salvar mensagem do cliente
+            await saveMessage(from, text, 'inbound', 'bot', contactName);
 
-        if (!t.active) {
-          await saveMsg(from, text, 'inbound', 'human', contactName);
-          return res.status(200).send('Bot off');
+            // 4. Verificar se conversa esta em modo humano
+            const { data: conversation } = await supabase
+                .from('conversations')
+                .select('status')
+                .eq('phone_number', from)
+                .single();
+
+            if (conversation?.status === 'human') {
+                return res.status(200).send('Modo humano ativo');
+            }
+
+            // 5. Gerar resposta do bot baseada no treinamento
+            const botResponse = generateResponse(text, training);
+
+            // 6. Enviar resposta pelo WhatsApp
+            if (WHATSAPP_TOKEN && WHATSAPP_PHONE_ID) {
+                await sendWhatsAppMessage(from, botResponse);
+            } else {
+                console.log('⚠️ Token nao configurado. Resposta simulada:', botResponse);
+            }
+
+            // 7. Salvar resposta do bot
+            await saveMessage(from, botResponse, 'outbound', 'bot', contactName);
+
+            return res.status(200).json({ 
+                success: true, 
+                response: botResponse,
+                phone: from 
+            });
+
+        } catch (error) {
+            console.error('❌ Erro no webhook:', error);
+            return res.status(500).json({ error: error.message });
         }
-
-        await saveMsg(from, text, 'inbound', 'bot', contactName);
-
-        const { data: conv } = await supabase.from('conversations').select('status').eq('phone_number', from).maybeSingle();
-        if (conv?.status === 'human') return res.status(200).send('Human mode');
-
-        const r = respond(text, t);
-        console.log('[WA] Resposta:', r.text.substring(0, 100));
-
-        try { await sendWA(from, r.text); } catch(e) { console.error('[WA] send erro:', e.message); }
-        await saveMsg(from, r.text, 'outbound', 'bot', contactName);
-
-        if (r.escalate) {
-          await telegram(`🚨 <b>INTERVENÇÃO HUMANA</b>\n\n📱 ${contactName}\n🔢 ${from}\n💬 "${text}"\n\n🔗 <a href="https://wa.me/${from.replace(/\D/g,'')}">Atender</a>`);
-          await supabase.from('conversations').upsert(
-            { phone_number: from, status: 'human', updated_at: new Date().toISOString() },
-            { onConflict: 'phone_number' }
-          );
-        }
-
-        if (r.isVisit) {
-          await telegram(`📅 <b>VISITA AGENDADA</b>\n\n📱 ${contactName}\n🔢 ${from}\n📝 "${text}"\n\n🔗 <a href="https://wa.me/${from.replace(/\D/g,'')}">Abrir</a>`);
-        }
-
-        return res.status(200).json({ success: true, response: r.text });
-      }
-
-      // ── SALVAR TREINAMENTO DO PAINEL (POST direto) ─────────
-      if (TRAINING_KEYS.some(k => k in body)) {
-        console.log('[PAINEL] Recebido POST de treinamento');
-        const d = extractTraining(body);
-        const saved = await saveTraining(d);
-        const confirmed = await getTraining();
-        return res.status(200).json({
-          success: true,
-          confirmed_greeting: confirmed.greeting_message,
-          confirmed_active: confirmed.active,
-          id: saved?.id,
-        });
-      }
-
-      return res.status(200).json({ ok: true });
     }
 
-    return res.status(405).json({ error: 'Method not allowed' });
+    return res.status(405).send('Method not allowed');
+}
 
-  } catch (err) {
-    console.error('[ERR]', err.message);
-    return res.status(200).json({ error: true, message: err.message });
-  }
+// ==========================================
+// FUNCAO PRINCIPAL DE GERACAO DE RESPOSTA
+// ==========================================
+function generateResponse(userMessage, training) {
+    const msg = userMessage.toLowerCase().trim();
+
+    // 1. Saudacoes
+    const greetings = ['oi', 'ola', 'ola', 'bom dia', 'boa tarde', 'boa noite', 'hey', 'hi', 'hello', 'eai', 'eae', 'ola!', 'oi!'];
+    if (greetings.some(g => msg.includes(g))) {
+        return training.greeting_message || 'Ola! Como posso ajudar?';
+    }
+
+    // 2. FAQ Inteligente
+    const faq = training.faq_data || [];
+    for (const item of faq) {
+        const questionWords = item.question.toLowerCase().split(' ').filter(w => w.length > 2);
+        const matchCount = questionWords.filter(word => msg.includes(word)).length;
+        if (matchCount >= 2 || msg.includes(item.question.toLowerCase())) {
+            return item.answer;
+        }
+    }
+
+    // 3. Palavras-chave por categoria
+    if (msg.includes('preco') || msg.includes('valor') || msg.includes('custa') || msg.includes('quanto') || msg.includes('cobrar')) {
+        return (training.pricing_info || 'Entre em contato para orcamento.') + '\n\nPosso agendar um orcamento gratuito para voce! Qual equipamento precisa de assistencia?';
+    }
+
+    if (msg.includes('horario') || msg.includes('hora') || msg.includes('aberto') || msg.includes('funciona') || msg.includes('atende') || msg.includes('abre')) {
+        return '⏰ ' + (training.business_hours || 'Horario comercial') + '\n\nEstamos prontos para te atender! 😊';
+    }
+
+    if (msg.includes('servico') || msg.includes('faz') || msg.includes('conserta') || msg.includes('concerta') || msg.includes('arruma') || msg.includes('troca') || msg.includes('reparo')) {
+        return '🔧 ' + (training.services || 'Oferecemos diversos servicos.') + '\n\nQual desses servicos voce precisa? Posso te passar mais detalhes!';
+    }
+
+    if (msg.includes('local') || msg.includes('endereco') || msg.includes('onde') || msg.includes('fica') || msg.includes('chegar')) {
+        return '📍 Nossa assistencia fica em local de facil acesso! Posso te enviar a localizacao ou voce pode buscar no Google Maps por "' + (training.company_name || 'nossa empresa') + '".';
+    }
+
+    if (msg.includes('garantia') || msg.includes('garante') || msg.includes('garantir')) {
+        return '✅ Todos os nossos servicos possuem garantia! O prazo varia conforme o tipo de reparo (geralmente 30 a 90 dias).\n\nA garantia cobre o mesmo defeito reparado. Quer saber mais sobre algum servico especifico?';
+    }
+
+    if (msg.includes('prazo') || msg.includes('tempo') || msg.includes('demora') || msg.includes('rapido') || msg.includes('demorar')) {
+        return '⏱️ O prazo depende do defeito e da disponibilidade de pecas.\n\nFazemos orcamento em ate 24h! Qual equipamento voce tem?';
+    }
+
+    if (msg.includes('agendar') || msg.includes('marcar') || msg.includes('quando') || msg.includes('posso ir') || msg.includes('visita')) {
+        return '📅 Perfeito! Para agendar, preciso saber:\n1️⃣ Qual equipamento?\n2️⃣ Qual o problema/defeito?\n3️⃣ Qual dia e horario prefere?\n\nOu se preferir, posso transferir voce para um atendente humano agora mesmo! 👨‍💼';
+    }
+
+    // 4. Escalonamento para humano
+    const escalationWords = training.escalation_keywords || ['atendente', 'humano', 'pessoa', 'reclamacao', 'problema grave', 'cancelar', 'chefe', 'gerente', 'supervisor'];
+    if (escalationWords.some(word => msg.includes(word))) {
+        // Transferir para humano
+        supabase
+            .from('conversations')
+            .update({ status: 'human', updated_at: new Date().toISOString() })
+            .eq('phone_number', from)
+            .then(() => console.log('🔄 Conversa transferida para humano'))
+            .catch(err => console.error('Erro ao transferir:', err));
+
+        return '👨‍💼 Entendido! Vou transferir voce para um atendente humano agora mesmo. Por favor, aguarde um momento... ⏳\n\n(Seu atendente ja foi notificado e respondera em breve!)';
+    }
+
+    // 5. Fallback
+    return (training.fallback_message || 'Nao entendi bem. Posso te ajudar com orcamentos, horarios, servicos e agendamentos.') + '\n\nOu digite "atendente" para falar com uma pessoa!';
+}
+
+// ==========================================
+// SALVAR MENSAGEM NO BANCO
+// ==========================================
+async function saveMessage(phone, content, direction, senderType, contactName = null) {
+    try {
+        // Buscar ou criar conversa
+        let { data: conversation } = await supabase
+            .from('conversations')
+            .select('id')
+            .eq('phone_number', phone)
+            .single();
+
+        if (!conversation) {
+            const { data: newConv, error: convError } = await supabase
+                .from('conversations')
+                .insert({
+                    phone_number: phone,
+                    contact_name: contactName,
+                    status: 'bot',
+                    last_message: content,
+                    last_message_time: new Date().toISOString(),
+                    unread: true
+                })
+                .select()
+                .single();
+
+            if (convError) throw convError;
+            conversation = newConv;
+        } else {
+            await supabase
+                .from('conversations')
+                .update({
+                    contact_name: contactName || undefined,
+                    last_message: content,
+                    last_message_time: new Date().toISOString(),
+                    unread: true
+                })
+                .eq('id', conversation.id);
+        }
+
+        // Inserir mensagem
+        const { error: msgError } = await supabase.from('messages').insert({
+            conversation_id: conversation.id,
+            phone_number: phone,
+            direction: direction,
+            content: content,
+            sender_type: senderType
+        });
+
+        if (msgError) throw msgError;
+
+    } catch (error) {
+        console.error('❌ Erro ao salvar mensagem:', error);
+    }
+}
+
+// ==========================================
+// ENVIAR MENSAGEM PELO WHATSAPP (API META)
+// ==========================================
+async function sendWhatsAppMessage(to, text) {
+    try {
+        const response = await fetch(`https://graph.facebook.com/v18.0/${WHATSAPP_PHONE_ID}/messages`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${WHATSAPP_TOKEN}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                messaging_product: 'whatsapp',
+                recipient_type: 'individual',
+                to: to,
+                type: 'text',
+                text: { body: text }
+            })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            console.error('❌ Erro WhatsApp API:', data);
+            throw new Error(data.error?.message || 'Erro ao enviar mensagem');
+        }
+
+        console.log('✅ Mensagem enviada:', data);
+        return data;
+
+    } catch (error) {
+        console.error('❌ Erro ao enviar WhatsApp:', error);
+        throw error;
+    }
 }

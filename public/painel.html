@@ -4,8 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#075e54">
-    <title>WhatsApp Pro - Painel de Intervenção</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
+    <title>WhatsApp Pro</title>
     <style>
         * { 
             margin: 0; 
@@ -14,7 +13,7 @@
             -webkit-tap-highlight-color: transparent;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
         }
-
+        
         :root {
             --primary: #075e54;
             --primary-dark: #054d44;
@@ -31,7 +30,7 @@
             --danger: #f15c6d;
             --warning: #ffd700;
         }
-
+        
         body {
             background: var(--bg);
             color: var(--text);
@@ -39,7 +38,7 @@
             height: 100dvh;
             overflow: hidden;
         }
-
+        
         #loading {
             position: fixed;
             inset: 0;
@@ -63,29 +62,13 @@
         }
         @keyframes spin { to { transform: rotate(360deg); } }
         #loading p { color: white; font-size: 16px; }
-
-        #debugPanel {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            background: #ff4444;
-            color: white;
-            padding: 10px;
-            font-size: 12px;
-            z-index: 10000;
-            display: none;
-            max-height: 150px;
-            overflow-y: auto;
-        }
-        #debugPanel.show { display: block; }
-
+        
         #app {
             display: flex;
             height: 100%;
             width: 100%;
         }
-
+        
         .sidebar {
             width: 100%;
             height: 100%;
@@ -94,12 +77,12 @@
             flex-direction: column;
             transition: transform 0.3s ease;
         }
-
+        
         .sidebar.hidden-mobile {
             transform: translateX(-100%);
             position: absolute;
         }
-
+        
         @media (min-width: 900px) {
             .sidebar {
                 width: 380px;
@@ -112,7 +95,7 @@
                 position: relative;
             }
         }
-
+        
         .header {
             background: var(--sidebar-bg);
             padding: 12px 16px;
@@ -133,7 +116,7 @@
             gap: 8px;
             align-items: center;
         }
-
+        
         .icon-btn {
             width: 40px;
             height: 40px;
@@ -149,7 +132,7 @@
         }
         .icon-btn:hover { background: rgba(255,255,255,0.1); color: var(--text); }
         .icon-btn svg { width: 24px; height: 24px; }
-
+        
         .connection-badge {
             font-size: 11px;
             padding: 4px 10px;
@@ -159,8 +142,7 @@
             font-weight: 600;
         }
         .connection-badge.offline { background: var(--danger); }
-        .connection-badge.sync { background: var(--warning); color: #111; }
-
+        
         .search-container {
             padding: 8px 12px;
             background: var(--sidebar-bg);
@@ -183,14 +165,14 @@
             outline: none;
         }
         .search-box input::placeholder { color: var(--text-secondary); }
-
+        
         .chat-list {
             flex: 1;
             overflow-y: auto;
             overflow-x: hidden;
             padding: 8px 0;
         }
-
+        
         .chat-item {
             display: flex;
             align-items: center;
@@ -202,8 +184,7 @@
         }
         .chat-item:hover { background: rgba(255,255,255,0.05); }
         .chat-item.active { background: #2a3942; }
-        .chat-item.unread { border-left: 3px solid var(--accent); }
-
+        
         .chat-avatar {
             width: 52px;
             height: 52px;
@@ -218,7 +199,7 @@
             margin-right: 14px;
             flex-shrink: 0;
         }
-
+        
         .chat-info {
             flex: 1;
             min-width: 0;
@@ -242,7 +223,7 @@
             color: var(--accent);
             flex-shrink: 0;
         }
-
+        
         .chat-preview {
             display: flex;
             align-items: center;
@@ -253,7 +234,7 @@
             overflow: hidden;
             text-overflow: ellipsis;
         }
-
+        
         .status-indicator {
             display: inline-flex;
             align-items: center;
@@ -266,7 +247,7 @@
         }
         .status-indicator.bot { background: rgba(37, 211, 102, 0.15); color: var(--accent); }
         .status-indicator.human { background: rgba(241, 92, 109, 0.15); color: var(--danger); }
-
+        
         .chat-area {
             flex: 1;
             display: none;
@@ -276,12 +257,12 @@
             height: 100%;
         }
         .chat-area.active { display: flex; }
-
+        
         @media (min-width: 900px) {
             .chat-area { display: flex; }
             .chat-area:not(.has-chat) .chat-placeholder { display: flex; }
         }
-
+        
         .chat-header {
             background: var(--sidebar-bg);
             padding: 10px 16px;
@@ -291,7 +272,7 @@
             border-bottom: 1px solid var(--border);
             min-height: 60px;
         }
-
+        
         .chat-header-info {
             display: flex;
             align-items: center;
@@ -299,7 +280,7 @@
             flex: 1;
             min-width: 0;
         }
-
+        
         .back-btn {
             width: 40px;
             height: 40px;
@@ -315,7 +296,7 @@
             margin: -8px;
         }
         @media (min-width: 900px) { .back-btn { display: none; } }
-
+        
         .chat-title { flex: 1; min-width: 0; }
         .chat-title h3 {
             font-size: 17px;
@@ -329,12 +310,12 @@
             font-size: 13px;
             color: var(--text-secondary);
         }
-
+        
         .chat-actions {
             display: flex;
             gap: 8px;
         }
-
+        
         .action-btn {
             padding: 10px 20px;
             border: none;
@@ -351,7 +332,7 @@
         .action-btn.intervene { background: var(--danger); color: white; }
         .action-btn.release { background: var(--accent); color: #111; }
         .action-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-
+        
         .intervention-banner {
             background: linear-gradient(90deg, var(--danger), #ff6b6b);
             color: white;
@@ -365,7 +346,7 @@
             gap: 8px;
         }
         .intervention-banner.active { display: flex; }
-
+        
         .messages-container {
             flex: 1;
             overflow-y: auto;
@@ -376,7 +357,7 @@
             gap: 2px;
             background-image: url("data:image/svg+xml,%3Csvg width='400' height='400' viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 0h400v400H0z' fill='%230a1014'/%3E%3Cpath d='M0 0h400v400H0z' fill='none' stroke='%23111b21' stroke-width='2'/%3E%3C/svg%3E");
         }
-
+        
         .message {
             max-width: 85%;
             padding: 8px 12px;
@@ -391,7 +372,7 @@
             from { opacity: 0; transform: translateY(20px) scale(0.9); }
             to { opacity: 1; transform: translateY(0) scale(1); }
         }
-
+        
         .message.incoming {
             background: var(--incoming);
             align-self: flex-start;
@@ -415,9 +396,9 @@
             text-align: center;
             border: 1px solid rgba(255, 193, 7, 0.3);
         }
-
+        
         .message-content { margin-bottom: 4px; }
-
+        
         .message-meta {
             display: flex;
             align-items: center;
@@ -428,7 +409,7 @@
             margin-top: 2px;
         }
         .message.outgoing .message-meta { color: #a5f3c5; }
-
+        
         .date-separator {
             align-self: center;
             background: #1e2a30;
@@ -441,7 +422,7 @@
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
-
+        
         .input-container {
             background: var(--sidebar-bg);
             padding: 10px 16px;
@@ -450,7 +431,7 @@
             gap: 10px;
             border-top: 1px solid var(--border);
         }
-
+        
         .input-wrapper {
             flex: 1;
             background: #2a3942;
@@ -459,7 +440,7 @@
             max-height: 120px;
             overflow-y: auto;
         }
-
+        
         .input-wrapper input {
             width: 100%;
             border: none;
@@ -471,7 +452,7 @@
         }
         .input-wrapper input::placeholder { color: var(--text-secondary); }
         .input-wrapper input:disabled { opacity: 0.5; }
-
+        
         .send-btn {
             width: 48px;
             height: 48px;
@@ -490,7 +471,7 @@
         .send-btn:active:not(:disabled) { transform: scale(0.95); }
         .send-btn:disabled { background: #374248; cursor: not-allowed; }
         .send-btn svg { width: 24px; height: 24px; margin-left: 2px; }
-
+        
         .chat-placeholder {
             display: none;
             flex-direction: column;
@@ -514,61 +495,33 @@
             color: var(--text-secondary);
         }
         .chat-placeholder p { font-size: 14px; max-width: 400px; line-height: 1.6; }
-
+        
         .empty-list {
             text-align: center;
             padding: 60px 20px;
             color: var(--text-secondary);
         }
-
+        
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #374248; border-radius: 3px; }
-
+        
         @media (max-width: 899px) {
             .message { max-width: 92%; font-size: 15.5px; }
             .chat-avatar { width: 48px; height: 48px; font-size: 20px; }
             .chat-name { font-size: 15px; }
             .action-btn { padding: 8px 16px; font-size: 13px; }
         }
-
+        
         @supports (-webkit-touch-callout: none) {
             input, textarea { font-size: 16px; }
         }
-
-        .typing-indicator {
-            display: none;
-            align-self: flex-start;
-            background: var(--incoming);
-            padding: 12px 16px;
-            border-radius: 16px;
-            margin-bottom: 8px;
-        }
-        .typing-indicator.active { display: flex; }
-        .typing-indicator span {
-            width: 8px;
-            height: 8px;
-            background: var(--text-secondary);
-            border-radius: 50%;
-            display: inline-block;
-            margin: 0 2px;
-            animation: typing 1.4s infinite;
-        }
-        .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
-        .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
-        @keyframes typing {
-            0%, 60%, 100% { transform: translateY(0); }
-            30% { transform: translateY(-10px); }
-        }
     </style>
-<base target="_blank">
 </head>
 <body>
-    <div id="debugPanel"></div>
-
     <div id="loading">
         <div class="spinner"></div>
-        <p>Conectando ao Supabase...</p>
+        <p>Conectando ao painel...</p>
     </div>
 
     <div id="app">
@@ -582,10 +535,9 @@
                 </h1>
                 <div class="header-actions">
                     <span class="connection-badge" id="connectionBadge">Iniciando...</span>
-                    <button class="icon-btn" onclick="app.toggleDebug()" title="Debug">🐛</button>
                 </div>
             </div>
-
+            
             <div class="search-container">
                 <div class="search-box">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="#8696a0">
@@ -594,10 +546,10 @@
                     <input type="text" id="searchInput" placeholder="Pesquisar..." oninput="app.search(this.value)">
                 </div>
             </div>
-
+            
             <div class="chat-list" id="chatList">
                 <div class="empty-list">
-                    <p>Carregando conversas...</p>
+                    <p>Aguardando conversas...</p>
                 </div>
             </div>
         </aside>
@@ -605,8 +557,8 @@
         <main class="chat-area" id="chatArea">
             <div class="chat-placeholder" id="chatPlaceholder">
                 <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
-                <h3>WhatsApp Pro</h3>
-                <p>Selecione uma conversa para começar<br>As conversas são sincronizadas em tempo real</p>
+                <h3>WhatsApp Web</h3>
+                <p>Selecione uma conversa para começar</p>
             </div>
 
             <div id="activeChat" style="display: none; flex-direction: column; height: 100%;">
@@ -627,11 +579,7 @@
                     <span>Você assumiu o controle - Robô desativado</span>
                 </div>
 
-                <div class="messages-container" id="messagesContainer">
-                    <div class="typing-indicator" id="typingIndicator">
-                        <span></span><span></span><span></span>
-                    </div>
-                </div>
+                <div class="messages-container" id="messagesContainer"></div>
 
                 <div class="input-container">
                     <div class="input-wrapper">
@@ -648,12 +596,13 @@
 
     <script>
         // ==========================================
-        // CONFIGURAÇÃO SUPABASE
+        // CONFIGURAÇÃO
         // ==========================================
-        const SUPABASE_URL = 'https://SEU-PROJETO.supabase.co'; // SUBSTITUA
-        const SUPABASE_KEY = 'SUA-ANON-KEY'; // SUBSTITUA
-
-        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        const CONFIG = {
+            WEBHOOK_URL: window.location.origin + '/api/webhook',
+            POLL_INTERVAL: 3000,
+            CHAT_POLL_INTERVAL: 2000
+        };
 
         // ==========================================
         // APLICAÇÃO
@@ -662,167 +611,183 @@
             constructor() {
                 this.chats = new Map();
                 this.currentPhone = null;
-                this.debugMode = false;
-                this.subscription = null;
+                this.isLoadingMessages = false;
+                this.lastMessagesData = null;
+                
+                this.loadFromStorage();
                 this.init();
             }
 
-            async init() {
-                console.log('[Painel] Iniciando com Supabase Realtime...');
-
-                // Verificar conexão
-                const { error } = await supabaseClient.from('conversas').select('count', { count: 'exact' });
-
-                if (error) {
-                    console.error('[Painel] Erro Supabase:', error);
-                    this.updateStatus('offline');
-                    document.querySelector('#loading p').textContent = 'Erro de conexão. Verifique as configurações.';
-                    return;
-                }
-
+            init() {
                 setTimeout(() => {
                     document.getElementById('loading').classList.add('fade-out');
                 }, 500);
-
-                this.updateStatus('sync');
-
-                // Carregar conversas iniciais
-                await this.loadConversations();
-
-                // Inscrever em mudanças em tempo real
-                this.subscribeToChanges();
-
-                // Atualizar lista periodicamente (backup)
-                setInterval(() => this.loadConversations(), 5000);
+                
+                this.fetchConversations();
+                setInterval(() => this.fetchConversations(), CONFIG.POLL_INTERVAL);
+                
+                setInterval(() => {
+                    if (this.currentPhone && !this.isLoadingMessages) {
+                        this.fetchMessages(this.currentPhone);
+                    }
+                }, CONFIG.CHAT_POLL_INTERVAL);
+                
+                window.addEventListener('beforeunload', () => {
+                    this.saveToStorage();
+                });
             }
 
-            log(msg, type = 'info') {
-                console.log(`[Painel] ${msg}`);
-                if (this.debugMode) {
-                    const panel = document.getElementById('debugPanel');
-                    const time = new Date().toLocaleTimeString();
-                    const color = type === 'error' ? '#ff6b6b' : (type === 'success' ? '#4caf50' : 'white');
-                    panel.innerHTML += `<div style="color: ${color};">[${time}] ${msg}</div>`;
-                    panel.scrollTop = panel.scrollHeight;
+            // ==========================================
+            // LOCAL STORAGE
+            // ==========================================
+            saveToStorage() {
+                try {
+                    const data = {
+                        chats: Array.from(this.chats.entries()),
+                        timestamp: Date.now()
+                    };
+                    localStorage.setItem('whatsapp_panel_data', JSON.stringify(data));
+                } catch (e) {
+                    console.error('Erro ao salvar:', e);
                 }
             }
 
-            toggleDebug() {
-                this.debugMode = !this.debugMode;
-                document.getElementById('debugPanel').classList.toggle('show', this.debugMode);
-                this.log('Debug: ' + (this.debugMode ? 'ON' : 'OFF'));
-            }
-
-            // ==========================================
-            // SUPABASE REALTIME - SINCRONIZAÇÃO AO VIVO
-            // ==========================================
-            subscribeToChanges() {
-                // Inscrever em novas mensagens
-                this.subscription = supabaseClient
-                    .channel('whatsapp_changes')
-                    .on('postgres_changes', 
-                        { event: '*', schema: 'public', table: 'mensagens' },
-                        async (payload) => {
-                            this.log('Mudança detectada em mensagens', 'success');
-
-                            // Se a mudança é do chat atual, recarregar mensagens
-                            if (payload.new && payload.new.telefone === this.currentPhone) {
-                                await this.loadMessages(this.currentPhone);
-                            }
-
-                            // Atualizar preview na lista
-                            await this.loadConversations();
-                        }
-                    )
-                    .on('postgres_changes',
-                        { event: '*', schema: 'public', table: 'conversas' },
-                        async (payload) => {
-                            this.log('Mudança detectada em conversas', 'success');
-                            await this.loadConversations();
-
-                            // Se for a conversa atual, atualizar UI
-                            if (payload.new && payload.new.telefone === this.currentPhone) {
-                                const chat = this.chats.get(this.currentPhone);
-                                if (chat) {
-                                    chat.em_intervencao = payload.new.em_intervencao;
-                                    this.updateUI(chat);
-                                }
-                            }
-                        }
-                    )
-                    .subscribe((status) => {
-                        this.log('Realtime status: ' + status, status === 'SUBSCRIBED' ? 'success' : 'error');
-                        if (status === 'SUBSCRIBED') {
-                            this.updateStatus('online');
-                        }
-                    });
-            }
-
-            // ==========================================
-            // CARREGAR CONVERSAS DO SUPABASE
-            // ==========================================
-            async loadConversations() {
+            loadFromStorage() {
                 try {
-                    const { data: conversas, error } = await supabaseClient
-                        .from('conversas')
-                        .select('*')
-                        .order('ultima_atividade', { ascending: false });
+                    const saved = localStorage.getItem('whatsapp_panel_data');
+                    if (saved) {
+                        const data = JSON.parse(saved);
+                        if (data.chats && Array.isArray(data.chats)) {
+                            this.chats = new Map(data.chats);
+                        }
+                    }
+                } catch (e) {
+                    console.error('Erro ao carregar:', e);
+                }
+            }
 
-                    if (error) throw error;
-
-                    this.log(`Carregadas ${conversas?.length || 0} conversas`);
-
-                    // Atualizar mapa local
-                    conversas?.forEach(conv => {
-                        const existing = this.chats.get(conv.telefone);
+            // ==========================================
+            // BUSCAR CONVERSAS
+            // ==========================================
+            async fetchConversations() {
+                try {
+                    this.updateStatus('online');
+                    
+                    const url = `${CONFIG.WEBHOOK_URL}?action=list&_t=${Date.now()}`;
+                    const response = await fetch(url);
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+                    
+                    const data = await response.json();
+                    const conversas = data.conversas || data;
+                    
+                    if (!Array.isArray(conversas)) {
+                        throw new Error('Resposta não é array');
+                    }
+                    
+                    conversas.forEach(conv => {
+                        const phone = conv.telefone;
+                        const existing = this.chats.get(phone);
+                        
                         if (!existing) {
-                            this.chats.set(conv.telefone, conv);
+                            this.chats.set(phone, {
+                                ...conv,
+                                messages: [],
+                                emIntervencao: conv.emIntervencao || false
+                            });
                         } else {
-                            // Mesclar dados, preservando mensagens locais
-                            Object.assign(existing, conv);
+                            existing.nome = conv.nome || existing.nome;
+                            existing.emIntervencao = conv.emIntervencao !== undefined ? conv.emIntervencao : existing.emIntervencao;
+                            existing.etapa = conv.etapa;
+                            existing.ultimaAtividade = conv.ultimaAtividade;
+                            existing.ultima = conv.ultima || existing.ultima;
                         }
                     });
-
+                    
                     this.renderList();
-
-                    // Atualizar UI se chat aberto
-                    if (this.currentPhone) {
-                        const chat = this.chats.get(this.currentPhone);
-                        if (chat) this.updateUI(chat);
-                    }
-
+                    this.saveToStorage();
+                    
                 } catch (error) {
-                    this.log('Erro ao carregar: ' + error.message, 'error');
                     this.updateStatus('offline');
+                    console.error('Erro fetchConversations:', error);
                 }
             }
 
             // ==========================================
-            // CARREGAR MENSAGENS DO SUPABASE
+            // BUSCAR MENSAGENS
             // ==========================================
-            async loadMessages(phone) {
+            async fetchMessages(phone) {
+                if (this.isLoadingMessages) return;
+                this.isLoadingMessages = true;
+                
                 try {
-                    const { data: mensagens, error } = await supabaseClient
-                        .from('mensagens')
-                        .select('*')
-                        .eq('telefone', phone)
-                        .order('created_at', { ascending: true });
-
-                    if (error) throw error;
-
-                    this.log(`${mensagens?.length || 0} mensagens carregadas`);
-
-                    const chat = this.chats.get(phone);
-                    if (chat) {
-                        chat.mensagens = mensagens || [];
-
-                        if (this.currentPhone === phone) {
-                            this.renderMessages(mensagens || []);
-                        }
+                    const url = `${CONFIG.WEBHOOK_URL}?action=messages&phone=${encodeURIComponent(phone)}&_t=${Date.now()}`;
+                    const response = await fetch(url);
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
                     }
-
+                    
+                    const data = await response.json();
+                    const mensagens = data.mensagens || data;
+                    
+                    if (!Array.isArray(mensagens)) {
+                        this.isLoadingMessages = false;
+                        return;
+                    }
+                    
+                    const chat = this.chats.get(phone);
+                    if (!chat) {
+                        this.isLoadingMessages = false;
+                        return;
+                    }
+                    
+                    // SUBSTITUIR todas as mensagens pelas do servidor
+                    // Mas preservar mensagens pendentes locais
+                    const pendingMessages = chat.messages.filter(m => m.pending);
+                    
+                    // Processar mensagens do servidor
+                    chat.messages = mensagens.map(msg => ({
+                        ...msg,
+                        // Normalizar campos
+                        mensagem: msg.mensagem || msg.texto || msg.content || msg.message || '',
+                        tipo: msg.tipo || msg.from || 'cliente',
+                        data: msg.data || msg.timestamp || msg.created_at || new Date().toISOString(),
+                        nome: msg.nome || msg.sender || (msg.tipo === 'bot' || msg.from === 'bot' ? 'Robô' : 'Cliente')
+                    }));
+                    
+                    // Adicionar mensagens pendentes de volta
+                    if (pendingMessages.length > 0) {
+                        chat.messages.push(...pendingMessages);
+                    }
+                    
+                    // Ordenar por data
+                    chat.messages.sort((a, b) => {
+                        const dateA = new Date(a.data || 0);
+                        const dateB = new Date(b.data || 0);
+                        return dateA - dateB;
+                    });
+                    
+                    // Renderizar se é o chat atual
+                    if (this.currentPhone === phone) {
+                        this.renderMessages(chat.messages);
+                    }
+                    
+                    // Atualizar preview
+                    if (chat.messages.length > 0) {
+                        const last = chat.messages[chat.messages.length - 1];
+                        chat.ultima = last.mensagem || 'Nova mensagem';
+                        this.renderList();
+                    }
+                    
+                    this.saveToStorage();
+                    
                 } catch (error) {
-                    this.log('Erro mensagens: ' + error.message, 'error');
+                    console.error('Erro fetchMessages:', error);
+                } finally {
+                    this.isLoadingMessages = false;
                 }
             }
 
@@ -832,30 +797,30 @@
             renderList() {
                 const container = document.getElementById('chatList');
                 const searchTerm = (document.getElementById('searchInput')?.value || '').toLowerCase();
-
+                
                 const chats = Array.from(this.chats.values())
                     .filter(c => !searchTerm || 
                         (c.nome?.toLowerCase().includes(searchTerm)) || 
                         c.telefone.includes(searchTerm))
                     .sort((a, b) => {
-                        if (a.em_intervencao && !b.em_intervencao) return -1;
-                        if (!a.em_intervencao && b.em_intervencao) return 1;
-                        return new Date(b.ultima_atividade || 0) - new Date(a.ultima_atividade || 0);
+                        if (a.emIntervencao && !b.emIntervencao) return -1;
+                        if (!a.emIntervencao && b.emIntervencao) return 1;
+                        return new Date(b.ultimaAtividade || 0) - new Date(a.ultimaAtividade || 0);
                     });
 
                 if (chats.length === 0) {
-                    container.innerHTML = '<div class="empty-list"><p>Nenhuma conversa ainda. Aguardando mensagens...</p></div>';
+                    container.innerHTML = '<div class="empty-list"><p>Aguardando conversas...</p></div>';
                     return;
                 }
 
                 container.innerHTML = chats.map(c => {
                     const isActive = c.telefone === this.currentPhone;
-                    const time = this.formatTime(c.ultima_atividade);
-                    const isUnread = !isActive && c.ultima_mensagem && 
-                        new Date(c.ultima_atividade) > new Date(c.updated_at || 0);
-
+                    const time = this.formatTime(c.ultimaAtividade);
+                    const lastMessage = c.ultima || (c.messages && c.messages.length > 0 ? 
+                        c.messages[c.messages.length - 1].mensagem : 'Sem mensagens');
+                    
                     return `
-                        <div class="chat-item ${isActive ? 'active' : ''} ${isUnread ? 'unread' : ''}" 
+                        <div class="chat-item ${isActive ? 'active' : ''}" 
                              onclick="app.selectChat('${c.telefone}')"
                              data-phone="${c.telefone}">
                             <div class="chat-avatar">${this.getInitials(c.nome)}</div>
@@ -866,10 +831,10 @@
                                 </div>
                                 <div class="chat-preview">
                                     <span style="flex:1;overflow:hidden;text-overflow:ellipsis;">
-                                        ${this.escapeHtml(c.ultima_mensagem || 'Sem mensagens')}
+                                        ${this.escapeHtml(lastMessage)}
                                     </span>
-                                    <span class="status-indicator ${c.em_intervencao ? 'human' : 'bot'}">
-                                        ${c.em_intervencao ? '🔴 VOCÊ' : '🤖 BOT'}
+                                    <span class="status-indicator ${c.emIntervencao ? 'human' : 'bot'}">
+                                        ${c.emIntervencao ? '🔴 VOCÊ' : '🤖 BOT'}
                                     </span>
                                 </div>
                             </div>
@@ -881,35 +846,36 @@
             // ==========================================
             // SELECIONAR CHAT
             // ==========================================
-            async selectChat(phone) {
-                this.log('Selecionando: ' + phone);
+            selectChat(phone) {
                 this.currentPhone = phone;
-
                 const chat = this.chats.get(phone);
-                if (!chat) {
-                    await this.loadConversations();
-                    const refreshed = this.chats.get(phone);
-                    if (!refreshed) {
-                        this.log('Chat não encontrado!', 'error');
-                        return;
-                    }
-                }
+                
+                if (!chat) return;
 
-                const currentChat = this.chats.get(phone);
-
+                // UI
                 document.getElementById('sidebar').classList.add('hidden-mobile');
                 document.getElementById('chatArea').classList.add('active', 'has-chat');
                 document.getElementById('chatPlaceholder').style.display = 'none';
                 document.getElementById('activeChat').style.display = 'flex';
-
-                document.getElementById('chatName').textContent = currentChat.nome || phone;
-                document.getElementById('chatAvatar').textContent = this.getInitials(currentChat.nome);
-
-                this.updateUI(currentChat);
-
-                // Carregar mensagens
-                await this.loadMessages(phone);
-
+                
+                // Header
+                document.getElementById('chatName').textContent = chat.nome || phone;
+                document.getElementById('chatAvatar').textContent = this.getInitials(chat.nome);
+                
+                this.updateUI(chat);
+                
+                // Renderizar mensagens imediatamente
+                if (chat.messages && chat.messages.length > 0) {
+                    this.renderMessages(chat.messages);
+                } else {
+                    document.getElementById('messagesContainer').innerHTML = 
+                        '<div style="text-align:center;color:#8696a0;padding:40px;">Carregando mensagens...</div>';
+                }
+                
+                // Buscar mensagens atualizadas
+                this.fetchMessages(phone);
+                
+                // Re-renderizar lista
                 this.renderList();
             }
 
@@ -922,26 +888,26 @@
                 this.renderList();
             }
 
-            // ==========================================
-            // ATUALIZAR UI
-            // ==========================================
             updateUI(chat) {
                 const banner = document.getElementById('interventionBanner');
                 const input = document.getElementById('messageInput');
                 const sendBtn = document.getElementById('sendBtn');
                 const actions = document.getElementById('chatActions');
                 const status = document.getElementById('chatStatus');
-
-                this.log(`updateUI: emIntervencao=${chat.em_intervencao}`);
-
-                if (chat.em_intervencao === true) {
+                
+                console.log('UpdateUI - emIntervencao:', chat.emIntervencao, 'tipo:', typeof chat.emIntervencao);
+                
+                // Garantir que emIntervencao é booleano
+                const emIntervencao = chat.emIntervencao === true || chat.emIntervencao === 'true' || chat.emIntervencao === 1;
+                
+                if (emIntervencao) {
                     banner.classList.add('active');
                     input.disabled = false;
                     sendBtn.disabled = false;
                     input.placeholder = 'Digite uma mensagem...';
+                    setTimeout(() => input.focus(), 100);
                     actions.innerHTML = `<button class="action-btn release" onclick="app.release('${chat.telefone}')">🤖 Liberar Robô</button>`;
                     status.textContent = 'Você está no controle';
-                    status.style.color = '#25d366';
                 } else {
                     banner.classList.remove('active');
                     input.disabled = true;
@@ -949,7 +915,6 @@
                     input.placeholder = 'Assuma o controle para responder';
                     actions.innerHTML = `<button class="action-btn intervene" onclick="app.intervene('${chat.telefone}')">🚨 Assumir Controle</button>`;
                     status.textContent = 'Robô ativo';
-                    status.style.color = '#8696a0';
                 }
             }
 
@@ -958,7 +923,7 @@
             // ==========================================
             renderMessages(messages) {
                 const container = document.getElementById('messagesContainer');
-
+                
                 if (!messages || messages.length === 0) {
                     container.innerHTML = '<div style="text-align:center;color:#8696a0;padding:40px;">Nenhuma mensagem</div>';
                     return;
@@ -966,26 +931,39 @@
 
                 let lastDate = null;
                 let html = '';
-
+                
                 messages.forEach((msg) => {
-                    const msgDate = new Date(msg.created_at).toDateString();
-
+                    const msgDate = new Date(msg.data || Date.now()).toDateString();
+                    
                     if (msgDate !== lastDate) {
-                        html += `<div class="date-separator">${this.formatDate(msg.created_at)}</div>`;
+                        html += `<div class="date-separator">${this.formatDate(msg.data)}</div>`;
                         lastDate = msgDate;
                     }
-
-                    const tipo = msg.tipo;
-                    let type = 'incoming';
-
-                    if (tipo === 'bot' || tipo === 'robo') type = 'outgoing';
-                    else if (tipo === 'humano' || tipo === 'me' || tipo === 'atendente') type = 'outgoing';
-                    else if (tipo === 'system' || tipo === 'sistema') type = 'system';
-
+                    
+                    // Determinar tipo de mensagem
+                    const tipo = (msg.tipo || '').toLowerCase();
+                    const from = (msg.from || '').toLowerCase();
+                    
+                    let type = 'incoming'; // Padrão: mensagem do cliente (cinza)
+                    
+                    // Mensagens do robô ou humano são outgoing (verde)
+                    if (tipo === 'bot' || tipo === 'robo' || tipo === 'humano' || tipo === 'atendente' || tipo === 'me') {
+                        type = 'outgoing';
+                    } else if (from === 'bot' || from === 'robo' || from === 'humano' || from === 'atendente') {
+                        type = 'outgoing';
+                    } else if (tipo === 'system' || tipo === 'sistema') {
+                        type = 'system';
+                    }
+                    
                     const content = this.escapeHtml(msg.mensagem || '');
-                    const time = this.formatTime(msg.created_at);
-                    const sender = msg.metadata?.nome || (type === 'outgoing' ? 'Você' : 'Cliente');
-
+                    const time = this.formatTime(msg.data);
+                    
+                    // Determinar nome do remetente
+                    let sender = 'Cliente';
+                    if (type === 'outgoing') {
+                        sender = msg.nome || (tipo === 'humano' || from === 'humano' ? 'Você' : 'Robô');
+                    }
+                    
                     html += `
                         <div class="message ${type}">
                             <div class="message-content">${content}</div>
@@ -993,54 +971,47 @@
                         </div>
                     `;
                 });
-
+                
                 container.innerHTML = html;
                 this.scrollToBottom();
             }
 
             // ==========================================
-            // ASSUMIR CONTROLE (via Supabase)
+            // AÇÕES
             // ==========================================
             async intervene(phone) {
-                this.log('Intervenção solicitada: ' + phone);
-
                 const btn = document.querySelector('.action-btn');
                 if (btn) {
                     btn.disabled = true;
-                    btn.textContent = '⏳ Aguarde...';
+                    btn.textContent = '⏳...';
                 }
-
+                
                 try {
-                    // Atualizar direto no Supabase
-                    const { error } = await supabaseClient
-                        .from('conversas')
-                        .update({ em_intervencao: true })
-                        .eq('telefone', phone);
-
-                    if (error) throw error;
-
-                    // Adicionar mensagem de sistema
-                    await supabaseClient.from('mensagens').insert({
-                        telefone: phone,
-                        tipo: 'sistema',
-                        mensagem: '🔴 Atendente humano assumiu o controle',
-                        metadata: {}
+                    const response = await fetch(`${CONFIG.WEBHOOK_URL}?action=intervene`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ phone: phone })
                     });
-
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+                    
+                    const result = await response.json();
+                    console.log('Intervenção resposta:', result);
+                    
+                    // Atualizar local imediatamente
                     const chat = this.chats.get(phone);
                     if (chat) {
-                        chat.em_intervencao = true;
+                        chat.emIntervencao = true;
                         this.updateUI(chat);
                         this.renderList();
-                        await this.loadMessages(phone);
+                        this.saveToStorage();
                     }
-
-                    this.log('Intervenção ativada com sucesso', 'success');
-
+                    
                 } catch (error) {
-                    this.log('Erro intervene: ' + error.message, 'error');
+                    console.error('Erro intervene:', error);
                     alert('Erro ao assumir controle: ' + error.message);
-
                     if (btn) {
                         btn.disabled = false;
                         btn.textContent = '🚨 Assumir Controle';
@@ -1048,47 +1019,39 @@
                 }
             }
 
-            // ==========================================
-            // LIBERAR ROBÔ (via Supabase)
-            // ==========================================
             async release(phone) {
-                this.log('Liberação solicitada: ' + phone);
-
                 const btn = document.querySelector('.action-btn');
                 if (btn) {
                     btn.disabled = true;
-                    btn.textContent = '⏳ Aguarde...';
+                    btn.textContent = '⏳...';
                 }
-
+                
                 try {
-                    const { error } = await supabaseClient
-                        .from('conversas')
-                        .update({ em_intervencao: false })
-                        .eq('telefone', phone);
-
-                    if (error) throw error;
-
-                    // Adicionar mensagem de sistema
-                    await supabaseClient.from('mensagens').insert({
-                        telefone: phone,
-                        tipo: 'sistema',
-                        mensagem: '🤖 Robô reassumiu o atendimento',
-                        metadata: {}
+                    const response = await fetch(`${CONFIG.WEBHOOK_URL}?action=release`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ phone: phone })
                     });
-
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+                    
+                    const result = await response.json();
+                    console.log('Release resposta:', result);
+                    
+                    // Atualizar local imediatamente
                     const chat = this.chats.get(phone);
                     if (chat) {
-                        chat.em_intervencao = false;
+                        chat.emIntervencao = false;
                         this.updateUI(chat);
                         this.renderList();
-                        await this.loadMessages(phone);
+                        this.saveToStorage();
                     }
-
-                    this.log('Robô liberado com sucesso', 'success');
-
+                    
                 } catch (error) {
-                    this.log('Erro release: ' + error.message, 'error');
-
+                    console.error('Erro release:', error);
+                    alert('Erro ao liberar robô: ' + error.message);
                     if (btn) {
                         btn.disabled = false;
                         btn.textContent = '🤖 Liberar Robô';
@@ -1096,60 +1059,79 @@
                 }
             }
 
-            // ==========================================
-            // ENVIAR MENSAGEM (via Supabase + Webhook)
-            // ==========================================
             async sendMessage() {
                 if (!this.currentPhone) return;
-
+                
                 const input = document.getElementById('messageInput');
                 const text = input.value.trim();
                 if (!text) return;
-
+                
                 const chat = this.chats.get(this.currentPhone);
-                if (!chat || !chat.em_intervencao) {
+                if (!chat) {
+                    alert('Chat não encontrado!');
+                    return;
+                }
+                
+                // Verificar intervenção
+                const emIntervencao = chat.emIntervencao === true || chat.emIntervencao === 'true';
+                if (!emIntervencao) {
                     alert('Assuma o controle primeiro!');
                     return;
                 }
-
+                
+                // Limpar input
                 input.value = '';
-
+                
+                // Criar mensagem local
+                const tempMessage = {
+                    id: 'local_' + Date.now(),
+                    mensagem: text,
+                    tipo: 'humano',
+                    from: 'humano',
+                    data: new Date().toISOString(),
+                    nome: 'Você',
+                    pending: true
+                };
+                
+                // Adicionar localmente
+                chat.messages.push(tempMessage);
+                this.renderMessages(chat.messages);
+                this.saveToStorage();
+                
                 try {
-                    // Salvar mensagem no Supabase (humano)
-                    const { error } = await supabaseClient.from('mensagens').insert({
-                        telefone: this.currentPhone,
-                        tipo: 'humano',
-                        mensagem: text,
-                        metadata: { nome: 'Atendente' }
-                    });
-
-                    if (error) throw error;
-
-                    // Enviar via webhook para WhatsApp
-                    const response = await fetch('/api/webhook?action=send', {
+                    const response = await fetch(`${CONFIG.WEBHOOK_URL}?action=send`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             phone: this.currentPhone,
-                            message: text
+                            message: text,
+                            tipo: 'humano'
                         })
                     });
-
-                    const result = await response.json();
-
-                    if (!result.ok) {
-                        throw new Error(result.erro || 'Erro ao enviar');
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
                     }
-
+                    
+                    const result = await response.json();
+                    console.log('Mensagem enviada:', result);
+                    
+                    // Marcar como enviada
+                    tempMessage.pending = false;
+                    this.saveToStorage();
+                    
                     // Recarregar mensagens
-                    await this.loadMessages(this.currentPhone);
-
-                    this.log('Mensagem enviada', 'success');
-
+                    setTimeout(() => {
+                        this.fetchMessages(this.currentPhone);
+                    }, 1000);
+                    
                 } catch (error) {
-                    this.log('Erro enviar: ' + error.message, 'error');
-                    alert('Erro ao enviar mensagem: ' + error.message);
+                    console.error('Erro enviar:', error);
+                    alert('Erro ao enviar: ' + error.message);
                     input.value = text;
+                    chat.messages = chat.messages.filter(m => m.id !== tempMessage.id);
+                    this.renderMessages(chat.messages);
+                    this.saveToStorage();
                 }
             }
 
@@ -1164,8 +1146,8 @@
 
             updateStatus(status) {
                 const badge = document.getElementById('connectionBadge');
-                badge.className = 'connection-badge ' + (status === 'online' ? '' : status === 'sync' ? 'sync' : 'offline');
-                badge.textContent = status === 'online' ? '🟢 Online' : status === 'sync' ? '🟡 Sincronizando' : '🔴 Offline';
+                badge.className = 'connection-badge ' + (status === 'online' ? '' : 'offline');
+                badge.textContent = status === 'online' ? '🟢 Online' : '🔴 Offline';
             }
 
             getInitials(name) {
@@ -1185,7 +1167,7 @@
                 const today = new Date();
                 const yesterday = new Date(today);
                 yesterday.setDate(yesterday.getDate() - 1);
-
+                
                 if (d.toDateString() === today.toDateString()) return 'Hoje';
                 if (d.toDateString() === yesterday.toDateString()) return 'Ontem';
                 return d.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' });
@@ -1199,7 +1181,11 @@
             }
         }
 
+        // Inicializar
         const app = new WhatsAppPanel();
     </script>
 </body>
-</html>
+</html>'''
+
+print("HTML corrigido gerado!")
+print(f"Tamanho: {len(html_corrigido)} caracteres")

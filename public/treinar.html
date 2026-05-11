@@ -2,306 +2,262 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>AI Training Studio</title>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Treinar Robo WhatsApp</title>
 <style>
-:root{--ink:#0e0e0e;--cream:#f5f3ef;--gold:#b8965a;--gold-l:#d4b07a;--gold-pale:#f0e6d3;--smoke:#6b6560;--line:rgba(184,150,90,.18);--card:#fff;--field:#f2f0ec;--r:6px;--sh:0 2px 20px rgba(0,0,0,.07);}
-*{margin:0;padding:0;box-sizing:border-box;}
-body{font-family:'DM Sans',system-ui,sans-serif;background:var(--cream);color:var(--ink);min-height:100vh;padding-bottom:120px;}
-.hero{background:#0e0e0e;padding:52px 24px 38px;position:relative;}
-.hero::after{content:'';position:absolute;bottom:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,#b8965a,transparent);}
-.hero-inner{max-width:560px;margin:0 auto;}
-.eyebrow{font-size:10px;letter-spacing:4px;text-transform:uppercase;color:#b8965a;margin-bottom:16px;display:flex;align-items:center;gap:10px;}
-.eyebrow::before{content:'';display:block;width:28px;height:1px;background:#b8965a;}
-.hero h1{font-family:'Cormorant Garamond',Georgia,serif;font-size:2.5rem;font-weight:300;color:#fff;line-height:1.15;margin-bottom:10px;}
-.hero h1 em{color:#d4b07a;font-style:italic;}
-.hero-sub{font-size:13px;color:rgba(255,255,255,.45);font-weight:300;}
-.live-badge{display:inline-flex;align-items:center;gap:7px;background:rgba(184,150,90,.12);border:1px solid rgba(184,150,90,.3);color:#d4b07a;padding:5px 13px;border-radius:20px;font-size:10.5px;letter-spacing:1.5px;text-transform:uppercase;margin-top:18px;}
-.live-dot{width:6px;height:6px;background:#d4b07a;border-radius:50%;animation:pulse 2s ease-in-out infinite;}
-@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(1.4)}}
-.wrap{max-width:560px;margin:0 auto;padding:0 14px;}
-.status-card{background:var(--card);border-radius:var(--r);padding:16px 18px;margin:20px 0 0;display:flex;align-items:center;justify-content:space-between;box-shadow:var(--sh);border:1px solid rgba(0,0,0,.05);}
-.tog-row{display:flex;align-items:center;gap:9px;}
-.tog-txt{font-size:11.5px;color:var(--smoke);font-weight:500;}
-.tog{width:44px;height:24px;background:#ccc;border-radius:12px;position:relative;cursor:pointer;transition:background .3s;flex-shrink:0;}
-.tog.on{background:var(--gold);}
-.tog::after{content:'';position:absolute;width:20px;height:20px;background:#fff;border-radius:50%;top:2px;left:2px;transition:left .3s;box-shadow:0 1px 4px rgba(0,0,0,.25);}
-.tog.on::after{left:22px;}
-.content{max-width:560px;margin:0 auto;padding:20px 14px 0;}
-.section{background:var(--card);border-radius:var(--r);box-shadow:var(--sh);border:1px solid rgba(0,0,0,.05);overflow:hidden;margin-bottom:16px;}
-.section:focus-within{box-shadow:0 4px 28px rgba(184,150,90,.13);}
-.sec-head{padding:16px 18px 13px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;}
-.sec-title{font-family:'Cormorant Garamond',Georgia,serif;font-size:1.1rem;font-weight:400;display:flex;align-items:center;gap:10px;}
-.sec-icon{width:26px;height:26px;border-radius:50%;background:var(--gold-pale);display:flex;align-items:center;justify-content:center;font-size:13px;}
-.sec-badge{font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);background:var(--gold-pale);padding:3px 8px;border-radius:10px;font-weight:500;}
-.sec-body{padding:16px 18px;}
-.field{margin-bottom:15px;}
-.field:last-child{margin-bottom:0;}
-.field label{display:block;font-size:10px;letter-spacing:1.8px;text-transform:uppercase;color:var(--smoke);font-weight:500;margin-bottom:7px;}
-.field input,.field textarea{width:100%;padding:11px 13px;background:var(--field);border:1.5px solid transparent;border-radius:var(--r);font-size:14px;color:var(--ink);font-family:'DM Sans',system-ui,sans-serif;transition:all .2s;outline:none;resize:vertical;}
-.field input:focus,.field textarea:focus{background:#fff;border-color:var(--gold);box-shadow:0 0 0 3px rgba(184,150,90,.09);}
-.field textarea{min-height:76px;line-height:1.55;}
-.hint{font-size:11px;color:#aaa;margin-top:5px;line-height:1.4;}
-.div{height:1px;background:var(--line);margin:4px 0 15px;}
-.tags{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:11px;}
-.tag-pill{display:inline-flex;align-items:center;gap:5px;background:#fff0f0;border:1px solid #ffd6d6;color:#c0392b;padding:5px 11px;border-radius:20px;font-size:12px;font-weight:500;}
-.tag-pill button{background:none;border:none;color:#c0392b;cursor:pointer;font-size:14px;line-height:1;padding:0;width:18px;height:18px;display:flex;align-items:center;justify-content:center;}
-.tag-pill button:hover{background:rgba(192,57,43,.1);border-radius:50%;}
-.tag-add{display:flex;gap:8px;}
-.tag-add input{flex:1;padding:10px 12px;background:var(--field);border:1.5px solid transparent;border-radius:var(--r);font-size:13.5px;font-family:'DM Sans',system-ui,sans-serif;outline:none;color:var(--ink);transition:all .2s;}
-.tag-add input:focus{background:#fff;border-color:var(--gold);}
-.tag-add button{padding:10px 15px;background:var(--ink);color:#fff;border:none;border-radius:var(--r);font-size:13px;font-family:'DM Sans',system-ui,sans-serif;font-weight:500;cursor:pointer;}
-.tag-add button:hover{background:var(--gold);}
-.faq-item{background:var(--field);border-radius:var(--r);padding:13px 15px;margin-bottom:8px;border-left:2px solid var(--gold);position:relative;}
-.faq-q{font-size:13px;font-weight:500;margin-bottom:4px;}
-.faq-a{font-size:12.5px;color:var(--smoke);line-height:1.5;}
-.faq-del{position:absolute;top:10px;right:12px;background:none;border:none;font-size:16px;color:#c0392b;cursor:pointer;opacity:.4;width:24px;height:24px;display:flex;align-items:center;justify-content:center;}
-.faq-del:hover{opacity:1;background:rgba(192,57,43,.1);border-radius:50%;}
-.faq-add-btn{width:100%;padding:13px;background:none;border:1.5px dashed var(--line);border-radius:var(--r);color:var(--smoke);font-family:'DM Sans',system-ui,sans-serif;font-size:13.5px;cursor:pointer;transition:all .2s;margin-top:4px;display:flex;align-items:center;justify-content:center;gap:6px;}
-.faq-add-btn:hover{border-color:var(--gold);color:var(--gold);background:var(--gold-pale);}
-.faq-empty{text-align:center;color:var(--smoke);font-size:13px;padding:18px 0;font-style:italic;}
-.preview-out{background:linear-gradient(135deg,#f8f4ed,#f0eade);border-top:1px solid var(--line);padding:16px 18px;display:none;}
-.preview-out.show{display:block;}
-.preview-lbl{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);font-weight:500;margin-bottom:10px;}
-.preview-txt{font-size:13.5px;line-height:1.65;white-space:pre-wrap;}
-.save-wrap{max-width:560px;margin:0 auto;padding:0 14px 14px;}
-.save-btn{width:100%;padding:16px;background:var(--ink);color:#fff;border:none;border-radius:var(--r);font-family:'DM Sans',system-ui,sans-serif;font-size:13.5px;font-weight:500;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;transition:all .25s;}
-.save-btn:hover{background:#1e1e1e;}
-.save-btn:disabled{opacity:.5;cursor:not-allowed;}
-.toast{position:fixed;bottom:88px;left:50%;transform:translateX(-50%) translateY(16px);background:var(--ink);color:#fff;padding:11px 22px;border-radius:30px;font-size:13px;font-weight:500;opacity:0;pointer-events:none;transition:all .3s cubic-bezier(.34,1.56,.64,1);z-index:999;white-space:nowrap;box-shadow:0 8px 28px rgba(0,0,0,.18);}
-.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
-.toast.success{background:#2d6a4f;}
-.toast.error{background:#b5211e;}
-.toast.info{background:var(--gold);color:var(--ink);}
-.nav-bar{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid rgba(0,0,0,.07);display:flex;justify-content:center;z-index:100;box-shadow:0 -3px 20px rgba(0,0,0,.06);}
-.nav-item{text-decoration:none;display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 40px;color:#bbb;font-size:10px;letter-spacing:1px;text-transform:uppercase;font-weight:500;border-top:2px solid transparent;transition:color .2s;}
-.nav-item.active{color:var(--gold);border-top-color:var(--gold);}
-.nav-item svg{width:22px;height:22px;}
-.modal-ov{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:500;display:none;align-items:flex-end;justify-content:center;backdrop-filter:blur(2px);}
-.modal-ov.open{display:flex;}
-.modal{background:#fff;border-radius:14px 14px 0 0;padding:24px 20px 36px;width:100%;max-width:560px;animation:slideUp .3s cubic-bezier(.34,1.2,.64,1);}
-@keyframes slideUp{from{transform:translateY(60px);opacity:0}to{transform:none;opacity:1}}
-.modal h3{font-family:'Cormorant Garamond',Georgia,serif;font-size:1.3rem;font-weight:400;margin-bottom:16px;}
-.modal .field{margin-bottom:13px;}
-.modal-acts{display:flex;gap:10px;margin-top:6px;}
-.modal-acts button{flex:1;padding:13px;border:none;border-radius:var(--r);font-family:'DM Sans',system-ui,sans-serif;font-size:14px;font-weight:500;cursor:pointer;}
-.m-cancel{background:var(--field);color:var(--smoke);}
-.m-ok{background:var(--ink);color:#fff;}
-.m-ok:hover{background:var(--gold);}
-.spin{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spinA .8s linear infinite;vertical-align:middle;margin-right:6px;}
-@keyframes spinA{to{transform:rotate(360deg)}}
-.sbar{max-width:560px;margin:10px auto 0;padding:0 14px;}
-.sbar .inner{background:#fff;border-radius:var(--r);padding:10px 14px;display:flex;align-items:center;gap:8px;box-shadow:var(--sh);border:1px solid rgba(0,0,0,.05);font-size:11.5px;color:var(--smoke);}
-.dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
-.dot.ok{background:#2d6a4f;} .dot.warn{background:#b8965a;} .dot.err{background:#c0392b;}
-.debug-box{background:#1e1e1e;color:#4ec9b0;padding:12px 14px;border-radius:var(--r);font-family:monospace;font-size:11px;margin:10px 14px;max-width:560px;margin-left:auto;margin-right:auto;overflow-x:auto;display:none;}
-.debug-box.show{display:block;}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; color: #333; padding: 20px; }
+.container { max-width: 600px; margin: 0 auto; }
+h1 { font-size: 24px; margin-bottom: 20px; color: #1a1a1a; }
+.status-bar { background: #fff; border-radius: 8px; padding: 12px 16px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+.status-dot { width: 10px; height: 10px; border-radius: 50%; background: #ccc; }
+.status-dot.ok { background: #22c55e; }
+.status-dot.err { background: #ef4444; }
+.status-dot.warn { background: #f59e0b; }
+.status-text { font-size: 14px; font-weight: 500; }
+.card { background: #fff; border-radius: 8px; padding: 20px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+.card-title { font-size: 16px; font-weight: 600; margin-bottom: 16px; color: #1a1a1a; }
+.field { margin-bottom: 16px; }
+.field label { display: block; font-size: 13px; font-weight: 500; color: #666; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+.field input, .field textarea { width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; font-family: inherit; transition: border-color 0.2s; }
+.field input:focus, .field textarea:focus { outline: none; border-color: #3b82f6; }
+.field textarea { min-height: 80px; resize: vertical; }
+.toggle-row { display: flex; align-items: center; justify-content: space-between; }
+.toggle { width: 48px; height: 26px; background: #ccc; border-radius: 13px; position: relative; cursor: pointer; transition: background 0.3s; }
+.toggle.on { background: #22c55e; }
+.toggle::after { content: ''; position: absolute; width: 22px; height: 22px; background: #fff; border-radius: 50%; top: 2px; left: 2px; transition: left 0.3s; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+.toggle.on::after { left: 24px; }
+.tags-list { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.tag { display: inline-flex; align-items: center; gap: 6px; background: #fee2e2; border: 1px solid #fecaca; color: #dc2626; padding: 4px 10px; border-radius: 16px; font-size: 13px; }
+.tag button { background: none; border: none; color: #dc2626; cursor: pointer; font-size: 16px; line-height: 1; padding: 0; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; }
+.tag button:hover { background: rgba(220,38,38,0.1); border-radius: 50%; }
+.tag-input-row { display: flex; gap: 8px; }
+.tag-input-row input { flex: 1; }
+.btn { padding: 10px 16px; border: none; border-radius: 6px; font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.2s; font-family: inherit; }
+.btn-primary { background: #1a1a1a; color: #fff; }
+.btn-primary:hover { background: #333; }
+.btn-secondary { background: #f3f4f6; color: #666; }
+.btn-secondary:hover { background: #e5e7eb; }
+.btn-danger { background: #fee2e2; color: #dc2626; }
+.btn-full { width: 100%; padding: 14px; font-size: 15px; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.faq-item { background: #f9fafb; border-radius: 6px; padding: 12px; margin-bottom: 8px; border-left: 3px solid #3b82f6; position: relative; }
+.faq-q { font-weight: 500; font-size: 14px; margin-bottom: 4px; }
+.faq-a { font-size: 13px; color: #666; line-height: 1.5; }
+.faq-del { position: absolute; top: 8px; right: 8px; background: none; border: none; color: #dc2626; cursor: pointer; font-size: 18px; opacity: 0.5; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 50%; }
+.faq-del:hover { opacity: 1; background: rgba(220,38,38,0.1); }
+.empty-msg { text-align: center; color: #999; font-size: 14px; padding: 20px; font-style: italic; }
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: none; align-items: flex-end; justify-content: center; z-index: 100; }
+.modal-overlay.open { display: flex; }
+.modal { background: #fff; border-radius: 12px 12px 0 0; padding: 24px; width: 100%; max-width: 600px; max-height: 90vh; overflow-y: auto; }
+.modal-title { font-size: 18px; font-weight: 600; margin-bottom: 20px; }
+.modal-actions { display: flex; gap: 10px; margin-top: 20px; }
+.modal-actions .btn { flex: 1; }
+.toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(100px); background: #1a1a1a; color: #fff; padding: 12px 24px; border-radius: 8px; font-size: 14px; font-weight: 500; opacity: 0; transition: all 0.3s; z-index: 200; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.toast.success { background: #16a34a; }
+.toast.error { background: #dc2626; }
+.nav { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; border-top: 1px solid #eee; display: flex; justify-content: center; padding: 8px 0; z-index: 50; }
+.nav a { text-decoration: none; padding: 8px 32px; color: #999; font-size: 12px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; border-top: 2px solid transparent; }
+.nav a.active { color: #1a1a1a; border-top-color: #1a1a1a; }
+.debug { background: #1e1e1e; color: #4ec9b0; padding: 12px; border-radius: 6px; font-family: monospace; font-size: 11px; margin-bottom: 16px; max-height: 200px; overflow-y: auto; display: none; }
+.debug.open { display: block; }
+.debug-line { margin-bottom: 2px; }
+.spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.8s linear infinite; margin-right: 6px; vertical-align: middle; }
+@keyframes spin { to { transform: rotate(360deg); } }
 </style>
 <base target="_blank">
 </head>
 <body>
 
-<div class="hero">
-  <div class="hero-inner">
-    <div class="eyebrow">AI Training Studio</div>
-    <h1>Shape your<br><em>Intelligence</em></h1>
-    <p class="hero-sub">Configure a personalidade do seu assistente em tempo real</p>
-    <div class="live-badge"><div class="live-dot"></div>Live Sync</div>
+<div class="container">
+  <h1>🤖 Treinar Robo WhatsApp</h1>
+
+  <div class="status-bar">
+    <div class="status-dot warn" id="statusDot"></div>
+    <span class="status-text" id="statusText">Verificando conexao...</span>
   </div>
-</div>
 
-<div class="sbar">
-  <div class="inner">
-    <div class="dot warn" id="sDot"></div>
-    <span id="sTxt">Carregando...</span>
-  </div>
-</div>
+  <div class="debug" id="debugBox"></div>
 
-<div class="debug-box" id="debugBox"></div>
-
-<div class="wrap">
-  <div class="status-card">
-    <div>
-      <div style="font-size:13.5px;font-weight:500">Assistente Ativo</div>
-      <div style="font-size:11.5px;color:var(--smoke);margin-top:2px" id="togHint">Todas as mensagens processadas pelo bot</div>
-    </div>
-    <div class="tog-row">
-      <span class="tog-txt" id="togLbl">ON</span>
-      <div class="tog on" id="botToggle"></div>
-    </div>
-  </div>
-</div>
-
-<div class="content">
-  <div class="section">
-    <div class="sec-head">
-      <div class="sec-title"><div class="sec-icon">✦</div>Identidade</div>
-      <span class="sec-badge">Obrigatorio</span>
-    </div>
-    <div class="sec-body">
-      <div class="field"><label>Nome do Assistente</label><input type="text" id="botName" placeholder="Ex: ARIA, NOVA, TecBot..."></div>
-      <div class="field"><label>Nome da Empresa</label><input type="text" id="companyName" placeholder="Ex: Assistencia Express"></div>
-      <div class="field">
-        <label>Saudacao Inicial</label>
-        <textarea id="greeting" placeholder="Mensagem enviada no primeiro contato e ao digitar oi/ola..."></textarea>
-        <div class="hint">Esta mensagem é enviada quando o cliente diz oi, olá, bom dia etc.</div>
+  <!-- BOT ATIVO -->
+  <div class="card">
+    <div class="toggle-row">
+      <div>
+        <div style="font-weight:600; margin-bottom:4px;">Robo Ativo</div>
+        <div style="font-size:13px; color:#666;" id="toggleDesc">Respondendo automaticamente</div>
       </div>
+      <div class="toggle on" id="botToggle"></div>
     </div>
   </div>
 
-  <div class="section">
-    <div class="sec-head"><div class="sec-title"><div class="sec-icon">◆</div>Personalidade & Servicos</div></div>
-    <div class="sec-body">
-      <div class="field"><label>Instrucoes de Comportamento</label><textarea id="personality" placeholder="Ex: Seja cordial e objetivo..."></textarea></div>
-      <div class="div"></div>
-      <div class="field"><label>Servicos Disponiveis</label><textarea id="services" placeholder="Liste os servicos..."></textarea></div>
-      <div class="field"><label>Horario de Funcionamento</label><textarea id="businessHours" placeholder="Seg-Sex: 9h as 18h..."></textarea></div>
-      <div class="field"><label>Politica de Precos</label><textarea id="pricing" placeholder="O que o assistente responde sobre valores..."></textarea></div>
-      <div class="field"><label>Mensagem de Fallback</label><textarea id="fallback" placeholder="Quando o assistente nao entende..."></textarea></div>
+  <!-- IDENTIDADE -->
+  <div class="card">
+    <div class="card-title">Identidade</div>
+    <div class="field">
+      <label>Nome do Robo</label>
+      <input type="text" id="botName" placeholder="Ex: TecBot">
+    </div>
+    <div class="field">
+      <label>Nome da Empresa</label>
+      <input type="text" id="companyName" placeholder="Ex: Assistencia Express">
+    </div>
+    <div class="field">
+      <label>Saudacao Inicial</label>
+      <textarea id="greeting" placeholder="Ola! Bem-vindo a nossa assistencia..."></textarea>
     </div>
   </div>
 
-  <div class="section">
-    <div class="sec-head">
-      <div class="sec-title"><div class="sec-icon">⚡</div>Transferencia para Humano</div>
-      <span class="sec-badge">Auto</span>
+  <!-- PERSONALIDADE -->
+  <div class="card">
+    <div class="card-title">Personalidade e Servicos</div>
+    <div class="field">
+      <label>Comportamento</label>
+      <textarea id="personality" placeholder="Seja cordial, objetivo e profissional..."></textarea>
     </div>
-    <div class="sec-body">
-      <p class="hint" style="margin-bottom:12px;">Ao detectar estas palavras, a conversa é transferida automaticamente.</p>
-      <div class="tags" id="escalationTags"></div>
-      <div class="tag-add">
-        <input type="text" id="newTagInput" placeholder="Nova palavra-chave...">
-        <button id="btnAddTag">+ Adicionar</button>
-      </div>
+    <div class="field">
+      <label>Servicos</label>
+      <textarea id="services" placeholder="Conserto de celulares, tablets, notebooks..."></textarea>
     </div>
-  </div>
-
-  <div class="section">
-    <div class="sec-head">
-      <div class="sec-title"><div class="sec-icon">❝</div>Base de Conhecimento</div>
-      <span class="sec-badge">FAQ</span>
+    <div class="field">
+      <label>Horario</label>
+      <textarea id="businessHours" placeholder="Seg-Sex: 9h as 18h, Sab: 9h as 13h"></textarea>
     </div>
-    <div class="sec-body">
-      <p class="hint" style="margin-bottom:13px;">O assistente reconhece palavras das perguntas e responde automaticamente.</p>
-      <div id="faqList"></div>
-      <button class="faq-add-btn" id="btnOpenFaq"><span>+</span> Nova Pergunta & Resposta</button>
+    <div class="field">
+      <label>Precos</label>
+      <textarea id="pricing" placeholder="Orcamento gratis. Troca de tela a partir de R$150..."></textarea>
+    </div>
+    <div class="field">
+      <label>Resposta Padrao (quando nao entende)</label>
+      <textarea id="fallback" placeholder="Nao entendi. Posso te ajudar com precos, horarios ou agendamento?"></textarea>
     </div>
   </div>
 
-  <div class="section" style="margin-bottom:16px;">
-    <div class="sec-head"><div class="sec-title"><div class="sec-icon">◉</div>Simulador de Resposta</div></div>
-    <div class="sec-body">
-      <div class="field" style="margin-bottom:0;">
-        <label>Mensagem do cliente</label>
-        <input type="text" id="testQ" placeholder="Ex: Quanto custa trocar a tela?">
-      </div>
+  <!-- ESCALONAMENTO -->
+  <div class="card">
+    <div class="card-title">Transferir para Humano</div>
+    <p style="font-size:13px; color:#666; margin-bottom:12px;">Ao detectar estas palavras, a conversa vai para atendente humano.</p>
+    <div class="tags-list" id="escalationTags"></div>
+    <div class="tag-input-row">
+      <input type="text" id="newTagInput" placeholder="Nova palavra-chave...">
+      <button class="btn btn-primary" id="btnAddTag">+</button>
     </div>
-    <div class="preview-out" id="previewOut">
-      <div class="preview-lbl">Resposta do Assistente</div>
-      <div class="preview-txt" id="previewTxt"></div>
+  </div>
+
+  <!-- FAQ -->
+  <div class="card">
+    <div class="card-title">Perguntas Frequentes (FAQ)</div>
+    <p style="font-size:13px; color:#666; margin-bottom:12px;">O robo reconhece estas perguntas e responde automaticamente.</p>
+    <div id="faqList"></div>
+    <button class="btn btn-secondary btn-full" id="btnOpenFaq" style="margin-top:8px;">+ Nova Pergunta e Resposta</button>
+  </div>
+
+  <!-- SIMULADOR -->
+  <div class="card">
+    <div class="card-title">Testar Resposta</div>
+    <div class="field">
+      <label>Mensagem do cliente</label>
+      <input type="text" id="testQ" placeholder="Ex: Quanto custa trocar a tela?">
     </div>
+    <div id="previewBox" style="display:none; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:6px; padding:12px; margin-top:8px;">
+      <div style="font-size:12px; color:#166534; font-weight:500; margin-bottom:4px;">Resposta do Robo:</div>
+      <div id="previewTxt" style="font-size:14px; color:#1a1a1a; white-space:pre-wrap;"></div>
+    </div>
+  </div>
+
+  <!-- SALVAR -->
+  <div style="margin-bottom: 80px;">
+    <button class="btn btn-primary btn-full" id="saveBtn">Salvar e Ativar no WhatsApp</button>
   </div>
 </div>
 
-<div class="save-wrap">
-  <button class="save-btn" id="saveBtn">Salvar e Ativar no WhatsApp</button>
-</div>
-
-<nav class="nav-bar">
-  <a href="painel.html" class="nav-item">
-    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
-    Intervencao
-  </a>
-  <a href="treinar.html" class="nav-item active">
-    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
-    Treinamento
-  </a>
-</nav>
-
-<div class="modal-ov" id="faqModal">
+<!-- MODAL FAQ -->
+<div class="modal-overlay" id="faqModal">
   <div class="modal">
-    <h3>Nova Pergunta & Resposta</h3>
-    <div class="field"><label>Pergunta do Cliente</label><input type="text" id="modalQ" placeholder="Ex: Quanto custa trocar a tela?"></div>
-    <div class="field"><label>Resposta do Assistente</label><textarea id="modalA" placeholder="Ex: O valor varia de R$150 a R$400..." style="min-height:90px;"></textarea></div>
-    <div class="modal-acts">
-      <button class="m-cancel" id="btnCancelFaq">Cancelar</button>
-      <button class="m-ok" id="btnSaveFaq">Salvar</button>
+    <div class="modal-title">Nova Pergunta e Resposta</div>
+    <div class="field">
+      <label>Pergunta do Cliente</label>
+      <input type="text" id="modalQ" placeholder="Ex: Quanto custa trocar a tela?">
+    </div>
+    <div class="field">
+      <label>Resposta do Robo</label>
+      <textarea id="modalA" placeholder="Ex: O valor varia de R$150 a R$400..." style="min-height:80px;"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" id="btnCancelFaq">Cancelar</button>
+      <button class="btn btn-primary" id="btnSaveFaq">Salvar FAQ</button>
     </div>
   </div>
 </div>
 
+<!-- TOAST -->
 <div class="toast" id="toast"></div>
 
+<!-- NAV -->
+<nav class="nav">
+  <a href="painel.html">Intervencao</a>
+  <a href="treinar.html" class="active">Treinamento</a>
+</nav>
+
 <script>
-// ═══════════════════════════════════════════════════════
-// CONFIGURACAO
-// ═══════════════════════════════════════════════════════
+// CONFIG
 const WEBHOOK_URL = (() => {
   const host = window.location.host;
-  const protocol = window.location.protocol;
   if (host.includes('localhost') || host.includes('127.0.0.1')) {
     return 'https://robo-atendente.vercel.app/api/webhook';
   }
-  return protocol + '//' + host + '/api/webhook';
+  return window.location.protocol + '//' + host + '/api/webhook';
 })();
 
-console.log('[CONFIG] Webhook URL:', WEBHOOK_URL);
+console.log('Webhook URL:', WEBHOOK_URL);
 
+// DADOS
 let faqData = [];
 let escalation = ['atendente','humano','pessoa','reclamacao','cancelar','chefe','gerente','supervisor'];
 
-// ═══════════════════════════════════════════════════════
 // UTILS
-// ═══════════════════════════════════════════════════════
-function setStatus(type, txt) {
-  const dot = document.getElementById('sDot');
-  const txtEl = document.getElementById('sTxt');
-  if (dot) dot.className = 'dot ' + type;
-  if (txtEl) txtEl.textContent = txt;
-}
+function $(id) { return document.getElementById(id); }
+function val(id) { const el = $(id); return el ? el.value.trim() : ''; }
+function setVal(id, v) { const el = $(id); if (el) el.value = v || ''; }
 
-function toast(msg, type, ms) {
-  ms = ms || 4000;
-  clearTimeout(window._tt);
-  const el = document.getElementById('toast');
+function showToast(msg, type, ms) {
+  ms = ms || 3000;
+  const el = $('toast');
   if (!el) return;
   el.textContent = msg;
-  el.className = 'toast show ' + (type || '');
-  if (ms < 99999) window._tt = setTimeout(() => el.classList.remove('show'), ms);
+  el.className = 'toast ' + (type || '');
+  setTimeout(() => el.classList.add('show'), 10);
+  setTimeout(() => el.classList.remove('show'), ms);
+}
+
+function setStatus(type, text) {
+  const dot = $('statusDot');
+  const txt = $('statusText');
+  if (dot) { dot.className = 'status-dot ' + type; }
+  if (txt) { txt.textContent = text; }
 }
 
 function debug(msg) {
-  const box = document.getElementById('debugBox');
-  if (!box) return;
-  box.classList.add('show');
-  const line = document.createElement('div');
-  line.textContent = new Date().toLocaleTimeString() + ' — ' + msg;
-  box.appendChild(line);
   console.log('[DEBUG]', msg);
+  const box = $('debugBox');
+  if (!box) return;
+  box.classList.add('open');
+  const line = document.createElement('div');
+  line.className = 'debug-line';
+  line.textContent = new Date().toLocaleTimeString() + ' ' + msg;
+  box.appendChild(line);
+  box.scrollTop = box.scrollHeight;
 }
 
-function val(id) { 
-  const el = document.getElementById(id);
-  return el ? (el.value || '').trim() : ''; 
-}
-
-function setVal(id, v) { 
-  const el = document.getElementById(id); 
-  if (el) el.value = v || ''; 
-}
-
-// ═══════════════════════════════════════════════════════
-// CARREGAR DADOS
-// ═══════════════════════════════════════════════════════
-async function load() {
+// CARREGAR
+async function loadData() {
+  debug('Carregando dados...');
   setStatus('warn', 'Carregando...');
-  toast('Carregando dados do servidor...', 'info', 99999);
-  debug('Iniciando load()...');
+  showToast('Carregando configuracao...', 'info', 2000);
 
   try {
     const url = WEBHOOK_URL + '?action=status&_=' + Date.now();
-    debug('Fetch GET: ' + url);
+    debug('GET ' + url);
 
     const res = await fetch(url, {
       method: 'GET',
@@ -309,184 +265,197 @@ async function load() {
       cache: 'no-store'
     });
 
-    debug('Status HTTP: ' + res.status);
+    debug('Status: ' + res.status);
 
     if (!res.ok) {
-      const errText = await res.text();
-      debug('Erro HTTP ' + res.status + ': ' + errText.substring(0, 200));
-      throw new Error('HTTP ' + res.status);
+      const txt = await res.text();
+      throw new Error('HTTP ' + res.status + ': ' + txt.substring(0, 100));
     }
 
-    const d = await res.json();
-    debug('Resposta OK: ' + JSON.stringify(d).substring(0, 200));
+    const data = await res.json();
+    debug('Dados recebidos: ' + JSON.stringify(data).substring(0, 200));
 
-    if (d.success !== false) {
-      applyData(d);
-      setStatus('ok', 'Conectado ao webhook ✓');
-      toast('Dados carregados do servidor!', 'success', 2000);
-      return;
+    if (data.success === false) {
+      throw new Error(data.error || 'Erro no servidor');
     }
-    throw new Error(d.error || 'Resposta invalida');
 
-  } catch (e) {
-    debug('ERRO LOAD: ' + e.message);
-    console.warn('Webhook GET falhou:', e.message);
+    // Aplicar dados
+    faqData = Array.isArray(data.faq_data) ? data.faq_data : [];
+    escalation = Array.isArray(data.escalation_keywords) ? data.escalation_keywords : escalation;
 
+    setVal('botName', data.bot_name);
+    setVal('companyName', data.company_name);
+    setVal('greeting', data.greeting_message || data.greeting);
+    setVal('personality', data.personality);
+    setVal('services', data.services);
+    setVal('businessHours', data.business_hours);
+    setVal('pricing', data.pricing_info);
+    setVal('fallback', data.fallback_message);
+
+    const isOn = data.active !== false && data.bot_active !== false;
+    const tog = $('botToggle');
+    if (tog) {
+      tog.classList.toggle('on', isOn);
+    }
+    updateToggleText(isOn);
+    renderTags();
+    renderFaq();
+
+    setStatus('ok', 'Conectado ✓');
+    showToast('Configuracao carregada!', 'success', 2000);
+
+  } catch (err) {
+    debug('ERRO: ' + err.message);
+    console.error('Load error:', err);
+
+    // Tentar cache local
     try {
       const cached = JSON.parse(localStorage.getItem('bot_training_v2') || 'null');
       if (cached) {
-        applyData(cached);
-        setStatus('warn', 'Cache local (sem conexao)');
-        toast('Cache local carregado', 'info', 3000);
+        applyLocalData(cached);
+        setStatus('warn', 'Modo offline (cache)');
+        showToast('Usando cache local', 'info', 3000);
         return;
       }
-    } catch (e2) {}
+    } catch (e) {}
 
-    setStatus('err', 'Falha ao carregar — verifique conexao');
-    toast('Falha ao carregar. Preencha e salve.', 'error', 5000);
+    setStatus('err', 'Sem conexao');
+    showToast('Erro: ' + err.message, 'error', 5000);
   }
 }
 
-function applyData(d) {
-  if (!d) return;
-  faqData    = Array.isArray(d.faq_data)            ? d.faq_data            : [];
+function applyLocalData(d) {
+  faqData = Array.isArray(d.faq_data) ? d.faq_data : [];
   escalation = Array.isArray(d.escalation_keywords) ? d.escalation_keywords : escalation;
-
-  setVal('botName',       d.bot_name);
-  setVal('companyName',   d.company_name);
-  setVal('greeting',      d.greeting_message || d.greeting);
-  setVal('personality',   d.personality);
-  setVal('services',      d.services);
+  setVal('botName', d.bot_name);
+  setVal('companyName', d.company_name);
+  setVal('greeting', d.greeting_message);
+  setVal('personality', d.personality);
+  setVal('services', d.services);
   setVal('businessHours', d.business_hours);
-  setVal('pricing',       d.pricing_info);
-  setVal('fallback',      d.fallback_message);
-
-  const on = d.active !== false && d.bot_active !== false;
-  const tog = document.getElementById('botToggle');
-  if (tog) {
-    tog.classList.toggle('on', on);
-  }
-  updateTogLabel(on);
+  setVal('pricing', d.pricing_info);
+  setVal('fallback', d.fallback_message);
   renderTags();
   renderFaq();
 }
 
-// ═══════════════════════════════════════════════════════
-// TOGGLE BOT
-// ═══════════════════════════════════════════════════════
+// TOGGLE
 function toggleBot() {
-  const tog = document.getElementById('botToggle');
+  const tog = $('botToggle');
   if (!tog) return;
   tog.classList.toggle('on');
-  updateTogLabel(tog.classList.contains('on'));
+  updateToggleText(tog.classList.contains('on'));
 }
 
-function updateTogLabel(on) {
-  const lbl = document.getElementById('togLbl');
-  const hint = document.getElementById('togHint');
-  if (lbl) lbl.textContent = on ? 'ON' : 'OFF';
-  if (hint) hint.textContent = on
-    ? 'Todas as mensagens processadas pelo assistente'
-    : 'Mensagens direcionadas ao atendimento humano';
+function updateToggleText(isOn) {
+  const desc = $('toggleDesc');
+  if (desc) {
+    desc.textContent = isOn ? 'Respondendo automaticamente' : 'Desativado - apenas humano';
+  }
 }
 
-// ═══════════════════════════════════════════════════════
-// TAGS (Palavras-chave de escalonamento)
-// ═══════════════════════════════════════════════════════
+// TAGS
 function renderTags() {
-  const el = document.getElementById('escalationTags');
+  const el = $('escalationTags');
   if (!el) return;
-  el.innerHTML = escalation.map((t, i) =>
-    `<div class="tag-pill">${t}<button onclick="window.removeTag(${i})" type="button">×</button></div>`
+  el.innerHTML = escalation.map((t, i) => 
+    '<div class="tag">' + t + '<button type="button" onclick="removeTag(' + i + ')">×</button></div>'
   ).join('');
 }
 
 function addTag() {
-  const inp = document.getElementById('newTagInput');
+  const inp = $('newTagInput');
   if (!inp) return;
   const v = inp.value.trim().toLowerCase();
-  if (!v) { toast('Digite uma palavra', 'info'); return; }
-  if (escalation.includes(v)) { toast('Palavra ja existe', 'info'); return; }
-  escalation.push(v); 
-  inp.value = ''; 
+  if (!v) { showToast('Digite uma palavra', 'info'); return; }
+  if (escalation.includes(v)) { showToast('Ja existe', 'info'); return; }
+  escalation.push(v);
+  inp.value = '';
   renderTags();
-  toast('Palavra adicionada', 'success', 1500);
+  showToast('Adicionado!', 'success', 1500);
 }
 
-function removeTag(i) { 
-  escalation.splice(i, 1); 
-  renderTags(); 
+function removeTag(i) {
+  escalation.splice(i, 1);
+  renderTags();
 }
 
-// Tornar funcoes globais para onclick inline
-window.removeTag = removeTag;
-window.removeFaq = removeFaq;
-
-// ═══════════════════════════════════════════════════════
 // FAQ
-// ═══════════════════════════════════════════════════════
 function renderFaq() {
-  const el = document.getElementById('faqList');
+  const el = $('faqList');
   if (!el) return;
-  el.innerHTML = faqData.length
-    ? faqData.map((f, i) => `<div class="faq-item"><div class="faq-q">? ${f.question}</div><div class="faq-a">${f.answer}</div><button class="faq-del" onclick="window.removeFaq(${i})" type="button">🗑</button></div>`).join('')
-    : '<div class="faq-empty">Nenhuma entrada ainda. Clique abaixo para adicionar.</div>';
+  if (faqData.length === 0) {
+    el.innerHTML = '<div class="empty-msg">Nenhuma FAQ ainda. Adicione abaixo.</div>';
+    return;
+  }
+  el.innerHTML = faqData.map((f, i) => 
+    '<div class="faq-item">' +
+      '<div class="faq-q">Q: ' + escapeHtml(f.question) + '</div>' +
+      '<div class="faq-a">A: ' + escapeHtml(f.answer) + '</div>' +
+      '<button class="faq-del" type="button" onclick="removeFaq(' + i + ')">🗑</button>' +
+    '</div>'
+  ).join('');
 }
 
-function removeFaq(i) { 
-  faqData.splice(i, 1); 
-  renderFaq(); 
-  toast('FAQ removido', 'info', 1500);
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
 }
 
-function openFaq() {
-  const modal = document.getElementById('faqModal');
-  const q = document.getElementById('modalQ');
-  const a = document.getElementById('modalA');
+function removeFaq(i) {
+  faqData.splice(i, 1);
+  renderFaq();
+  showToast('Removido', 'info', 1500);
+}
+
+function openFaqModal() {
+  const modal = $('faqModal');
+  const q = $('modalQ');
+  const a = $('modalA');
   if (q) q.value = '';
   if (a) a.value = '';
   if (modal) modal.classList.add('open');
-  setTimeout(() => { if (q) q.focus(); }, 120);
+  setTimeout(() => { if (q) q.focus(); }, 100);
 }
 
-function closeFaq() { 
-  const modal = document.getElementById('faqModal');
-  if (modal) modal.classList.remove('open'); 
+function closeFaqModal() {
+  const modal = $('faqModal');
+  if (modal) modal.classList.remove('open');
 }
 
-function saveFaqItem() {
-  const q = document.getElementById('modalQ');
-  const a = document.getElementById('modalA');
+function saveFaq() {
+  const q = $('modalQ');
+  const a = $('modalA');
   if (!q || !a) return;
 
   const question = q.value.trim();
   const answer = a.value.trim();
 
-  if (!question || !answer) { 
-    toast('Preencha pergunta e resposta', 'error'); 
-    return; 
+  if (!question || !answer) {
+    showToast('Preencha pergunta e resposta', 'error');
+    return;
   }
 
   faqData.push({ question: question, answer: answer });
   renderFaq();
-  closeFaq();
-  toast('FAQ adicionado!', 'success', 2000);
+  closeFaqModal();
+  showToast('FAQ salvo!', 'success', 2000);
 }
 
-// ═══════════════════════════════════════════════════════
 // SIMULADOR
-// ═══════════════════════════════════════════════════════
-function simulate() {
+function testResponse() {
   const q = val('testQ');
-  const out = document.getElementById('previewOut');
-  if (!out) return;
+  const box = $('previewBox');
+  const txt = $('previewTxt');
+  if (!box || !txt) return;
 
-  if (!q) { 
-    out.classList.remove('show'); 
-    return; 
+  if (!q) {
+    box.style.display = 'none';
+    return;
   }
 
-  const t = {
+  const training = {
     greeting_message: val('greeting'),
     services: val('services'),
     business_hours: val('businessHours'),
@@ -496,47 +465,51 @@ function simulate() {
     escalation_keywords: escalation
   };
 
-  const txt = document.getElementById('previewTxt');
-  if (txt) txt.textContent = genResp(q, t);
-  out.classList.add('show');
+  txt.textContent = generateResponse(q, training);
+  box.style.display = 'block';
 }
 
-function genResp(m, t) {
-  const msg = m.toLowerCase().trim();
-  const hi = ['oi', 'ola', 'olá', 'bom dia', 'boa tarde', 'boa noite', 'hey', 'hi', 'hello'];
-  if (hi.some(g => msg === g || msg.startsWith(g + ' '))) return t.greeting_message || 'Ola! Como posso ajudar?';
+function generateResponse(msg, training) {
+  const m = msg.toLowerCase().trim();
+  const greetings = ['oi', 'ola', 'olá', 'bom dia', 'boa tarde', 'boa noite', 'hey', 'hi', 'hello'];
 
-  for (const f of t.faq_data || []) {
-    if (!f.question || !f.answer) continue;
-    const ws = f.question.toLowerCase().split(/\s+/).filter(w => w.length > 2);
-    if (ws.filter(w => msg.includes(w)).length >= 2 || msg.includes(f.question.toLowerCase())) return f.answer;
+  if (greetings.some(g => m.includes(g))) {
+    return training.greeting_message || 'Ola! Como posso ajudar?';
   }
 
-  if (/preco|valor|custa|quanto|orcamento/i.test(msg)) return (t.pricing_info || 'Consulte-nos.') + '
+  for (const f of training.faq_data || []) {
+    if (!f.question || !f.answer) continue;
+    const words = f.question.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+    const matches = words.filter(w => m.includes(w)).length;
+    if (matches >= 2 || m.includes(f.question.toLowerCase())) {
+      return f.answer;
+    }
+  }
 
-Posso agendar orcamento gratuito!';
-  if (/horario|hora|aberto|funciona/i.test(msg)) return '⏰ ' + (t.business_hours || 'Horario comercial') + '
-
-Estamos prontos!';
-  if (/servico|conserta|reparo|arruma/i.test(msg)) return '🔧 ' + (t.services || 'Diversos servicos.') + '
-
-Qual voce precisa?';
-  if ((t.escalation_keywords || []).some(w => msg.includes(w))) return '👨‍💼 Transferindo para atendente humano...';
-  return (t.fallback_message || 'Nao compreendi.') + '
-
-Ou digite "atendente"!';
+  if (/preco|valor|custa|quanto|orcamento/i.test(m)) {
+    return (training.pricing_info || 'Consulte-nos.') + '\n\nPosso agendar orcamento gratuito!';
+  }
+  if (/horario|hora|aberto|funciona/i.test(m)) {
+    return 'Horario: ' + (training.business_hours || 'Comercial') + '\n\nEstamos prontos!';
+  }
+  if (/servico|conserta|reparo|arruma/i.test(m)) {
+    return 'Servicos: ' + (training.services || 'Diversos') + '\n\nQual voce precisa?';
+  }
+  if ((training.escalation_keywords || []).some(w => m.includes(w))) {
+    return 'Transferindo para atendente humano...';
+  }
+  return (training.fallback_message || 'Nao entendi.') + '\n\nDigite "atendente" para humano.';
 }
 
-// ═══════════════════════════════════════════════════════
-// SALVAR NO SERVIDOR
-// ═══════════════════════════════════════════════════════
-async function save() {
-  const btn = document.getElementById('saveBtn');
+// SALVAR
+async function saveAll() {
+  const btn = $('saveBtn');
   if (!btn) return;
 
-  btn.innerHTML = '<span class="spin"></span>Salvando...';
   btn.disabled = true;
-  debug('Iniciando save()...');
+  btn.innerHTML = '<span class="spinner"></span> Salvando...';
+  debug('Salvando...');
+  showToast('Salvando no servidor...', 'info', 99999);
 
   const payload = {
     bot_name: val('botName'),
@@ -549,167 +522,118 @@ async function save() {
     fallback_message: val('fallback'),
     faq_data: faqData,
     escalation_keywords: escalation,
-    active: document.getElementById('botToggle').classList.contains('on'),
-    updated_at: new Date().toISOString(),
+    active: $('botToggle').classList.contains('on'),
+    updated_at: new Date().toISOString()
   };
 
-  debug('Payload: ' + JSON.stringify(payload).substring(0, 300));
-
   // Cache local
-  try { 
-    localStorage.setItem('bot_training_v2', JSON.stringify(payload)); 
+  try {
+    localStorage.setItem('bot_training_v2', JSON.stringify(payload));
   } catch (e) {}
 
-  toast('Salvando no servidor...', 'info', 99999);
-
-  let ok = false;
-  let errorMsg = '';
-
   try {
-    const ctrl = new AbortController();
-    const tid = setTimeout(() => ctrl.abort(), 15000);
-
-    debug('POST para: ' + WEBHOOK_URL);
+    debug('POST ' + WEBHOOK_URL);
     const res = await fetch(WEBHOOK_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Accept: 'application/json'
       },
-      body: JSON.stringify(payload),
-      signal: ctrl.signal
+      body: JSON.stringify(payload)
     });
 
-    clearTimeout(tid);
-    debug('Status HTTP: ' + res.status);
-
-    const resText = await res.text();
-    debug('Resposta raw: ' + resText.substring(0, 300));
+    debug('Status: ' + res.status);
+    const text = await res.text();
+    debug('Resposta: ' + text.substring(0, 200));
 
     if (!res.ok) {
-      throw new Error('HTTP ' + res.status + ': ' + resText.substring(0, 200));
+      throw new Error('HTTP ' + res.status + ': ' + text.substring(0, 100));
     }
 
-    const d = JSON.parse(resText);
-    debug('JSON OK: ' + JSON.stringify(d).substring(0, 200));
+    const data = JSON.parse(text);
 
-    if (d.success || d.ok) {
-      ok = true;
+    if (data.success || data.ok) {
+      setStatus('ok', 'Salvo e ativo ✓');
+      showToast('✓ Configuracao salva no WhatsApp!', 'success', 4000);
+      debug('SUCESSO!');
     } else {
-      throw new Error(d.error || 'Resposta invalida do servidor');
+      throw new Error(data.error || 'Erro desconhecido');
     }
 
-  } catch (e) {
-    debug('ERRO SAVE: ' + e.message);
-    console.error('[save] Erro:', e.message);
-    errorMsg = e.message;
+  } catch (err) {
+    debug('ERRO SAVE: ' + err.message);
+    console.error('Save error:', err);
+    setStatus('err', 'Erro ao salvar');
+    showToast('✗ ' + err.message, 'error', 6000);
   }
 
-  if (ok) {
-    setStatus('ok', 'WhatsApp atualizado ✓');
-    toast('✓ Sucesso! Configuracao salva e ativa!', 'success', 5000);
-  } else {
-    setStatus('err', 'Falha ao salvar — ' + errorMsg);
-    toast('✗ Falha: ' + errorMsg, 'error', 7000);
-  }
-
-  btn.innerHTML = 'Salvar e Ativar no WhatsApp';
   btn.disabled = false;
+  btn.textContent = 'Salvar e Ativar no WhatsApp';
 }
 
-// ═══════════════════════════════════════════════════════
-// EVENT LISTENERS — Todos os botoes
-// ═══════════════════════════════════════════════════════
-function setupEventListeners() {
-  debug('Configurando event listeners...');
+// EVENT LISTENERS - Tudo aqui, garantido
+function init() {
+  debug('Inicializando...');
 
-  // Toggle bot
-  const botToggle = document.getElementById('botToggle');
-  if (botToggle) {
-    botToggle.addEventListener('click', toggleBot);
-    debug('Toggle OK');
-  } else {
-    debug('ERRO: botToggle nao encontrado');
-  }
+  // Toggle
+  const tog = $('botToggle');
+  if (tog) tog.addEventListener('click', toggleBot);
 
-  // Adicionar tag
-  const btnAddTag = document.getElementById('btnAddTag');
-  if (btnAddTag) {
-    btnAddTag.addEventListener('click', addTag);
-    debug('Btn AddTag OK');
-  }
+  // Add tag
+  const btnTag = $('btnAddTag');
+  if (btnTag) btnTag.addEventListener('click', addTag);
 
-  // Input tag (Enter)
-  const newTagInput = document.getElementById('newTagInput');
-  if (newTagInput) {
-    newTagInput.addEventListener('keypress', function(e) {
+  // Tag input Enter
+  const inpTag = $('newTagInput');
+  if (inpTag) {
+    inpTag.addEventListener('keypress', function(e) {
       if (e.key === 'Enter') addTag();
     });
-    debug('Input Tag OK');
   }
 
-  // Abrir modal FAQ
-  const btnOpenFaq = document.getElementById('btnOpenFaq');
-  if (btnOpenFaq) {
-    btnOpenFaq.addEventListener('click', openFaq);
-    debug('Btn OpenFaq OK');
-  }
+  // Open FAQ modal
+  const btnOpen = $('btnOpenFaq');
+  if (btnOpen) btnOpen.addEventListener('click', openFaqModal);
 
-  // Cancelar FAQ
-  const btnCancelFaq = document.getElementById('btnCancelFaq');
-  if (btnCancelFaq) {
-    btnCancelFaq.addEventListener('click', closeFaq);
-    debug('Btn CancelFaq OK');
-  }
+  // Cancel FAQ
+  const btnCancel = $('btnCancelFaq');
+  if (btnCancel) btnCancel.addEventListener('click', closeFaqModal);
 
-  // Salvar FAQ
-  const btnSaveFaq = document.getElementById('btnSaveFaq');
-  if (btnSaveFaq) {
-    btnSaveFaq.addEventListener('click', saveFaqItem);
-    debug('Btn SaveFaq OK');
-  }
+  // Save FAQ
+  const btnSaveF = $('btnSaveFaq');
+  if (btnSaveF) btnSaveF.addEventListener('click', saveFaq);
 
-  // Fechar modal ao clicar fora
-  const faqModal = document.getElementById('faqModal');
-  if (faqModal) {
-    faqModal.addEventListener('click', function(e) {
-      if (e.target === faqModal) closeFaq();
+  // Modal overlay click
+  const modal = $('faqModal');
+  if (modal) {
+    modal.addEventListener('click', function(e) {
+      if (e.target === modal) closeFaqModal();
     });
-    debug('Modal overlay OK');
   }
 
-  // Fechar modal com ESC
+  // ESC key
   document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') closeFaq();
+    if (e.key === 'Escape') closeFaqModal();
   });
 
   // Simulador
-  const testQ = document.getElementById('testQ');
-  if (testQ) {
-    testQ.addEventListener('input', simulate);
-    debug('Simulador OK');
-  }
+  const testQ = $('testQ');
+  if (testQ) testQ.addEventListener('input', testResponse);
 
-  // Botao Salvar
-  const saveBtn = document.getElementById('saveBtn');
-  if (saveBtn) {
-    saveBtn.addEventListener('click', save);
-    debug('Btn Save OK');
-  } else {
-    debug('ERRO: saveBtn nao encontrado');
-  }
+  // Salvar tudo
+  const saveBtn = $('saveBtn');
+  if (saveBtn) saveBtn.addEventListener('click', saveAll);
 
-  debug('Todos os event listeners configurados!');
+  debug('Eventos configurados. Carregando dados...');
+  loadData();
 }
 
-// ═══════════════════════════════════════════════════════
-// INICIAR APLICACAO
-// ═══════════════════════════════════════════════════════
-document.addEventListener('DOMContentLoaded', function() {
-  debug('DOM carregado. Iniciando...');
-  setupEventListeners();
-  load();
-});
+// Iniciar quando DOM pronto
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
+}
 </script>
 </body>
 </html>

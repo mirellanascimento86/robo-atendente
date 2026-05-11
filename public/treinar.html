@@ -1,813 +1,1416 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="theme-color" content="#075e54">
-    <title>WhatsApp Pro - Painel de Treinamento</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-        }
-
-        :root {
-            --primary: #075e54;
-            --primary-dark: #054d44;
-            --secondary: #128c7e;
-            --accent: #25d366;
-            --bg: #0a1014;
-            --card-bg: #111b21;
-            --text: #e9edef;
-            --text-secondary: #8696a0;
-            --border: #2a3942;
-            --danger: #f15c6d;
-            --warning: #ffd700;
-            --success: #25d366;
-        }
-
-        body {
-            background: var(--bg);
-            color: var(--text);
-            min-height: 100vh;
-        }
-
-        .header {
-            background: var(--card-bg);
-            padding: 20px 24px;
-            border-bottom: 1px solid var(--border);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            position: sticky;
-            top: 0;
-            z-index: 100;
-        }
-
-        .header h1 {
-            font-size: 24px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .header-actions {
-            display: flex;
-            gap: 12px;
-            align-items: center;
-        }
-
-        .status-badge {
-            padding: 6px 14px;
-            border-radius: 20px;
-            font-size: 13px;
-            font-weight: 600;
-        }
-        .status-badge.online { background: var(--accent); color: #111; }
-        .status-badge.offline { background: var(--danger); color: white; }
-        .status-badge.sync { background: var(--warning); color: #111; }
-
-        .btn {
-            padding: 10px 20px;
-            border: none;
-            border-radius: 8px;
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .btn-primary { background: var(--secondary); color: white; }
-        .btn-primary:hover { background: var(--accent); }
-        .btn-danger { background: var(--danger); color: white; }
-        .btn-success { background: var(--success); color: #111; }
-        .btn-secondary { background: var(--border); color: var(--text); }
-
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 24px;
-        }
-
-        .tabs {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 24px;
-            border-bottom: 1px solid var(--border);
-            padding-bottom: 12px;
-        }
-
-        .tab {
-            padding: 10px 20px;
-            border: none;
-            background: transparent;
-            color: var(--text-secondary);
-            cursor: pointer;
-            font-size: 15px;
-            font-weight: 500;
-            border-radius: 8px;
-            transition: all 0.2s;
-        }
-        .tab:hover { color: var(--text); background: rgba(255,255,255,0.05); }
-        .tab.active { color: var(--accent); background: rgba(37, 211, 102, 0.1); }
-
-        .tab-content { display: none; }
-        .tab-content.active { display: block; }
-
-        .card {
-            background: var(--card-bg);
-            border-radius: 12px;
-            padding: 24px;
-            margin-bottom: 20px;
-            border: 1px solid var(--border);
-        }
-
-        .card h2 {
-            font-size: 18px;
-            margin-bottom: 16px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        .form-group label {
-            display: block;
-            font-size: 14px;
-            color: var(--text-secondary);
-            margin-bottom: 8px;
-            font-weight: 500;
-        }
-
-        .form-group input,
-        .form-group textarea,
-        .form-group select {
-            width: 100%;
-            padding: 12px 16px;
-            background: var(--bg);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            color: var(--text);
-            font-size: 15px;
-            outline: none;
-            transition: border-color 0.2s;
-        }
-        .form-group input:focus,
-        .form-group textarea:focus,
-        .form-group select:focus {
-            border-color: var(--secondary);
-        }
-        .form-group textarea {
-            min-height: 100px;
-            resize: vertical;
-        }
-
-        .training-item {
-            background: var(--bg);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 16px;
-            margin-bottom: 12px;
-            display: flex;
-            gap: 12px;
-            align-items: flex-start;
-        }
-
-        .training-item .info {
-            flex: 1;
-        }
-
-        .training-item .info .key {
-            font-weight: 600;
-            color: var(--accent);
-            font-size: 14px;
-            margin-bottom: 4px;
-        }
-
-        .training-item .info .value {
-            color: var(--text-secondary);
-            font-size: 14px;
-            line-height: 1.5;
-        }
-
-        .training-item .info .category {
-            display: inline-block;
-            padding: 2px 8px;
-            border-radius: 4px;
-            font-size: 12px;
-            margin-top: 8px;
-            background: rgba(37, 211, 102, 0.1);
-            color: var(--accent);
-        }
-
-        .training-item .actions {
-            display: flex;
-            gap: 8px;
-        }
-
-        .icon-btn {
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            border: none;
-            background: transparent;
-            color: var(--text-secondary);
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.2s;
-        }
-        .icon-btn:hover { background: rgba(255,255,255,0.1); }
-        .icon-btn.delete:hover { background: var(--danger); color: white; }
-        .icon-btn.edit:hover { background: var(--secondary); color: white; }
-
-        .bairro-item {
-            display: grid;
-            grid-template-columns: 2fr 1fr 1fr 1fr auto;
-            gap: 12px;
-            align-items: center;
-            padding: 12px;
-            background: var(--bg);
-            border-radius: 8px;
-            margin-bottom: 8px;
-            border: 1px solid var(--border);
-        }
-
-        .bairro-item .nome { font-weight: 500; }
-        .bairro-item .regiao { 
-            padding: 4px 10px; 
-            border-radius: 12px; 
-            font-size: 12px;
-            font-weight: 600;
-        }
-        .regiao-botafogo { background: rgba(37, 211, 102, 0.2); color: var(--accent); }
-        .regiao-zona_sul { background: rgba(18, 140, 126, 0.2); color: var(--secondary); }
-        .regiao-zona_norte { background: rgba(255, 193, 7, 0.2); color: var(--warning); }
-        .regiao-zona_oeste { background: rgba(241, 92, 109, 0.2); color: var(--danger); }
-        .regiao-baixada { background: rgba(241, 92, 109, 0.2); color: var(--danger); }
-
-        .empty-state {
-            text-align: center;
-            padding: 60px 20px;
-            color: var(--text-secondary);
-        }
-
-        .modal {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,0.8);
-            z-index: 1000;
-            align-items: center;
-            justify-content: center;
-        }
-        .modal.active { display: flex; }
-        .modal-content {
-            background: var(--card-bg);
-            border-radius: 12px;
-            padding: 24px;
-            max-width: 500px;
-            width: 90%;
-            max-height: 90vh;
-            overflow-y: auto;
-        }
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-        }
-        .modal-header h3 { font-size: 20px; }
-        .close-btn {
-            background: none;
-            border: none;
-            color: var(--text-secondary);
-            font-size: 24px;
-            cursor: pointer;
-        }
-
-        .preview-box {
-            background: var(--bg);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 16px;
-            margin-top: 12px;
-            font-size: 14px;
-            line-height: 1.6;
-            color: var(--text-secondary);
-        }
-
-        .toast {
-            position: fixed;
-            bottom: 24px;
-            right: 24px;
-            padding: 16px 24px;
-            border-radius: 8px;
-            color: white;
-            font-weight: 600;
-            z-index: 10000;
-            animation: slideIn 0.3s ease;
-        }
-        .toast.success { background: var(--success); color: #111; }
-        .toast.error { background: var(--danger); }
-        @keyframes slideIn {
-            from { transform: translateX(100%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
-        }
-
-        @media (max-width: 768px) {
-            .bairro-item {
-                grid-template-columns: 1fr;
-                gap: 8px;
-            }
-            .header { flex-direction: column; gap: 12px; }
-            .container { padding: 16px; }
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Painel de Treinamento - Robo Atendente</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);min-height:100vh}
+.container{max-width:1600px;margin:0 auto;padding:20px}
+.header{text-align:center;color:white;margin-bottom:25px}
+.header h1{font-size:2.2rem;margin-bottom:8px}
+.header p{opacity:0.9;font-size:1.05rem}
+.top-bar{background:white;border-radius:12px;padding:15px 25px;margin-bottom:20px;display:flex;gap:15px;align-items:center;flex-wrap:wrap;box-shadow:0 4px 20px rgba(0,0,0,0.1)}
+.top-bar label{font-weight:600;color:#333}
+.top-bar select{padding:10px 15px;border:2px solid #e9ecef;border-radius:8px;font-size:1rem;min-width:250px}
+.btn{padding:10px 20px;border:none;border-radius:8px;font-size:0.95rem;font-weight:600;cursor:pointer;transition:all 0.2s}
+.btn:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,0.15)}
+.btn-primary{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white}
+.btn-success{background:#28a745;color:white}
+.btn-danger{background:#dc3545;color:white}
+.btn-secondary{background:#6c757d;color:white}
+.btn-warning{background:#ffc107;color:#333}
+.btn-small{padding:6px 12px;font-size:0.8rem}
+.panel{background:white;border-radius:16px;box-shadow:0 10px 40px rgba(0,0,0,0.2);overflow:hidden}
+.tabs{display:flex;background:#f8f9fa;border-bottom:1px solid #e9ecef;overflow-x:auto}
+.tab{padding:14px 20px;cursor:pointer;border:none;background:none;font-size:0.9rem;font-weight:600;color:#6c757d;transition:all 0.3s;white-space:nowrap}
+.tab:hover{color:#667eea;background:#e9ecef}
+.tab.active{color:#667eea;border-bottom:3px solid #667eea;background:white}
+.tab-content{display:none;padding:25px}
+.tab-content.active{display:block}
+.section-title{font-size:1.3rem;font-weight:700;color:#333;margin-bottom:20px;padding-bottom:10px;border-bottom:2px solid #667eea}
+.form-group{margin-bottom:18px}
+.form-group label{display:block;margin-bottom:6px;font-weight:600;color:#333;font-size:0.9rem}
+.form-group input,.form-group textarea,.form-group select{width:100%;padding:10px 14px;border:2px solid #e9ecef;border-radius:8px;font-size:0.95rem;transition:border-color 0.3s;font-family:inherit}
+.form-group input:focus,.form-group textarea:focus,.form-group select:focus{outline:none;border-color:#667eea}
+.form-group textarea{min-height:70px;resize:vertical}
+.form-group small{color:#6c757d;font-size:0.8rem}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:15px}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:15px}
+.grid-4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:15px}
+@media(max-width:768px){.grid-2,.grid-3,.grid-4{grid-template-columns:1fr}}
+.card{background:#f8f9fa;border:2px solid #e9ecef;border-radius:12px;padding:20px;margin-bottom:15px;transition:all 0.3s}
+.card:hover{border-color:#667eea}
+.card-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:15px}
+.card-title{font-size:1.1rem;font-weight:700;color:#333}
+.card-subtitle{font-size:0.85rem;color:#6c757d}
+.card-actions{display:flex;gap:8px}
+.etapa-card{background:white;border:2px solid #dee2e6;border-radius:12px;padding:20px;margin-bottom:15px}
+.etapa-card.destaque{border-color:#667eea;box-shadow:0 4px 12px rgba(102,126,234,0.1)}
+.etapa-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:15px}
+.etapa-id{background:#667eea;color:white;padding:4px 12px;border-radius:20px;font-size:0.85rem;font-weight:700}
+.transicao-box{background:#f8f9fa;border-left:4px solid #28a745;border-radius:8px;padding:15px;margin-bottom:12px}
+.transicao-box.objecao{border-left-color:#dc3545}
+.transicao-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.transicao-titulo{font-weight:600;color:#333}
+.condicao-tag{display:inline-block;background:#667eea;color:white;padding:3px 10px;border-radius:15px;font-size:0.8rem;margin:2px}
+.condicao-tag.regex{background:#6f42c1}
+.condicao-tag.lista{background:#fd7e14}
+.acao-box{background:#e7f3ff;border-radius:8px;padding:12px;margin-top:10px;font-size:0.9rem}
+.acao-titulo{font-weight:600;color:#0056b3;margin-bottom:8px}
+.add-btn{width:100%;padding:14px;border:2px dashed #667eea;background:transparent;color:#667eea;border-radius:10px;cursor:pointer;font-weight:600;font-size:1rem;transition:all 0.3s;margin-top:10px}
+.add-btn:hover{background:#667eea;color:white}
+.intencao-card{background:white;border:2px solid #e9ecef;border-radius:12px;padding:18px;margin-bottom:12px}
+.intencao-card:hover{border-color:#28a745}
+.preview-box{background:#1e1e1e;color:#d4d4d4;border-radius:12px;padding:20px;font-family:'Consolas','Monaco',monospace;font-size:0.85rem;overflow-x:auto;max-height:500px;overflow-y:auto;line-height:1.5}
+.json-key{color:#9cdcfe}
+.json-string{color:#ce9178}
+.json-number{color:#b5cea8}
+.json-boolean{color:#569cd6}
+.modal-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:1000;justify-content:center;align-items:center;padding:20px}
+.modal-overlay.active{display:flex}
+.modal{background:white;border-radius:16px;padding:30px;max-width:700px;width:100%;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3)}
+.modal h3{margin-bottom:20px;color:#333;font-size:1.3rem}
+.modal-footer{display:flex;gap:10px;justify-content:flex-end;margin-top:20px;padding-top:15px;border-top:1px solid #e9ecef}
+.toast{position:fixed;bottom:20px;right:20px;padding:15px 25px;border-radius:10px;color:white;font-weight:600;z-index:2000;transform:translateY(100px);transition:transform 0.3s;box-shadow:0 4px 20px rgba(0,0,0,0.2)}
+.toast.show{transform:translateY(0)}
+.toast-success{background:#28a745}
+.toast-error{background:#dc3545}
+.toast-info{background:#17a2b8}
+.toggle-switch{display:inline-flex;align-items:center;gap:10px;cursor:pointer}
+.toggle-switch input{display:none}
+.toggle-slider{width:44px;height:24px;background:#ccc;border-radius:24px;position:relative;transition:0.3s}
+.toggle-slider::before{content:'';position:absolute;width:18px;height:18px;background:white;border-radius:50%;top:3px;left:3px;transition:0.3s}
+.toggle-switch input:checked+.toggle-slider{background:#667eea}
+.toggle-switch input:checked+.toggle-slider::before{left:23px}
+.help-text{background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:12px 15px;margin-bottom:20px;font-size:0.9rem;color:#856404}
+.help-text code{background:rgba(0,0,0,0.1);padding:2px 6px;border-radius:4px;font-family:monospace}
+.lista-itens{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.item-tag{background:#e9ecef;padding:6px 12px;border-radius:20px;font-size:0.85rem;display:flex;align-items:center;gap:6px}
+.item-tag button{background:none;border:none;color:#dc3545;cursor:pointer;font-size:1rem;padding:0}
+.regra-condicional{background:#f8f9fa;border:2px solid #dee2e6;border-radius:10px;padding:15px;margin-bottom:10px}
+.exemplo-box{background:#d4edda;border:1px solid #c3e6cb;border-radius:8px;padding:15px;margin:15px 0;font-size:0.9rem}
+.exemplo-box strong{color:#155724}
+</style>
 <base target="_blank">
 </head>
 <body>
-    <div class="header">
-        <h1>
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-            </svg>
-            Painel de Treinamento - WhatsApp Pro
-        </h1>
-        <div class="header-actions">
-            <span class="status-badge sync" id="statusBadge">Sincronizando...</span>
-            <button class="btn btn-primary" onclick="app.openModal()">
-                + Nova Mensagem
-            </button>
-        </div>
-    </div>
-
-    <div class="container">
-        <div class="tabs">
-            <button class="tab active" onclick="app.switchTab('fluxo')">📋 Fluxo de Conversa</button>
-            <button class="tab" onclick="app.switchTab('precos')">💰 Preços e Descontos</button>
-            <button class="tab" onclick="app.switchTab('bairros')">🏘️ Bairros</button>
-            <button class="tab" onclick="app.switchTab('palavras')">🔑 Palavras-chave</button>
-            <button class="tab" onclick="app.switchTab('preview')">👁️ Preview do Bot</button>
-        </div>
-
-        <!-- ABA: FLUXO DE CONVERSA -->
-        <div class="tab-content active" id="tab-fluxo">
-            <div class="card">
-                <h2>🤖 Mensagens do Fluxo Principal</h2>
-                <p style="color: var(--text-secondary); margin-bottom: 20px;">
-                    Estas são as mensagens que o robô envia durante o atendimento. 
-                    Use <code>{horario}</code> para inserir horário dinâmico e <code>{valor}</code> para preço.
-                </p>
-                <div id="listaFluxo"></div>
-            </div>
-        </div>
-
-        <!-- ABA: PREÇOS -->
-        <div class="tab-content" id="tab-precos">
-            <div class="card">
-                <h2>💰 Configuração de Preços</h2>
-                <div id="listaPrecos"></div>
-            </div>
-            <div class="card">
-                <h2>🏷️ Mensagens de Desconto</h2>
-                <div id="listaDescontos"></div>
-            </div>
-        </div>
-
-        <!-- ABA: BAIRROS -->
-        <div class="tab-content" id="tab-bairros">
-            <div class="card">
-                <h2>🏘️ Gerenciar Bairros</h2>
-                <div class="form-group" style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr auto; gap: 12px;">
-                    <input type="text" id="novoBairro" placeholder="Nome do bairro">
-                    <select id="novaRegiao">
-                        <option value="botafogo">Botafogo</option>
-                        <option value="zona_sul">Zona Sul</option>
-                        <option value="zona_norte">Zona Norte</option>
-                        <option value="zona_oeste">Zona Oeste</option>
-                        <option value="baixada">Baixada</option>
-                    </select>
-                    <input type="number" id="novoValor" placeholder="Valor" value="120">
-                    <select id="novoAtende">
-                        <option value="true">Atende</option>
-                        <option value="false">Não atende</option>
-                    </select>
-                    <button class="btn btn-success" onclick="app.addBairro()">+</button>
-                </div>
-                <div id="listaBairros"></div>
-            </div>
-        </div>
-
-        <!-- ABA: PALAVRAS-CHAVE -->
-        <div class="tab-content" id="tab-palavras">
-            <div class="card">
-                <h2>🔑 Palavras-chave para Humanizar</h2>
-                <p style="color: var(--text-secondary); margin-bottom: 20px;">
-                    Quando o cliente digitar qualquer uma dessas palavras, o robô para e chama um humano.
-                </p>
-                <div class="form-group" style="display: flex; gap: 12px;">
-                    <input type="text" id="novaPalavra" placeholder="Nova palavra-chave" style="flex: 1;">
-                    <button class="btn btn-success" onclick="app.addPalavra()">Adicionar</button>
-                </div>
-                <div id="listaPalavras"></div>
-            </div>
-        </div>
-
-        <!-- ABA: PREVIEW -->
-        <div class="tab-content" id="tab-preview">
-            <div class="card">
-                <h2>👁️ Simulação do Atendimento</h2>
-                <div class="preview-box" id="previewBox">
-                    <p><strong>Cliente:</strong> Olá, preciso de ajuda</p>
-                    <p style="color: var(--accent); margin: 8px 0;"><strong>🤖 Bot:</strong> <span id="previewSaudacao">Carregando...</span></p>
-                    <p><strong>Cliente:</strong> Meu ar condicionado LG está com problema</p>
-                    <p style="color: var(--accent); margin: 8px 0;"><strong>🤖 Bot:</strong> <span id="previewHorario">Carregando...</span></p>
-                    <p><strong>Cliente:</strong> Sim, pode ser</p>
-                    <p style="color: var(--accent); margin: 8px 0;"><strong>🤖 Bot:</strong> <span id="previewBairro">Carregando...</span></p>
-                    <p><strong>Cliente:</strong> Botafogo</p>
-                    <p style="color: var(--accent); margin: 8px 0;"><strong>🤖 Bot:</strong> <span id="previewPreco">Carregando...</span></p>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- MODAL -->
-    <div class="modal" id="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 id="modalTitle">Nova Mensagem</h3>
-                <button class="close-btn" onclick="app.closeModal()">&times;</button>
-            </div>
-            <div class="form-group">
-                <label>Chave de identificação</label>
-                <input type="text" id="modalChave" placeholder="ex: saudacao, preco_botafogo">
-            </div>
-            <div class="form-group">
-                <label>Categoria</label>
-                <select id="modalCategoria">
-                    <option value="fluxo">Fluxo de Conversa</option>
-                    <option value="precos">Preços</option>
-                    <option value="descontos">Descontos</option>
-                    <option value="humano">Humano</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label>Mensagem</label>
-                <textarea id="modalValor" placeholder="Digite a mensagem que o robô enviará..."></textarea>
-            </div>
-            <div style="display: flex; gap: 12px; justify-content: flex-end;">
-                <button class="btn btn-secondary" onclick="app.closeModal()">Cancelar</button>
-                <button class="btn btn-primary" onclick="app.saveTraining()">Salvar</button>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        // ==========================================
-        // CONFIGURAÇÃO SUPABASE
-        // ==========================================
-        const SUPABASE_URL = 'https://SEU-PROJETO.supabase.co'; // SUBSTITUA
-        const SUPABASE_KEY = 'SUA-ANON-KEY'; // SUBSTITUA
-
-        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
-        // ==========================================
-        // APLICAÇÃO
-        // ==========================================
-        class TrainingPanel {
-            constructor() {
-                this.currentTab = 'fluxo';
-                this.editingId = null;
-                this.init();
-            }
-
-            async init() {
-                console.log('[Treinamento] Iniciando...');
-
-                const { error } = await supabaseClient.from('treinamento').select('count', { count: 'exact' });
-
-                if (error) {
-                    console.error('[Treinamento] Erro:', error);
-                    this.updateStatus('offline');
-                    return;
-                }
-
-                this.updateStatus('online');
-                await this.loadAllData();
-
-                // Inscrever em mudanças em tempo real
-                supabaseClient
-                    .channel('training_changes')
-                    .on('postgres_changes', 
-                        { event: '*', schema: 'public', table: 'treinamento' },
-                        () => this.loadAllData()
-                    )
-                    .on('postgres_changes',
-                        { event: '*', schema: 'public', table: 'bairros_precos' },
-                        () => this.loadAllData()
-                    )
-                    .on('postgres_changes',
-                        { event: '*', schema: 'public', table: 'palavras_chave_humano' },
-                        () => this.loadAllData()
-                    )
-                    .subscribe();
-            }
-
-            updateStatus(status) {
-                const badge = document.getElementById('statusBadge');
-                badge.className = 'status-badge ' + status;
-                badge.textContent = status === 'online' ? '🟢 Online' : status === 'sync' ? '🟡 Sincronizando' : '🔴 Offline';
-            }
-
-            // ==========================================
-            // CARREGAR TODOS OS DADOS
-            // ==========================================
-            async loadAllData() {
-                this.updateStatus('sync');
-
-                await Promise.all([
-                    this.loadTreinamento(),
-                    this.loadBairros(),
-                    this.loadPalavras(),
-                    this.updatePreview()
-                ]);
-
-                this.updateStatus('online');
-            }
-
-            async loadTreinamento() {
-                const { data, error } = await supabaseClient
-                    .from('treinamento')
-                    .select('*')
-                    .order('categoria', { ascending: true });
-
-                if (error) {
-                    console.error('Erro:', error);
-                    return;
-                }
-
-                // Separar por categoria
-                const fluxo = data.filter(d => d.categoria === 'fluxo');
-                const precos = data.filter(d => d.categoria === 'precos');
-                const descontos = data.filter(d => d.categoria === 'descontos');
-
-                this.renderTrainingList('listaFluxo', fluxo);
-                this.renderTrainingList('listaPrecos', precos);
-                this.renderTrainingList('listaDescontos', descontos);
-            }
-
-            renderTrainingList(containerId, items) {
-                const container = document.getElementById(containerId);
-
-                if (!items || items.length === 0) {
-                    container.innerHTML = '<div class="empty-state">Nenhuma mensagem configurada</div>';
-                    return;
-                }
-
-                container.innerHTML = items.map(item => `
-                    <div class="training-item">
-                        <div class="info">
-                            <div class="key">${item.chave}</div>
-                            <div class="value">${this.escapeHtml(item.valor)}</div>
-                            <span class="category">${item.categoria}</span>
-                        </div>
-                        <div class="actions">
-                            <button class="icon-btn edit" onclick="app.editTraining('${item.id}')" title="Editar">✏️</button>
-                            <button class="icon-btn delete" onclick="app.deleteTraining('${item.id}')" title="Excluir">🗑️</button>
-                        </div>
-                    </div>
-                `).join('');
-            }
-
-            async loadBairros() {
-                const { data, error } = await supabaseClient
-                    .from('bairros_precos')
-                    .select('*')
-                    .order('bairro', { ascending: true });
-
-                if (error) {
-                    console.error('Erro bairros:', error);
-                    return;
-                }
-
-                const container = document.getElementById('listaBairros');
-
-                if (!data || data.length === 0) {
-                    container.innerHTML = '<div class="empty-state">Nenhum bairro cadastrado</div>';
-                    return;
-                }
-
-                container.innerHTML = data.map(b => `
-                    <div class="bairro-item">
-                        <div class="nome">${b.bairro}</div>
-                        <div class="regiao regiao-${b.regiao}">${b.regiao.replace('_', ' ')}</div>
-                        <div>R$${b.valor_visita}</div>
-                        <div>${b.atende ? '✅ Atende' : '❌ Não'}</div>
-                        <div class="actions">
-                            <button class="icon-btn delete" onclick="app.deleteBairro('${b.id}')">🗑️</button>
-                        </div>
-                    </div>
-                `).join('');
-            }
-
-            async loadPalavras() {
-                const { data, error } = await supabaseClient
-                    .from('palavras_chave_humano')
-                    .select('*')
-                    .order('palavra', { ascending: true });
-
-                if (error) {
-                    console.error('Erro palavras:', error);
-                    return;
-                }
-
-                const container = document.getElementById('listaPalavras');
-
-                if (!data || data.length === 0) {
-                    container.innerHTML = '<div class="empty-state">Nenhuma palavra-chave cadastrada</div>';
-                    return;
-                }
-
-                container.innerHTML = data.map(p => `
-                    <div class="training-item">
-                        <div class="info">
-                            <div class="key">${p.palavra}</div>
-                        </div>
-                        <div class="actions">
-                            <button class="icon-btn delete" onclick="app.deletePalavra('${p.id}')">🗑️</button>
-                        </div>
-                    </div>
-                `).join('');
-            }
-
-            // ==========================================
-            // AÇÕES
-            // ==========================================
-            switchTab(tab) {
-                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-                document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-
-                event.target.classList.add('active');
-                document.getElementById(`tab-${tab}`).classList.add('active');
-
-                this.currentTab = tab;
-
-                if (tab === 'preview') {
-                    this.updatePreview();
-                }
-            }
-
-            openModal(editId = null) {
-                this.editingId = editId;
-                document.getElementById('modal').classList.add('active');
-                document.getElementById('modalTitle').textContent = editId ? 'Editar Mensagem' : 'Nova Mensagem';
-
-                if (editId) {
-                    // Preencher dados para edição
-                    this.loadEditData(editId);
-                } else {
-                    document.getElementById('modalChave').value = '';
-                    document.getElementById('modalValor').value = '';
-                }
-            }
-
-            closeModal() {
-                document.getElementById('modal').classList.remove('active');
-                this.editingId = null;
-            }
-
-            async loadEditData(id) {
-                const { data } = await supabaseClient.from('treinamento').select('*').eq('id', id).single();
-                if (data) {
-                    document.getElementById('modalChave').value = data.chave;
-                    document.getElementById('modalCategoria').value = data.categoria;
-                    document.getElementById('modalValor').value = data.valor;
-                }
-            }
-
-            async saveTraining() {
-                const chave = document.getElementById('modalChave').value.trim();
-                const categoria = document.getElementById('modalCategoria').value;
-                const valor = document.getElementById('modalValor').value.trim();
-
-                if (!chave || !valor) {
-                    this.showToast('Preencha todos os campos', 'error');
-                    return;
-                }
-
-                try {
-                    if (this.editingId) {
-                        await supabaseClient.from('treinamento').update({ chave, categoria, valor }).eq('id', this.editingId);
-                        this.showToast('Mensagem atualizada!');
-                    } else {
-                        await supabaseClient.from('treinamento').insert({ chave, categoria, valor });
-                        this.showToast('Mensagem criada!');
-                    }
-
-                    this.closeModal();
-                    await this.loadTreinamento();
-
-                } catch (error) {
-                    this.showToast('Erro: ' + error.message, 'error');
-                }
-            }
-
-            async deleteTraining(id) {
-                if (!confirm('Tem certeza que deseja excluir esta mensagem?')) return;
-
-                await supabaseClient.from('treinamento').delete().eq('id', id);
-                this.showToast('Mensagem excluída');
-                await this.loadTreinamento();
-            }
-
-            async addBairro() {
-                const bairro = document.getElementById('novoBairro').value.trim().toLowerCase();
-                const regiao = document.getElementById('novaRegiao').value;
-                const valor = parseFloat(document.getElementById('novoValor').value) || 0;
-                const atende = document.getElementById('novoAtende').value === 'true';
-
-                if (!bairro) {
-                    this.showToast('Digite o nome do bairro', 'error');
-                    return;
-                }
-
-                await supabaseClient.from('bairros_precos').insert({
-                    bairro, regiao, valor_visita: valor, atende
-                });
-
-                document.getElementById('novoBairro').value = '';
-                this.showToast('Bairro adicionado!');
-                await this.loadBairros();
-            }
-
-            async deleteBairro(id) {
-                if (!confirm('Excluir este bairro?')) return;
-                await supabaseClient.from('bairros_precos').delete().eq('id', id);
-                this.showToast('Bairro excluído');
-                await this.loadBairros();
-            }
-
-            async addPalavra() {
-                const palavra = document.getElementById('novaPalavra').value.trim().toLowerCase();
-                if (!palavra) {
-                    this.showToast('Digite uma palavra-chave', 'error');
-                    return;
-                }
-
-                await supabaseClient.from('palavras_chave_humano').insert({ palavra });
-                document.getElementById('novaPalavra').value = '';
-                this.showToast('Palavra-chave adicionada!');
-                await this.loadPalavras();
-            }
-
-            async deletePalavra(id) {
-                if (!confirm('Excluir esta palavra-chave?')) return;
-                await supabaseClient.from('palavras_chave_humano').delete().eq('id', id);
-                this.showToast('Palavra-chave excluída');
-                await this.loadPalavras();
-            }
-
-            async updatePreview() {
-                const { data } = await supabaseClient.from('treinamento').select('*');
-
-                const getMsg = (chave) => {
-                    const item = data?.find(d => d.chave === chave);
-                    return item ? item.valor : 'Não configurado';
-                };
-
-                document.getElementById('previewSaudacao').textContent = getMsg('saudacao');
-                document.getElementById('previewHorario').textContent = getMsg('pergunta_horario').replace('{horario}', '14:30');
-                document.getElementById('previewBairro').textContent = getMsg('pergunta_bairro');
-                document.getElementById('previewPreco').textContent = getMsg('preco_botafogo');
-            }
-
-            showToast(msg, type = 'success') {
-                const toast = document.createElement('div');
-                toast.className = `toast ${type}`;
-                toast.textContent = msg;
-                document.body.appendChild(toast);
-                setTimeout(() => toast.remove(), 3000);
-            }
-
-            escapeHtml(text) {
-                if (!text) return '';
-                const div = document.createElement('div');
-                div.textContent = text;
-                return div.innerHTML;
-            }
+<div class="container">
+<div class="header"><h1>🤖 Painel de Treinamento</h1><p>Configure o robo de atendimento para qualquer empresa</p></div>
+<div class="top-bar">
+<label>🏢 Empresa:</label>
+<select id="empresaSelect" onchange="carregarEmpresa()"><option value="">Selecione uma empresa...</option></select>
+<button class="btn btn-success" onclick="novaEmpresa()">+ Nova Empresa</button>
+<button class="btn btn-primary" onclick="salvarConfiguracao()">💾 Salvar Tudo</button>
+<button class="btn btn-warning" onclick="exportarJSON()">📥 Exportar JSON</button>
+<button class="btn btn-secondary" onclick="importarJSON()">📤 Importar JSON</button>
+</div>
+<div class="panel">
+<div class="tabs">
+<button class="tab active" onclick="mostrarAba('geral')">⚙️ Geral</button>
+<button class="tab" onclick="mostrarAba('fluxos')">🔄 Fluxos</button>
+<button class="tab" onclick="mostrarAba('transicoes')">➡️ Transicoes</button>
+<button class="tab" onclick="mostrarAba('intencoes')">🎯 Intencoes</button>
+<button class="tab" onclick="mostrarAba('notificacoes')">🔔 Notificacoes</button>
+<button class="tab" onclick="mostrarAba('preview')">👁️ Preview JSON</button>
+</div>
+
+<!-- ABA GERAL -->
+<div id="aba-geral" class="tab-content active">
+<div class="help-text">
+<strong>💡 Dica:</strong> Use <code>{{nome}}</code> nas respostas para personalizar com o nome do cliente. 
+Use <code>{{campo}}</code> para usar dados coletados (ex: <code>{{bairro}}</code>, <code>{{valor_visita}}</code>).
+</div>
+<div class="grid-2">
+<div class="form-group">
+<label>ID da Empresa *</label>
+<input type="text" id="empresaId" placeholder="ex: conserta_rio">
+<small>Sem espacos, sem acentos. Usado na URL do webhook.</small>
+</div>
+<div class="form-group">
+<label>Nome da Empresa *</label>
+<input type="text" id="nomeEmpresa" placeholder="ex: Conserta Rio">
+</div>
+</div>
+<div class="grid-3">
+<div class="form-group">
+<label>Nome do Robo</label>
+<input type="text" id="nomeBot" value="Robo" placeholder="ex: Ana">
+</div>
+<div class="form-group">
+<label>Etapa Inicial do Fluxo *</label>
+<input type="text" id="fluxoInicial" value="saudacao" placeholder="ex: saudacao">
+<small>ID da primeira etapa da conversa</small>
+</div>
+<div class="form-group">
+<label>Maximo de Tentativas</label>
+<input type="number" id="maxTentativas" value="2" min="1" max="5">
+<small>Tentativas antes de ir para etapa fallback</small>
+</div>
+</div>
+<div class="form-group">
+<label>Mensagem de Erro (quando nao entende)</label>
+<textarea id="mensagemErro" placeholder="Desculpe, nao entendi. Pode repetir?">Desculpe, nao entendi direito. Pode me dizer de outra forma?</textarea>
+</div>
+<div class="form-group">
+<label>Mensagem de Intervencao Humana</label>
+<textarea id="mensagemIntervencao" placeholder="Um momento, vou chamar um atendente.">Um momento, vou chamar um atendente humano para voce.</textarea>
+</div>
+<div class="form-group">
+<label>Palavras que solicitam atendente humano</label>
+<input type="text" id="palavrasHumano" value="humano, pessoa, atendente, funcionario, falar com alguem, atendente humano, real, vivo, pessoa de verdade, quero falar com">
+<small>Separe por virgula</small>
+</div>
+</div>
+
+<!-- ABA FLUXOS -->
+<div id="aba-fluxos" class="tab-content">
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+<h2 class="section-title">📍 Etapas do Fluxo de Conversa</h2>
+<button class="btn btn-primary" onclick="adicionarEtapa()">+ Nova Etapa</button>
+</div>
+<div class="help-text">
+<strong>Como funciona:</strong> O robo comeca na <strong>Etapa Inicial</strong>. 
+A cada mensagem do cliente, verifica as <strong>Transicoes</strong> da etapa atual. 
+Se nenhuma transicao combinar, usa a <strong>Resposta Padrao</strong>.
+</div>
+<div id="fluxosContainer"></div>
+</div>
+
+<!-- ABA TRANSICOES -->
+<div id="aba-transicoes" class="tab-content">
+<h2 class="section-title">➡️ Editor de Transicoes</h2>
+<div class="help-text">
+<strong>Transicoes</strong> definem: "Se o cliente disser X, va para etapa Y e responda Z".<br>
+Use condicoes como "contem", "regex", "lista de palavras", etc.
+</div>
+<div id="transicoesEditorContainer">
+<p style="color:#6c757d; text-align:center; padding:40px;">
+Selecione uma etapa na aba "Fluxos" para editar suas transicoes aqui.
+</p>
+</div>
+</div>
+
+<!-- ABA INTENCOES -->
+<div id="aba-intencoes" class="tab-content">
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+<h2 class="section-title">🎯 Intencoes Globais</h2>
+<button class="btn btn-primary" onclick="adicionarIntencao()">+ Nova Intencao</button>
+</div>
+<div class="help-text">
+<strong>Intencoes Globais</strong> funcionam em QUALQUER etapa da conversa. 
+Uteis para perguntas frequentes como "Quanto custa?", "O que voces fazem?", "Horario de funcionamento?".
+</div>
+<div id="intencoesContainer"></div>
+</div>
+
+<!-- ABA NOTIFICACOES -->
+<div id="aba-notificacoes" class="tab-content">
+<h2 class="section-title">🔔 Notificacoes</h2>
+<div class="card">
+<div class="card-header">
+<div>
+<div class="card-title">📱 Telegram</div>
+<div class="card-subtitle">Notificacoes de intervencao humana e visitas confirmadas</div>
+</div>
+<label class="toggle-switch">
+<input type="checkbox" id="notifTelegram" onchange="toggleTelegram()">
+<span class="toggle-slider"></span>
+<span>Ativar</span>
+</label>
+</div>
+<div id="telegramConfig" style="display:none;">
+<div class="grid-2">
+<div class="form-group">
+<label>Token do Bot</label>
+<input type="text" id="telegramToken" placeholder="123456:ABC-DEF1234...">
+</div>
+<div class="form-group">
+<label>Chat ID</label>
+<input type="text" id="telegramChatId" placeholder="-123456789">
+</div>
+</div>
+</div>
+</div>
+</div>
+
+<!-- ABA PREVIEW -->
+<div id="aba-preview" class="tab-content">
+<h2 class="section-title">👁️ Preview da Configuracao (JSON)</h2>
+<p style="margin-bottom:15px; color:#6c757d;">Este e o JSON exato que sera enviado para a API e usado pelo webhook:</p>
+<div class="preview-box"><pre id="jsonPreview">{}</pre></div>
+<div style="margin-top:15px; display:flex; gap:10px;">
+<button class="btn btn-primary" onclick="copiarJSON()">📋 Copiar JSON</button>
+<button class="btn btn-success" onclick="baixarJSON()">💾 Baixar JSON</button>
+</div>
+</div>
+</div>
+</div>
+
+<!-- MODAL: Nova Empresa -->
+<div class="modal-overlay" id="modalNovaEmpresa">
+<div class="modal">
+<h3>🏢 Nova Empresa</h3>
+<div class="form-group">
+<label>ID da Empresa (sem espacos, sem acentos)</label>
+<input type="text" id="novoEmpresaId" placeholder="ex: minha_empresa">
+</div>
+<div class="form-group">
+<label>Nome da Empresa</label>
+<input type="text" id="novoEmpresaNome" placeholder="ex: Minha Empresa LTDA">
+</div>
+<div class="modal-footer">
+<button class="btn btn-secondary" onclick="fecharModal('modalNovaEmpresa')">Cancelar</button>
+<button class="btn btn-success" onclick="criarEmpresa()">Criar Empresa</button>
+</div>
+</div>
+</div>
+
+<!-- MODAL: Nova Etapa -->
+<div class="modal-overlay" id="modalNovaEtapa">
+<div class="modal">
+<h3>📍 Nova Etapa</h3>
+<div class="form-group">
+<label>ID da Etapa (ex: saudacao, equipamento, confirmar_taxa)</label>
+<input type="text" id="novaEtapaId" placeholder="ex: perguntar_bairro">
+</div>
+<div class="form-group">
+<label>Descricao (opcional)</label>
+<input type="text" id="novaEtapaDesc" placeholder="ex: Pergunta bairro do cliente">
+</div>
+<div class="form-group">
+<label>Resposta Padrao do Bot</label>
+<textarea id="novaEtapaResposta" placeholder="Ola! Como posso ajudar?"></textarea>
+</div>
+<div class="grid-3">
+<div class="form-group">
+<label><input type="checkbox" id="novaEtapaSilencio"> Silencio (nao responde)</label>
+</div>
+<div class="form-group">
+<label><input type="checkbox" id="novaEtapaReeng" checked> Reengajamento</label>
+</div>
+<div class="form-group">
+<label>Minutos</label>
+<input type="number" id="novaEtapaReengMin" value="2" min="1">
+</div>
+</div>
+<div class="form-group">
+<label>Mensagem de Reengajamento</label>
+<input type="text" id="novaEtapaReengMsg" placeholder="Mensagem apos X minutos sem resposta">
+</div>
+<div class="modal-footer">
+<button class="btn btn-secondary" onclick="fecharModal('modalNovaEtapa')">Cancelar</button>
+<button class="btn btn-success" onclick="confirmarNovaEtapa()">Criar Etapa</button>
+</div>
+</div>
+</div>
+
+<!-- MODAL: Nova Transicao -->
+<div class="modal-overlay" id="modalNovaTransicao">
+<div class="modal">
+<h3>➡️ Nova Transicao</h3>
+<div class="form-group">
+<label>Etapa de Origem</label>
+<input type="text" id="transOrigem" readonly style="background:#f8f9fa;">
+</div>
+<div class="form-group">
+<label>Tipo de Condicao</label>
+<select id="transCondTipo" onchange="atualizarFormCondicao()">
+<option value="qualquer">Qualquer mensagem (*)</option>
+<option value="contem">Contem palavra(s)</option>
+<option value="nao_contem">NAO contem palavra(s)</option>
+<option value="lista_contem">Contem uma de varias palavras</option>
+<option value="regex">Expressao Regular (regex)</option>
+<option value="igual">Igual exatamente</option>
+<option value="comeca_com">Comeca com</option>
+<option value="termina_com">Termina com</option>
+</select>
+</div>
+<div class="form-group" id="transCondValorGroup">
+<label>Valor/Palavra(s)</label>
+<input type="text" id="transCondValor" placeholder="sim, quero, pode ser">
+<small>Para multiplas palavras, separe por virgula</small>
+</div>
+<div class="form-group">
+<label>Proxima Etapa (deixe vazio para ficar na mesma)</label>
+<select id="transProxEtapa"><option value="">(mesma etapa)</option></select>
+</div>
+<div class="form-group">
+<label>Resposta (deixe vazio para usar padrao da etapa)</label>
+<textarea id="transResposta" placeholder="Resposta especifica para esta transicao"></textarea>
+</div>
+<div class="form-group">
+<label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+<input type="checkbox" id="transAddAcao" onchange="toggleAcoesTransicao()">
+Adicionar Acoes (salvar dados, extrair, condicional...)
+</label>
+</div>
+<div id="transAcoesContainer" style="display:none;">
+<div class="acao-box">
+<div class="acao-titulo">⚡ Acoes da Transicao</div>
+<div id="transAcoesList"></div>
+<button class="btn btn-primary btn-small" onclick="adicionarAcaoTransicao()" style="margin-top:10px;">+ Adicionar Acao</button>
+</div>
+</div>
+<div class="modal-footer">
+<button class="btn btn-secondary" onclick="fecharModal('modalNovaTransicao')">Cancelar</button>
+<button class="btn btn-success" onclick="confirmarNovaTransicao()">Criar Transicao</button>
+</div>
+</div>
+</div>
+
+<!-- MODAL: Nova Intencao -->
+<div class="modal-overlay" id="modalNovaIntencao">
+<div class="modal">
+<h3>🎯 Nova Intencao Global</h3>
+<div class="form-group">
+<label>Nome da Intencao</label>
+<input type="text" id="intNome" placeholder="ex: Perguntar Preco">
+</div>
+<div class="form-group">
+<label>Palavras-chave (separadas por virgula)</label>
+<input type="text" id="intPalavras" placeholder="ex: quanto custa, preco, valor">
+</div>
+<div class="form-group">
+<label>Resposta</label>
+<textarea id="intResposta" placeholder="Resposta quando o cliente falar uma dessas palavras"></textarea>
+</div>
+<div class="form-group">
+<label>Proxima Etapa (opcional)</label>
+<select id="intProxEtapa"><option value="">(nao muda etapa)</option></select>
+</div>
+<div class="form-group">
+<label>Campo de Dados (opcional - salva mensagem neste campo)</label>
+<input type="text" id="intCampoDados" placeholder="ex: duvida_cliente">
+</div>
+<div class="modal-footer">
+<button class="btn btn-secondary" onclick="fecharModal('modalNovaIntencao')">Cancelar</button>
+<button class="btn btn-success" onclick="confirmarNovaIntencao()">Criar Intencao</button>
+</div>
+</div>
+</div>
+
+<!-- MODAL: Acao -->
+<div class="modal-overlay" id="modalAcao">
+<div class="modal">
+<h3>⚡ Nova Acao</h3>
+<div class="form-group">
+<label>Tipo de Acao</label>
+<select id="acaoTipo" onchange="atualizarFormAcao()">
+<option value="salvar_dado">Salvar Dado (mensagem inteira)</option>
+<option value="salvar_extracao">Salvar Extracao (extrair de lista/regex)</option>
+<option value="funcao_condicional">Funcao Condicional (if/else)</option>
+<option value="salvar_horario">Salvar Horario (extrair 14h, 14:00)</option>
+<option value="definir_horario_padrao">Definir Horario Padrao (agora + 2h)</option>
+<option value="notificar">Notificar Telegram</option>
+</select>
+</div>
+<div id="acaoFormDinamico"></div>
+<div class="modal-footer">
+<button class="btn btn-secondary" onclick="fecharModal('modalAcao')">Cancelar</button>
+<button class="btn btn-success" onclick="confirmarAcao()">Adicionar Acao</button>
+</div>
+</div>
+</div>
+
+<!-- MODAL: Importar JSON -->
+<div class="modal-overlay" id="modalImportar">
+<div class="modal">
+<h3>📤 Importar Configuracao JSON</h3>
+<div class="form-group">
+<label>Cole o JSON aqui</label>
+<textarea id="importJsonText" style="min-height:200px; font-family:monospace; font-size:0.85rem;"></textarea>
+</div>
+<div class="modal-footer">
+<button class="btn btn-secondary" onclick="fecharModal('modalImportar')">Cancelar</button>
+<button class="btn btn-success" onclick="confirmarImportar()">Importar</button>
+</div>
+</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ============================================
+// CONFIGURACAO
+// ============================================
+const API_URL = 'https://sua-api-configuracao.vercel.app/api';
+const API_KEY = 'sua-chave-secreta-aqui';
+
+let config = {
+    nome_empresa: '', nome_bot: 'Robo', fluxo_inicial: 'saudacao',
+    mensagem_erro: 'Desculpe, nao entendi direito. Pode me dizer de outra forma?',
+    mensagem_intervencao: 'Um momento, vou chamar um atendente humano para voce.',
+    palavras_humano: ['humano','pessoa','atendente','funcionario','falar com alguem','atendente humano','real','vivo','pessoa de verdade','quero falar com'],
+    max_tentativas: 2,
+    fluxos: {}, intencoes_globais: [],
+    notificacoes: { telegram: { ativo: false, token: '', chat_id: '' } }
+};
+let empresaIdAtual = '';
+let etapaEditandoTransicoes = '';
+let acoesTemp = [];
+let acaoTarget = null; // 'transicao' ou null
+
+// ============================================
+// INICIALIZACAO
+// ============================================
+document.addEventListener('DOMContentLoaded', () => {
+    carregarEmpresas();
+    if (Object.keys(config.fluxos).length === 0) adicionarEtapaExemplo();
+});
+
+function mostrarAba(aba) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    event.target.classList.add('active');
+    document.getElementById('aba-' + aba).classList.add('active');
+    if (aba === 'preview') atualizarPreview();
+    if (aba === 'transicoes' && etapaEditandoTransicoes) renderizarTransicoesEditor();
+}
+
+// ============================================
+// EMPRESAS
+// ============================================
+async function carregarEmpresas() {
+    try {
+        const res = await fetch(`${API_URL}?action=list`, { headers: { 'Authorization': `Bearer ${API_KEY}` } });
+        const data = await res.json();
+        const sel = document.getElementById('empresaSelect');
+        sel.innerHTML = '<option value="">Selecione uma empresa...</option>';
+        if (data.empresas) {
+            data.empresas.forEach(e => {
+                sel.innerHTML += `<option value="${e.empresa_id}">${e.nome_empresa}</option>`;
+            });
         }
+    } catch (e) { console.error(e); }
+}
 
-        const app = new TrainingPanel();
-    </script>
+async function carregarEmpresa() {
+    const id = document.getElementById('empresaSelect').value;
+    if (!id) return;
+    empresaIdAtual = id;
+    try {
+        const res = await fetch(`${API_URL}?action=config&empresa_id=${id}`, { headers: { 'Authorization': `Bearer ${API_KEY}` } });
+        const data = await res.json();
+        if (data.configuracao) {
+            config = data.configuracao;
+            preencherForm();
+            renderizarFluxos();
+            renderizarIntencoes();
+            mostrarToast('Configuracao carregada!', 'success');
+        }
+    } catch (e) { mostrarToast('Erro ao carregar', 'error'); }
+}
+
+function preencherForm() {
+    document.getElementById('empresaId').value = empresaIdAtual;
+    document.getElementById('nomeEmpresa').value = config.nome_empresa || '';
+    document.getElementById('nomeBot').value = config.nome_bot || 'Robo';
+    document.getElementById('fluxoInicial').value = config.fluxo_inicial || 'saudacao';
+    document.getElementById('mensagemErro').value = config.mensagem_erro || '';
+    document.getElementById('mensagemIntervencao').value = config.mensagem_intervencao || '';
+    document.getElementById('palavrasHumano').value = (config.palavras_humano || []).join(', ');
+    document.getElementById('maxTentativas').value = config.max_tentativas || 2;
+    const t = config.notificacoes?.telegram || {};
+    document.getElementById('notifTelegram').checked = t.ativo || false;
+    document.getElementById('telegramToken').value = t.token || '';
+    document.getElementById('telegramChatId').value = t.chat_id || '';
+    document.getElementById('telegramConfig').style.display = t.ativo ? 'block' : 'none';
+}
+
+function atualizarConfigDoForm() {
+    config.nome_empresa = document.getElementById('nomeEmpresa').value;
+    config.nome_bot = document.getElementById('nomeBot').value;
+    config.fluxo_inicial = document.getElementById('fluxoInicial').value;
+    config.mensagem_erro = document.getElementById('mensagemErro').value;
+    config.mensagem_intervencao = document.getElementById('mensagemIntervencao').value;
+    config.palavras_humano = document.getElementById('palavrasHumano').value.split(',').map(p => p.trim()).filter(p => p);
+    config.max_tentativas = parseInt(document.getElementById('maxTentativas').value) || 2;
+    config.notificacoes = {
+        telegram: {
+            ativo: document.getElementById('notifTelegram').checked,
+            token: document.getElementById('telegramToken').value,
+            chat_id: document.getElementById('telegramChatId').value
+        }
+    };
+}
+
+async function salvarConfiguracao() {
+    atualizarConfigDoForm();
+    const id = document.getElementById('empresaId').value;
+    const nome = document.getElementById('nomeEmpresa').value;
+    if (!id || !nome) { mostrarToast('Preencha ID e Nome', 'error'); return; }
+    try {
+        const method = empresaIdAtual === id ? 'PUT' : 'POST';
+        const action = method === 'PUT' ? 'update' : 'create';
+        const res = await fetch(`${API_URL}?action=${action}&empresa_id=${id}`, {
+            method, headers: { 'Authorization': `Bearer ${API_KEY}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ empresa_id: id, nome_empresa: nome, configuracao: config })
+        });
+        const data = await res.json();
+        if (data.ok) {
+            mostrarToast('Salvo com sucesso!', 'success');
+            if (method === 'POST') { carregarEmpresas(); empresaIdAtual = id; }
+        } else { mostrarToast(data.erro || 'Erro', 'error'); }
+    } catch (e) { mostrarToast('Erro ao salvar', 'error'); }
+}
+
+// ============================================
+// FLUXOS / ETAPAS
+// ============================================
+function renderizarFluxos() {
+    const container = document.getElementById('fluxosContainer');
+    container.innerHTML = '';
+    const fluxos = config.fluxos || {};
+    if (Object.keys(fluxos).length === 0) {
+        container.innerHTML = '<p style="color:#6c757d;text-align:center;padding:30px;">Nenhuma etapa configurada. Clique "+ Nova Etapa".</p>';
+        return;
+    }
+    Object.entries(fluxos).forEach(([id, etapa]) => {
+        container.appendChild(criarCardEtapa(id, etapa));
+    });
+}
+
+function criarCardEtapa(id, etapa) {
+    const div = document.createElement('div');
+    div.className = 'etapa-card' + (id === config.fluxo_inicial ? ' destaque' : '');
+    const numTrans = (etapa.transicoes || []).length;
+    div.innerHTML = `
+        <div class="etapa-header">
+            <div>
+                <span class="etapa-id">${id}</span>
+                ${id === config.fluxo_inicial ? ' <span style="background:#28a745;color:white;padding:2px 8px;border-radius:10px;font-size:0.75rem;">INICIAL</span>' : ''}
+                <div style="margin-top:8px;color:#6c757d;font-size:0.9rem;">${etapa.descricao || ''}</div>
+            </div>
+            <div class="card-actions">
+                <button class="btn btn-primary btn-small" onclick="editarTransicoes('${id}')">➡️ ${numTrans} Transicoes</button>
+                <button class="btn btn-secondary btn-small" onclick="editarEtapa('${id}')">✏️</button>
+                <button class="btn btn-danger btn-small" onclick="removerEtapa('${id}')">🗑️</button>
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Resposta Padrao:</label>
+            <textarea onchange="atualizarEtapa('${id}','resposta_padrao',this.value)" rows="2">${etapa.resposta_padrao || ''}</textarea>
+        </div>
+        <div class="grid-4">
+            <div class="form-group">
+                <label><input type="checkbox" ${etapa.silencio ? 'checked' : ''} onchange="atualizarEtapa('${id}','silencio',this.checked)"> Silencio</label>
+            </div>
+            <div class="form-group">
+                <label><input type="checkbox" ${etapa.reengajamento?.ativo ? 'checked' : ''} onchange="atualizarEtapa('${id}','reengajamento_ativo',this.checked)"> Reengajamento</label>
+            </div>
+            <div class="form-group">
+                <label>Minutos</label>
+                <input type="number" value="${etapa.reengajamento?.minutos || 2}" min="1" onchange="atualizarEtapa('${id}','reengajamento_minutos',this.value)">
+            </div>
+            <div class="form-group">
+                <label>Fallback Etapa</label>
+                <input type="text" value="${etapa.fallback_etapa || ''}" placeholder="ex: saudacao" onchange="atualizarEtapa('${id}','fallback_etapa',this.value)">
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Mensagem de Reengajamento:</label>
+            <input type="text" value="${etapa.reengajamento?.mensagem || ''}" onchange="atualizarEtapa('${id}','reengajamento_mensagem',this.value)">
+        </div>
+    `;
+    return div;
+}
+
+function atualizarEtapa(id, campo, valor) {
+    if (!config.fluxos[id]) return;
+    if (campo === 'silencio') config.fluxos[id].silencio = valor;
+    else if (campo === 'resposta_padrao') config.fluxos[id].resposta_padrao = valor;
+    else if (campo === 'fallback_etapa') config.fluxos[id].fallback_etapa = valor;
+    else if (campo === 'reengajamento_ativo') {
+        if (!config.fluxos[id].reengajamento) config.fluxos[id].reengajamento = {};
+        config.fluxos[id].reengajamento.ativo = valor;
+    }
+    else if (campo === 'reengajamento_minutos') {
+        if (!config.fluxos[id].reengajamento) config.fluxos[id].reengajamento = {};
+        config.fluxos[id].reengajamento.minutos = parseInt(valor) || 2;
+    }
+    else if (campo === 'reengajamento_mensagem') {
+        if (!config.fluxos[id].reengajamento) config.fluxos[id].reengajamento = {};
+        config.fluxos[id].reengajamento.mensagem = valor;
+    }
+}
+
+function adicionarEtapa() {
+    document.getElementById('modalNovaEtapa').classList.add('active');
+    document.getElementById('novaEtapaId').value = '';
+    document.getElementById('novaEtapaDesc').value = '';
+    document.getElementById('novaEtapaResposta').value = '';
+}
+
+function confirmarNovaEtapa() {
+    const id = document.getElementById('novaEtapaId').value.trim();
+    if (!id) { mostrarToast('ID obrigatorio', 'error'); return; }
+    if (config.fluxos[id]) { mostrarToast('Etapa ja existe', 'error'); return; }
+    config.fluxos[id] = {
+        descricao: document.getElementById('novaEtapaDesc').value,
+        resposta_padrao: document.getElementById('novaEtapaResposta').value,
+        transicoes: [],
+        silencio: document.getElementById('novaEtapaSilencio').checked,
+        reengajamento: {
+            ativo: document.getElementById('novaEtapaReeng').checked,
+            minutos: parseInt(document.getElementById('novaEtapaReengMin').value) || 2,
+            mensagem: document.getElementById('novaEtapaReengMsg').value
+        },
+        fallback_etapa: ''
+    };
+    fecharModal('modalNovaEtapa');
+    renderizarFluxos();
+    mostrarToast('Etapa criada!', 'success');
+}
+
+function editarEtapa(id) {
+    const novoId = prompt('Novo ID (ou Enter para manter):', id);
+    if (!novoId || novoId === id) return;
+    config.fluxos[novoId] = config.fluxos[id];
+    delete config.fluxos[id];
+    Object.values(config.fluxos).forEach(e => {
+        if (e.transicoes) e.transicoes.forEach(t => { if (t.proxima_etapa === id) t.proxima_etapa = novoId; });
+    });
+    if (config.fluxo_inicial === id) config.fluxo_inicial = novoId;
+    if (config.intencoes_globais) config.intencoes_globais.forEach(i => { if (i.proxima_etapa === id) i.proxima_etapa = novoId; });
+    renderizarFluxos();
+}
+
+function removerEtapa(id) {
+    if (!confirm(`Remover etapa "${id}"?`)) return;
+    delete config.fluxos[id];
+    renderizarFluxos();
+}
+
+// ============================================
+// TRANSICOES EDITOR
+// ============================================
+function editarTransicoes(etapaId) {
+    etapaEditandoTransicoes = etapaId;
+    mostrarAba('transicoes');
+    atualizarSelectsEtapas();
+}
+
+function atualizarSelectsEtapas() {
+    const opcoes = Object.keys(config.fluxos).map(id => `<option value="${id}">${id}</option>`).join('');
+    document.getElementById('transProxEtapa').innerHTML = '<option value="">(mesma etapa)</option>' + opcoes;
+    document.getElementById('intProxEtapa').innerHTML = '<option value="">(nao muda etapa)</option>' + opcoes;
+}
+
+function renderizarTransicoesEditor() {
+    const container = document.getElementById('transicoesEditorContainer');
+    const etapa = config.fluxos[etapaEditandoTransicoes];
+    if (!etapa) return;
+    let html = `
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+            <h3>➡️ Transicoes da Etapa: <span style="color:#667eea;">${etapaEditandoTransicoes}</span></h3>
+            <button class="btn btn-primary" onclick="abrirModalTransicao()">+ Nova Transicao</button>
+        </div>
+        <div class="help-text">
+            Quando o cliente enviar uma mensagem nesta etapa, o robo verifica as transicoes de cima para baixo. 
+            A primeira que combinar sera executada.
+        </div>
+    `;
+    if (!etapa.transicoes || etapa.transicoes.length === 0) {
+        html += '<p style="color:#6c757d;text-align:center;padding:30px;">Nenhuma transicao. O robo sempre usara a resposta padrao.</p>';
+    } else {
+        etapa.transicoes.forEach((trans, i) => {
+            const condicoesHtml = trans.condicoes.map(c => {
+                let tipoLabel = c.tipo;
+                let val = c.valor || (c.valores ? c.valores.join(', ') : '');
+                return `<span class="condicao-tag ${c.tipo}">${tipoLabel}: ${val}</span>`;
+            }).join('');
+            const acoesHtml = trans.acoes ? trans.acoes.map(a => {
+                let desc = a.tipo;
+                if (a.campo) desc += ' &rarr; ' + a.campo;
+                return `<span style="background:#e7f3ff;padding:2px 8px;border-radius:10px;font-size:0.8rem;margin:2px;">${desc}</span>`;
+            }).join('') : '';
+            html += `
+                <div class="transicao-box">
+                    <div class="transicao-header">
+                        <span class="transicao-titulo">Transicao ${i+1}</span>
+                        <button class="btn btn-danger btn-small" onclick="removerTransicao(${i})">🗑️</button>
+                    </div>
+                    <div style="margin-bottom:10px;"><strong>Se:</strong> ${condicoesHtml}</div>
+                    ${trans.resposta ? `<div style="margin-bottom:10px;"><strong>Responde:</strong> ${trans.resposta}</div>` : '<div style="color:#6c757d;margin-bottom:10px;"><em>Usa resposta padrao da etapa</em></div>'}
+                    ${trans.proxima_etapa ? `<div style="margin-bottom:10px;"><strong>&rarr; Vai para:</strong> <span style="background:#667eea;color:white;padding:2px 8px;border-radius:10px;">${trans.proxima_etapa}</span></div>` : ''}
+                    ${acoesHtml ? `<div><strong>⚡ Acoes:</strong> ${acoesHtml}</div>` : ''}
+                </div>
+            `;
+        });
+    }
+    html += `<button class="add-btn" onclick="abrirModalTransicao()">+ Adicionar Transicao</button>`;
+    container.innerHTML = html;
+}
+
+function abrirModalTransicao() {
+    document.getElementById('modalNovaTransicao').classList.add('active');
+    document.getElementById('transOrigem').value = etapaEditandoTransicoes;
+    document.getElementById('transCondTipo').value = 'qualquer';
+    document.getElementById('transCondValor').value = '';
+    document.getElementById('transProxEtapa').value = '';
+    document.getElementById('transResposta').value = '';
+    document.getElementById('transAddAcao').checked = false;
+    document.getElementById('transAcoesContainer').style.display = 'none';
+    acoesTemp = [];
+    atualizarSelectsEtapas();
+    atualizarFormCondicao();
+}
+
+function atualizarFormCondicao() {
+    const tipo = document.getElementById('transCondTipo').value;
+    const group = document.getElementById('transCondValorGroup');
+    if (tipo === 'qualquer') {
+        group.style.display = 'none';
+    } else {
+        group.style.display = 'block';
+        const input = document.getElementById('transCondValor');
+        if (tipo === 'regex') input.placeholder = 'ex: ^sim$';
+        else if (tipo === 'lista_contem') input.placeholder = 'ex: sim, quero, claro, ok';
+        else input.placeholder = 'ex: sim';
+    }
+}
+
+function toggleAcoesTransicao() {
+    document.getElementById('transAcoesContainer').style.display = 
+        document.getElementById('transAddAcao').checked ? 'block' : 'none';
+    if (document.getElementById('transAddAcao').checked && acoesTemp.length === 0) {
+        renderizarAcoesTemp();
+    }
+}
+
+function adicionarAcaoTransicao() {
+    acaoTarget = 'transicao';
+    document.getElementById('modalAcao').classList.add('active');
+    document.getElementById('acaoTipo').value = 'salvar_dado';
+    atualizarFormAcao();
+}
+
+function renderizarAcoesTemp() {
+    const container = document.getElementById('transAcoesList');
+    if (acoesTemp.length === 0) {
+        container.innerHTML = '<p style="color:#6c757d;font-size:0.85rem;">Nenhuma acao configurada</p>';
+        return;
+    }
+    container.innerHTML = acoesTemp.map((a, i) => `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px;background:white;border-radius:6px;margin-bottom:6px;">
+            <span>${i+1}. ${a.tipo}${a.campo ? ' &rarr; ' + a.campo : ''}</span>
+            <button class="btn btn-danger btn-small" onclick="removerAcaoTemp(${i})">🗑️</button>
+        </div>
+    `).join('');
+}
+
+function removerAcaoTemp(i) {
+    acoesTemp.splice(i, 1);
+    renderizarAcoesTemp();
+}
+
+function confirmarNovaTransicao() {
+    const tipo = document.getElementById('transCondTipo').value;
+    const valor = document.getElementById('transCondValor').value;
+    const proxima = document.getElementById('transProxEtapa').value;
+    const resposta = document.getElementById('transResposta').value;
+
+    let condicoes = [];
+    if (tipo === 'qualquer') {
+        condicoes = [{ tipo: 'qualquer', valor: '*' }];
+    } else if (tipo === 'lista_contem') {
+        condicoes = [{ tipo: 'lista_contem', valores: valor.split(',').map(v => v.trim()).filter(v => v) }];
+    } else {
+        condicoes = [{ tipo: tipo, valor: valor }];
+    }
+
+    const transicao = { condicoes };
+    if (proxima) transicao.proxima_etapa = proxima;
+    if (resposta) transicao.resposta = resposta;
+    if (acoesTemp.length > 0) transicao.acoes = JSON.parse(JSON.stringify(acoesTemp));
+
+    if (!config.fluxos[etapaEditandoTransicoes].transicoes) config.fluxos[etapaEditandoTransicoes].transicoes = [];
+    config.fluxos[etapaEditandoTransicoes].transicoes.push(transicao);
+
+    fecharModal('modalNovaTransicao');
+    acoesTemp = [];
+    renderizarTransicoesEditor();
+    mostrarToast('Transicao criada!', 'success');
+}
+
+function removerTransicao(i) {
+    config.fluxos[etapaEditandoTransicoes].transicoes.splice(i, 1);
+    renderizarTransicoesEditor();
+}
+
+// ============================================
+// ACOES - FORM DINAMICO
+// ============================================
+function atualizarFormAcao() {
+    const tipo = document.getElementById('acaoTipo').value;
+    const container = document.getElementById('acaoFormDinamico');
+    let html = '';
+    switch (tipo) {
+        case 'salvar_dado':
+            html = `
+                <div class="form-group">
+                    <label>Campo para salvar</label>
+                    <input type="text" id="acaoCampo" placeholder="ex: endereco, bairro, equipamento">
+                    <small>A mensagem inteira do cliente sera salva neste campo</small>
+                </div>
+            `;
+            break;
+        case 'salvar_extracao':
+            html = `
+                <div class="form-group">
+                    <label>Campo para salvar</label>
+                    <input type="text" id="acaoCampo" placeholder="ex: equipamento, marca">
+                </div>
+                <div class="form-group">
+                    <label>Tipo de Extracao</label>
+                    <select id="acaoPadraoTipo">
+                        <option value="lista">Lista de Palavras (mais comum)</option>
+                        <option value="regex">Expressao Regular</option>
+                        <option value="primeira_palavra">Primeira Palavra</option>
+                    </select>
+                </div>
+                <div class="form-group" id="acaoListaContainer">
+                    <label>Lista de Palavras (JSON)</label>
+                    <textarea id="acaoLista" rows="4" placeholder='[{"palavra":"geladeira","valor":"Geladeira"},{"palavra":"brastemp","valor":"Brastemp"}]'></textarea>
+                    <small>Formato: palavra que o cliente pode dizer -> valor salvo</small>
+                </div>
+                <div class="form-group" id="acaoRegexContainer" style="display:none;">
+                    <label>Expressao Regular</label>
+                    <input type="text" id="acaoRegex" placeholder="ex: (\d{1,2})[h:](\d{2})">
+                </div>
+            `;
+            break;
+        case 'funcao_condicional':
+            html = `
+                <div class="form-group">
+                    <label>Regras Condicionais (JSON)</label>
+                    <textarea id="acaoRegras" rows="8" placeholder='[
+  {"campo":"bairro","condicoes":[{"operador":"contem","valor":"botafogo"}],"resultado":{"proxima_etapa":"confirmar_taxa","resposta":"Taxa R$100","dados":{"valor_visita":100}}},
+  {"campo":"bairro","condicoes":[{"operador":"qualquer","valor":"*"}],"resultado":{"proxima_etapa":"nao_atende","resposta":"Nao atendemos","dados":{}}}
+]'></textarea>
+                    <small>Regras sao verificadas de cima para baixo. A primeira que combinar e executada.</small>
+                </div>
+            `;
+            break;
+        case 'salvar_horario':
+            html = `
+                <div class="form-group">
+                    <label>Salvar Horario</label>
+                    <p style="color:#6c757d;font-size:0.9rem;">Esta acao extrai horario da mensagem (14h, 14:00, 2 da tarde) e salva em <code>horarioInicio</code> e <code>horarioFim</code> (automatico +2h).</p>
+                </div>
+            `;
+            break;
+        case 'definir_horario_padrao':
+            html = `
+                <div class="form-group">
+                    <label>Definir Horario Padrao</label>
+                    <p style="color:#6c757d;font-size:0.9rem;">Define horario como agora + 2h. Usado quando cliente nao especifica horario. Salva em <code>horarioInicio</code> e <code>horarioFim</code>.</p>
+                </div>
+            `;
+            break;
+        case 'notificar':
+            html = `
+                <div class="form-group">
+                    <label>Tipo de Notificacao</label>
+                    <select id="acaoNotifTipo">
+                        <option value="telegram_visita">Telegram - Nova Visita</option>
+                        <option value="telegram_intervencao">Telegram - Intervencao</option>
+                    </select>
+                </div>
+            `;
+            break;
+    }
+    container.innerHTML = html;
+}
+
+function confirmarAcao() {
+    const tipo = document.getElementById('acaoTipo').value;
+    let acao = { tipo };
+    switch (tipo) {
+        case 'salvar_dado':
+            acao.campo = document.getElementById('acaoCampo').value;
+            break;
+        case 'salvar_extracao':
+            acao.campo = document.getElementById('acaoCampo').value;
+            const padraoTipo = document.getElementById('acaoPadraoTipo').value;
+            if (padraoTipo === 'lista') {
+                try {
+                    acao.padrao = { tipo: 'lista', valores: JSON.parse(document.getElementById('acaoLista').value) };
+                } catch (e) { mostrarToast('JSON invalido na lista', 'error'); return; }
+            } else if (padraoTipo === 'regex') {
+                acao.padrao = { tipo: 'regex', valor: document.getElementById('acaoRegex').value };
+            } else {
+                acao.padrao = { tipo: 'primeira_palavra' };
+            }
+            break;
+        case 'funcao_condicional':
+            try {
+                acao.regras = JSON.parse(document.getElementById('acaoRegras').value);
+            } catch (e) { mostrarToast('JSON invalido nas regras', 'error'); return; }
+            break;
+        case 'notificar':
+            acao.tipo_notif = document.getElementById('acaoNotifTipo').value;
+            break;
+    }
+    acoesTemp.push(acao);
+    fecharModal('modalAcao');
+    if (acaoTarget === 'transicao') renderizarAcoesTemp();
+    acaoTarget = null;
+}
+
+// ============================================
+// INTENCOES GLOBAIS
+// ============================================
+function renderizarIntencoes() {
+    const container = document.getElementById('intencoesContainer');
+    container.innerHTML = '';
+    const intencoes = config.intencoes_globais || [];
+    if (intencoes.length === 0) {
+        container.innerHTML = '<p style="color:#6c757d;text-align:center;padding:30px;">Nenhuma intencao global. Clique "+ Nova Intencao".</p>';
+        return;
+    }
+    intencoes.forEach((int, i) => {
+        const div = document.createElement('div');
+        div.className = 'intencao-card';
+        div.innerHTML = `
+            <div class="card-header">
+                <div>
+                    <div class="card-title">🎯 ${int.nome || 'Intencao ' + (i+1)}</div>
+                    <div class="lista-itens">${(int.palavras_chave || []).map(p => `<span class="item-tag">${p}</span>`).join('')}</div>
+                </div>
+                <button class="btn btn-danger btn-small" onclick="removerIntencao(${i})">🗑️</button>
+            </div>
+            <div class="form-group">
+                <label>Resposta:</label>
+                <textarea onchange="atualizarIntencao(${i},'resposta',this.value)" rows="2">${int.resposta || ''}</textarea>
+            </div>
+            <div class="grid-2">
+                <div class="form-group">
+                    <label>Proxima Etapa</label>
+                    <select onchange="atualizarIntencao(${i},'proxima_etapa',this.value)">
+                        <option value="">(nao muda)</option>
+                        ${Object.keys(config.fluxos).map(id => `<option value="${id}" ${int.proxima_etapa === id ? 'selected' : ''}>${id}</option>`).join('')}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Campo de Dados</label>
+                    <input type="text" value="${int.campo_dados || ''}" onchange="atualizarIntencao(${i},'campo_dados',this.value)" placeholder="ex: duvida">
+                </div>
+            </div>
+        `;
+        container.appendChild(div);
+    });
+}
+
+function adicionarIntencao() {
+    document.getElementById('modalNovaIntencao').classList.add('active');
+    document.getElementById('intNome').value = '';
+    document.getElementById('intPalavras').value = '';
+    document.getElementById('intResposta').value = '';
+    document.getElementById('intProxEtapa').value = '';
+    document.getElementById('intCampoDados').value = '';
+    atualizarSelectsEtapas();
+}
+
+function confirmarNovaIntencao() {
+    const nome = document.getElementById('intNome').value;
+    const palavras = document.getElementById('intPalavras').value.split(',').map(p => p.trim()).filter(p => p);
+    if (palavras.length === 0) { mostrarToast('Adicione pelo menos uma palavra-chave', 'error'); return; }
+    if (!config.intencoes_globais) config.intencoes_globais = [];
+    config.intencoes_globais.push({
+        nome: nome || 'Nova Intencao',
+        palavras_chave: palavras,
+        resposta: document.getElementById('intResposta').value,
+        proxima_etapa: document.getElementById('intProxEtapa').value || undefined,
+        campo_dados: document.getElementById('intCampoDados').value || undefined
+    });
+    fecharModal('modalNovaIntencao');
+    renderizarIntencoes();
+    mostrarToast('Intencao criada!', 'success');
+}
+
+function atualizarIntencao(i, campo, valor) {
+    if (!config.intencoes_globais[i]) return;
+    config.intencoes_globais[i][campo] = valor || undefined;
+}
+
+function removerIntencao(i) {
+    config.intencoes_globais.splice(i, 1);
+    renderizarIntencoes();
+}
+
+// ============================================
+// NOTIFICACOES
+// ============================================
+function toggleTelegram() {
+    document.getElementById('telegramConfig').style.display = 
+        document.getElementById('notifTelegram').checked ? 'block' : 'none';
+}
+
+// ============================================
+// PREVIEW / EXPORT / IMPORT
+// ============================================
+function atualizarPreview() {
+    atualizarConfigDoForm();
+    const json = JSON.stringify(config, null, 2);
+    document.getElementById('jsonPreview').textContent = json;
+}
+
+function copiarJSON() {
+    navigator.clipboard.writeText(JSON.stringify(config, null, 2)).then(() => {
+        mostrarToast('JSON copiado!', 'success');
+    });
+}
+
+function baixarJSON() {
+    const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `config_${document.getElementById('empresaId').value || 'empresa'}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+function exportarJSON() {
+    atualizarConfigDoForm();
+    baixarJSON();
+}
+
+function importarJSON() {
+    document.getElementById('modalImportar').classList.add('active');
+    document.getElementById('importJsonText').value = '';
+}
+
+function confirmarImportar() {
+    try {
+        const json = JSON.parse(document.getElementById('importJsonText').value);
+        config = json;
+        preencherForm();
+        renderizarFluxos();
+        renderizarIntencoes();
+        fecharModal('modalImportar');
+        mostrarToast('Configuracao importada!', 'success');
+    } catch (e) {
+        mostrarToast('JSON invalido: ' + e.message, 'error');
+    }
+}
+
+// ============================================
+// MODAIS
+// ============================================
+function fecharModal(id) {
+    document.getElementById(id).classList.remove('active');
+}
+
+function novaEmpresa() {
+    document.getElementById('modalNovaEmpresa').classList.add('active');
+}
+
+async function criarEmpresa() {
+    const id = document.getElementById('novoEmpresaId').value.trim();
+    const nome = document.getElementById('novoEmpresaNome').value.trim();
+    if (!id || !nome) { mostrarToast('Preencha todos os campos', 'error'); return; }
+    const configPadrao = {
+        nome_empresa: nome, nome_bot: 'Robo', fluxo_inicial: 'saudacao',
+        mensagem_erro: 'Desculpe, nao entendi. Pode repetir?',
+        mensagem_intervencao: 'Um momento, vou chamar um atendente.',
+        palavras_humano: ['humano','pessoa','atendente'],
+        max_tentativas: 2,
+        fluxos: {
+            saudacao: {
+                descricao: 'Primeiro contato',
+                resposta_padrao: `Ola! Sou o atendente virtual da ${nome}. Como posso ajudar?`,
+                transicoes: [], silencio: false,
+                reengajamento: { ativo: true, minutos: 2, mensagem: 'Oi! Ainda esta ai?' }
+            }
+        },
+        intencoes_globais: [],
+        notificacoes: { telegram: { ativo: false } }
+    };
+    try {
+        const res = await fetch(`${API_URL}?action=create`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${API_KEY}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ empresa_id: id, nome_empresa: nome, configuracao: configPadrao })
+        });
+        const data = await res.json();
+        if (data.ok) {
+            mostrarToast('Empresa criada!', 'success');
+            fecharModal('modalNovaEmpresa');
+            carregarEmpresas();
+            document.getElementById('empresaSelect').value = id;
+            carregarEmpresa();
+        } else { mostrarToast(data.erro || 'Erro', 'error'); }
+    } catch (e) { mostrarToast('Erro ao criar', 'error'); }
+}
+
+// ============================================
+// EXEMPLO CONSERTA RIO
+// ============================================
+function adicionarEtapaExemplo() {
+    config.fluxos = {
+        saudacao: {
+            descricao: 'Primeiro contato com cliente',
+            resposta_padrao: 'Ola {{nome}}! Qual equipamento esta com problema e qual a marca?',
+            transicoes: [
+                {
+                    condicoes: [{ tipo: 'qualquer', valor: '*' }],
+                    acoes: [
+                        { tipo: 'salvar_extracao', campo: 'equipamento', padrao: { tipo: 'lista', valores: [
+                            { palavra: 'maquina de lavar', valor: 'Maquina de Lavar' },
+                            { palavra: 'lava e seca', valor: 'Lava e Seca' },
+                            { palavra: 'geladeira', valor: 'Geladeira' },
+                            { palavra: 'frigobar', valor: 'Frigobar' },
+                            { palavra: 'ar condicionado', valor: 'Ar Condicionado' }
+                        ], default: 'Equipamento' }},
+                        { tipo: 'salvar_extracao', campo: 'marca', padrao: { tipo: 'lista', valores: [
+                            { palavra: 'brastemp', valor: 'Brastemp' },
+                            { palavra: 'consul', valor: 'Consul' },
+                            { palavra: 'electrolux', valor: 'Electrolux' },
+                            { palavra: 'eletrolux', valor: 'Electrolux' },
+                            { palavra: 'lg', valor: 'LG' },
+                            { palavra: 'samsung', valor: 'Samsung' },
+                            { palavra: 'panasonic', valor: 'Panasonic' },
+                            { palavra: 'midea', valor: 'Midea' }
+                        ], default: 'Nao informada' }}
+                    ],
+                    proxima_etapa: 'perguntar_visita',
+                    resposta: null
+                }
+            ],
+            silencio: false,
+            reengajamento: { ativo: true, minutos: 2, mensagem: 'Oi! Qual equipamento esta com problema?' }
+        },
+        perguntar_visita: {
+            descricao: 'Pergunta se quer marcar visita',
+            resposta_padrao: 'Gostaria de marcar uma visita para hoje?',
+            transicoes: [
+                {
+                    condicoes: [{ tipo: 'lista_contem', valores: ['sim','quero','pode ser','claro','ok','pode','gostaria','top','vamos','vamo','bora','beleza','show','perfeito','combina','fechado','ta bom','ta certo'] }],
+                    proxima_etapa: 'perguntar_bairro',
+                    resposta: 'Otimo! Qual o bairro?'
+                },
+                {
+                    condicoes: [{ tipo: 'lista_contem', valores: ['nao','não','nop','negativo','depois','outro dia','amanha','mais tarde','hoje nao','outro horario','nao sei','talvez depois'] }],
+                    proxima_etapa: 'perguntar_quando',
+                    resposta: 'Sem problema. Quando poderia receber a visita?'
+                },
+                {
+                    condicoes: [{ tipo: 'lista_contem', valores: ['nao sei','talvez','depende','vou ver','perguntar','pensar'] }],
+                    proxima_etapa: 'perguntar_visita',
+                    resposta: 'Tudo bem, fica a vontade. So para eu organizar: voce prefere hoje ou outro dia?'
+                }
+            ],
+            silencio: false,
+            reengajamento: { ativo: true, minutos: 2, mensagem: 'Gostaria de marcar uma visita para hoje?' }
+        },
+        perguntar_quando: {
+            descricao: 'Pergunta data da visita',
+            resposta_padrao: 'Quando poderia receber a visita?',
+            transicoes: [
+                {
+                    condicoes: [{ tipo: 'qualquer', valor: '*' }],
+                    acoes: [{ tipo: 'salvar_dado', campo: 'dataVisita' }],
+                    proxima_etapa: 'perguntar_horario',
+                    resposta: 'Qual horario seria melhor para voce?'
+                }
+            ],
+            silencio: false,
+            reengajamento: { ativo: true, minutos: 2, mensagem: 'Quando poderia receber a visita?' }
+        },
+        perguntar_horario: {
+            descricao: 'Pergunta horario da visita',
+            resposta_padrao: 'Qual horario seria melhor para voce?',
+            transicoes: [
+                {
+                    condicoes: [{ tipo: 'qualquer', valor: '*' }],
+                    acoes: [
+                        { tipo: 'salvar_horario' }
+                    ],
+                    proxima_etapa: 'perguntar_bairro',
+                    resposta: 'Perfeito. Qual o bairro?'
+                }
+            ],
+            silencio: false,
+            reengajamento: { ativo: true, minutos: 2, mensagem: 'Qual horario seria melhor para voce?' }
+        },
+        perguntar_bairro: {
+            descricao: 'Pergunta bairro e calcula taxa',
+            resposta_padrao: 'Qual o bairro?',
+            transicoes: [
+                {
+                    condicoes: [{ tipo: 'qualquer', valor: '*' }],
+                    acoes: [
+                        { tipo: 'salvar_dado', campo: 'bairro' },
+                        { tipo: 'funcao_condicional', regras: [
+                            {
+                                campo: 'bairro',
+                                condicoes: [{ operador: 'contem', valor: 'botafogo' }],
+                                resultado: {
+                                    proxima_etapa: 'confirmar_taxa',
+                                    resposta: 'Em Botafogo a taxa da visita e R$100. Essa taxa e deduzida do valor final, caso o orcamento seja aprovado. Gostaria de prosseguir?',
+                                    dados: { valor_visita: 100 }
+                                }
+                            },
+                            {
+                                campo: 'bairro',
+                                condicoes: [{ operador: 'contem', valor: 'copacabana' }, { operador: 'contem', valor: 'ipanema' }, { operador: 'contem', valor: 'leblon' }, { operador: 'contem', valor: 'flamengo' }, { operador: 'contem', valor: 'laranjeiras' }, { operador: 'contem', valor: 'catete' }, { operador: 'contem', valor: 'gloria' }],
+                                resultado: {
+                                    proxima_etapa: 'confirmar_taxa',
+                                    resposta: 'Na Zona Sul a taxa da visita e R$120. Essa taxa e deduzida do valor final, caso o orcamento seja aprovado. Gostaria de prosseguir?',
+                                    dados: { valor_visita: 120 }
+                                }
+                            },
+                            {
+                                campo: 'bairro',
+                                condicoes: [{ operador: 'contem', valor: 'tijuca' }, { operador: 'contem', valor: 'vila isabel' }, { operador: 'contem', valor: 'grajau' }, { operador: 'contem', valor: 'maracana' }, { operador: 'contem', valor: 'meier' }],
+                                resultado: {
+                                    proxima_etapa: 'confirmar_taxa',
+                                    resposta: 'Na Zona Norte a taxa da visita e R$190. Essa taxa e deduzida do valor final, caso o orcamento seja aprovado. Gostaria de prosseguir?',
+                                    dados: { valor_visita: 190 }
+                                }
+                            },
+                            {
+                                campo: 'bairro',
+                                condicoes: [{ operador: 'contem', valor: 'barra' }, { operador: 'contem', valor: 'recreio' }, { operador: 'contem', valor: 'jacarepagua' }, { operador: 'contem', valor: 'curicica' }, { operador: 'contem', valor: 'campo grande' }],
+                                resultado: {
+                                    proxima_etapa: 'nao_atende',
+                                    resposta: 'Infelizmente nao atendemos na sua regiao no momento. Atendemos Botafogo, Zona Sul e Zona Norte do Rio. Caso mude de ideia ou queira falar com um atendente, e so avisar.',
+                                    dados: {}
+                                }
+                            },
+                            {
+                                campo: 'bairro',
+                                condicoes: [{ operador: 'qualquer', valor: '*' }],
+                                resultado: {
+                                    proxima_etapa: 'perguntar_bairro',
+                                    resposta: 'De qual regiao e esse bairro? E Zona Sul, Zona Norte, Centro ou outra regiao?',
+                                    dados: {}
+                                }
+                            }
+                        ]}
+                    ]
+                }
+            ],
+            silencio: false,
+            reengajamento: { ativo: true, minutos: 2, mensagem: 'Qual o bairro?' }
+        },
+        confirmar_taxa: {
+            descricao: 'Cliente confirma ou nao a taxa',
+            resposta_padrao: 'Gostaria de prosseguir com a visita?',
+            transicoes: [
+                {
+                    condicoes: [{ tipo: 'lista_contem', valores: ['sim','quero','pode ser','claro','ok','pode','gostaria','top','vamos','vamo','bora','beleza','show','perfeito','combina','fechado','ta bom','ta certo','vai','manda','partiu'] }],
+                    acoes: [
+                        { tipo: 'definir_horario_padrao' }
+                    ],
+                    proxima_etapa: 'perguntar_endereco',
+                    resposta: 'Perfeito. Qual o endereco completo?'
+                },
+                {
+                    condicoes: [{ tipo: 'lista_contem', valores: ['nao','não','nop','negativo','cancelar','desistir','outro dia','outro horario','nao quero','recuso','rejeito'] }],
+                    proxima_etapa: 'perguntar_quando',
+                    resposta: 'Entendo perfeitamente. Quando seria melhor para voce? A visita pode ser em outro dia sem problema.'
+                },
+                {
+                    condicoes: [{ tipo: 'lista_contem', valores: ['por que','porque','qual o motivo','explique','nao entendi','duvida'] }],
+                    proxima_etapa: 'confirmar_taxa',
+                    resposta: 'A taxa da visita tecnica cobre o deslocamento do tecnico ate o seu endereco. Se voce aprovar o orcamento do conserto, esse valor e descontado. E uma forma de garantir que o tecnico va ate la com seriedade. Gostaria de prosseguir?'
+                }
+            ],
+            silencio: false,
+            reengajamento: { ativo: true, minutos: 2, mensagem: 'Gostaria de prosseguir com a visita?' }
+        },
+        perguntar_endereco: {
+            descricao: 'Pergunta endereco completo',
+            resposta_padrao: 'Qual o endereco completo?',
+            transicoes: [
+                {
+                    condicoes: [{ tipo: 'qualquer', valor: '*' }],
+                    acoes: [
+                        { tipo: 'salvar_dado', campo: 'endereco' },
+                        { tipo: 'notificar', tipo_notif: 'telegram_visita' }
+                    ],
+                    proxima_etapa: 'visita_marcada',
+                    resposta: 'Visita marcada para hoje entre {{horarioInicio}} e {{horarioFim}}.
+
+A taxa de R${{valor_visita}} deve ser paga no ato da visita.
+
+Obrigada!'
+                }
+            ],
+            silencio: false,
+            reengajamento: { ativo: true, minutos: 2, mensagem: 'Qual o endereco completo?' }
+        },
+        visita_marcada: {
+            descricao: 'Visita confirmada - silencio total',
+            resposta_padrao: '',
+            transicoes: [],
+            silencio: true,
+            reengajamento: { ativo: false }
+        },
+        nao_atende: {
+            descricao: 'Regiao nao atendida',
+            resposta_padrao: 'Infelizmente nao atendemos na sua regiao no momento. Caso queira falar com um atendente, e so digitar "humano".',
+            transicoes: [],
+            silencio: false,
+            reengajamento: { ativo: false }
+        }
+    };
+    config.intencoes_globais = [
+        {
+            nome: 'Servicos Oferecidos',
+            palavras_chave: ['o que voces fazem','o que fazem','quais servicos','o que conserta','trabalham com o que','atende o que','faz o que','conserta o que'],
+            resposta: 'Trabalhamos com conserto de maquina de lavar, lava e seca, frigobar, geladeira e ar condicionado de todas as marcas e modelos. Qual equipamento esta com problema e qual a marca?',
+            proxima_etapa: 'saudacao'
+        },
+        {
+            nome: 'Preco do Conserto',
+            palavras_chave: ['quanto custa o conserto','preco do conserto','valor do conserto','quanto fica','quanto sai','orcamento'],
+            resposta: 'O valor do conserto so e possivel definir apos a visita tecnica, pois depende do defeito apresentado. A visita tem uma taxa que varia conforme a regiao, e esse valor e abatido do conserto caso voce aprove o orcamento. Qual equipamento esta com problema?',
+            proxima_etapa: 'saudacao'
+        },
+        {
+            nome: 'Taxa da Visita',
+            palavras_chave: ['taxa','visita tem custo','custo da visita','paga visita','visita paga','valor da visita'],
+            resposta: 'Sim, a visita tecnica tem uma taxa que varia de R$100 a R$190 conforme a regiao. Esse valor e descontado do conserto se voce aprovar o orcamento. Qual equipamento esta com problema e qual a marca?',
+            proxima_etapa: 'saudacao'
+        },
+        {
+            nome: 'Objecao Taxa Caro',
+            palavras_chave: ['caro','muito caro','absurdo','taxa alta','roubo','injusto'],
+            resposta: 'Sei que parece um valor a mais, mas garanto que e justo pelo deslocamento e diagnostico. E como falei, vira desconto no conserto. Qual bairro voce esta? Posso verificar o valor exato para sua regiao.',
+            proxima_etapa: 'perguntar_bairro'
+        },
+        {
+            nome: 'Objecao Nao Quer Pagar',
+            palavras_chave: ['nao quero pagar','nao vou pagar','recuso','rejeito','nao aceito'],
+            resposta: 'Entendo sua preocupacao. A taxa e apenas para cobrir o deslocamento do tecnico. O bom e que se voce aprovar o conserto, esse valor sai totalmente do orcamento. Fica como um adiantamento, sabe? Posso verificar o bairro para te passar o valor exato?',
+            proxima_etapa: 'perguntar_bairro'
+        },
+        {
+            nome: 'Por que tem taxa',
+            palavras_chave: ['por que tem taxa','porque tem','por que paga','por que cobra','motivo da taxa'],
+            resposta: 'A taxa cobre o deslocamento do tecnico ate o seu endereco e o tempo de diagnostico. Se voce aprovar o orcamento, esse valor e abatido. E uma pratica comum para garantir o compromisso de ambas as partes. Posso verificar o valor para seu bairro?',
+            proxima_etapa: 'perguntar_bairro'
+        }
+    ];
+    renderizarFluxos();
+    renderizarIntencoes();
+}
+
+// ============================================
+// TOAST
+// ============================================
+function mostrarToast(mensagem, tipo) {
+    const toast = document.getElementById('toast');
+    toast.textContent = mensagem;
+    toast.className = `toast toast-${tipo} show`;
+    setTimeout(() => toast.classList.remove('show'), 3000);
+}
+</script>
 </body>
 </html>

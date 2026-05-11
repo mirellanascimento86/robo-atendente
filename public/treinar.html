@@ -18,21 +18,28 @@ textarea { min-height: 60px; resize: vertical; }
 button { padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
 .btn-primary { background: #007bff; color: white; width: 100%; padding: 12px; font-size: 16px; }
 .btn-primary:hover { background: #0056b3; }
+.btn-primary:disabled { background: #6c757d; cursor: not-allowed; }
 .btn-secondary { background: #6c757d; color: white; }
 .btn-danger { background: #dc3545; color: white; padding: 2px 8px; font-size: 12px; }
 .toggle-row { display: flex; align-items: center; justify-content: space-between; }
-.toggle { width: 50px; height: 26px; background: #ccc; border-radius: 13px; position: relative; cursor: pointer; }
+.toggle { width: 50px; height: 26px; background: #ccc; border-radius: 13px; position: relative; cursor: pointer; transition: background 0.3s; }
 .toggle.on { background: #28a745; }
 .toggle::after { content: ''; position: absolute; width: 22px; height: 22px; background: white; border-radius: 50%; top: 2px; left: 2px; transition: left 0.3s; }
 .toggle.on::after { left: 26px; }
 .tag { display: inline-block; background: #ffcdd2; color: #c62828; padding: 3px 8px; border-radius: 12px; font-size: 13px; margin: 2px; }
 .faq-item { background: #f8f9fa; padding: 10px; border-left: 3px solid #007bff; margin-bottom: 8px; position: relative; }
 .faq-del { position: absolute; top: 5px; right: 5px; background: none; border: none; color: #dc3545; cursor: pointer; font-size: 18px; }
-.nav { position: fixed; bottom: 0; left: 0; right: 0; background: white; border-top: 1px solid #ddd; display: flex; justify-content: center; padding: 10px; }
+.nav { position: fixed; bottom: 0; left: 0; right: 0; background: white; border-top: 1px solid #ddd; display: flex; justify-content: center; padding: 10px; z-index: 100; }
 .nav a { padding: 10px 30px; text-decoration: none; color: #666; font-size: 12px; text-transform: uppercase; }
 .nav a.active { color: #007bff; font-weight: bold; }
 #debug { background: #1e1e1e; color: #4ec9b0; padding: 10px; border-radius: 5px; font-family: monospace; font-size: 11px; max-height: 150px; overflow-y: auto; margin-bottom: 15px; display: none; }
+.save-indicator { position: fixed; top: 10px; right: 10px; padding: 8px 12px; border-radius: 4px; font-size: 12px; font-weight: bold; display: none; z-index: 1000; }
+.save-indicator.show { display: block; }
+.save-indicator.saved { background: #d4edda; color: #155724; }
+.save-indicator.saving { background: #fff3cd; color: #856404; }
+.save-indicator.error { background: #f8d7da; color: #721c24; }
 </style>
+<base target="_blank">
 <base target="_blank">
 </head>
 <body>
@@ -40,6 +47,7 @@ button { padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; 
 <h1>🤖 Treinar Robo WhatsApp</h1>
 
 <div id="debug"></div>
+<div id="saveIndicator" class="save-indicator"></div>
 
 <div id="statusBox" class="status warn">Carregando...</div>
 
@@ -115,7 +123,9 @@ button { padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; 
 </nav>
 
 <script>
+// ═══════════════════════════════════════════════════════
 // CONFIGURACAO
+// ═══════════════════════════════════════════════════════
 const WEBHOOK_URL = (() => {
   const host = window.location.host;
   if (host.includes('localhost')) return 'https://robo-atendente.vercel.app/api/webhook';
@@ -124,10 +134,19 @@ const WEBHOOK_URL = (() => {
 
 console.log('Webhook URL:', WEBHOOK_URL);
 
+// ═══════════════════════════════════════════════════════
+// ESTADO PERSISTENTE
+// ═══════════════════════════════════════════════════════
+const STORAGE_KEY = 'bot_training_v3';
+const STORAGE_TIMESTAMP = 'bot_training_v3_ts';
+
 let faqData = [];
 let escalation = ['atendente','humano','pessoa','reclamacao','cancelar','chefe','gerente','supervisor'];
+let isLoaded = false;
 
+// ═══════════════════════════════════════════════════════
 // UTILS
+// ═══════════════════════════════════════════════════════
 function $(id) { return document.getElementById(id); }
 function val(id) { const el = $(id); return el ? el.value.trim() : ''; }
 function setVal(id, v) { const el = $(id); if (el) el.value = v || ''; }
@@ -150,15 +169,68 @@ function setStatus(type, text) {
   }
 }
 
-function toast(msg) {
-  alert(msg);
+function showIndicator(type, text) {
+  const el = $('saveIndicator');
+  if (!el) return;
+  el.className = 'save-indicator show ' + type;
+  el.textContent = text;
+  setTimeout(() => { el.className = 'save-indicator'; }, 3000);
 }
 
-// CARREGAR DADOS
+// ═══════════════════════════════════════════════════════
+// PERSISTENCIA LOCAL (auto-save)
+// ═══════════════════════════════════════════════════════
+function saveLocal() {
+  const payload = buildPayload();
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    localStorage.setItem(STORAGE_TIMESTAMP, Date.now().toString());
+    showIndicator('saved', '💾 Salvo localmente');
+    log('Cache local atualizado');
+  } catch (e) {
+    console.error('Erro localStorage:', e);
+  }
+}
+
+function loadLocal() {
+  try {
+    const cached = localStorage.getItem(STORAGE_KEY);
+    if (cached) {
+      const data = JSON.parse(cached);
+      log('Cache local encontrado');
+      return data;
+    }
+  } catch (e) {
+    console.error('Erro ler localStorage:', e);
+  }
+  return null;
+}
+
+function buildPayload() {
+  return {
+    bot_name: val('botName'),
+    company_name: val('companyName'),
+    greeting_message: val('greeting'),
+    personality: val('personality'),
+    services: val('services'),
+    business_hours: val('businessHours'),
+    pricing_info: val('pricing'),
+    fallback_message: val('fallback'),
+    faq_data: faqData,
+    escalation_keywords: escalation,
+    active: $('botToggle').classList.contains('on'),
+    updated_at: new Date().toISOString()
+  };
+}
+
+// ═══════════════════════════════════════════════════════
+// CARREGAR DADOS (servidor > local > padrao)
+// ═══════════════════════════════════════════════════════
 async function load() {
   log('Carregando...');
   setStatus('warn', 'Carregando configuracao...');
 
+  // 1. Tentar carregar do servidor (fonte da verdade)
   try {
     const url = WEBHOOK_URL + '?action=status&_=' + Date.now();
     log('GET ' + url);
@@ -172,30 +244,42 @@ async function load() {
     }
 
     const d = await res.json();
-    log('Resposta: ' + JSON.stringify(d).substring(0, 200));
+    log('Resposta servidor: ' + JSON.stringify(d).substring(0, 200));
 
-    if (d.success !== false) {
+    if (d.success !== false && d.id) {
       applyData(d);
-      setStatus('ok', 'Conectado ✓');
-      log('OK!');
+      setStatus('ok', 'Conectado ao servidor ✓');
+      log('OK! Dados do servidor carregados');
+      isLoaded = true;
+      saveLocal(); // Atualizar cache local
       return;
     }
     throw new Error(d.error || 'Erro servidor');
 
   } catch (e) {
-    log('ERRO: ' + e.message);
-    setStatus('err', 'Erro: ' + e.message);
+    log('ERRO servidor: ' + e.message);
 
-    try {
-      const cached = JSON.parse(localStorage.getItem('bot_training_v2') || 'null');
-      if (cached) { applyData(cached); setStatus('warn', 'Cache local'); }
-    } catch (e2) {}
+    // 2. Fallback: carregar do localStorage
+    const cached = loadLocal();
+    if (cached) {
+      applyData(cached);
+      setStatus('warn', 'Modo offline - usando cache local');
+      log('Cache local carregado');
+      isLoaded = true;
+      return;
+    }
+
+    // 3. Fallback final: usar padroes
+    setStatus('err', 'Erro: ' + e.message + ' (sem cache)');
+    applyDefaults();
+    isLoaded = true;
   }
 }
 
 function applyData(d) {
   faqData = Array.isArray(d.faq_data) ? d.faq_data : [];
   escalation = Array.isArray(d.escalation_keywords) ? d.escalation_keywords : escalation;
+
   setVal('botName', d.bot_name);
   setVal('companyName', d.company_name);
   setVal('greeting', d.greeting_message || d.greeting);
@@ -211,14 +295,39 @@ function applyData(d) {
 
   renderTags();
   renderFaq();
+  log('Dados aplicados na interface');
 }
 
+function applyDefaults() {
+  setVal('botName', 'TecBot');
+  setVal('companyName', 'Assistencia Express');
+  setVal('greeting', 'Ola! Bem-vindo a Assistencia Express. Como posso ajudar voce hoje?');
+  setVal('personality', 'Seja cordial, objetivo e profissional.');
+  setVal('services', 'Conserto de celulares, tablets, notebooks e troca de telas.');
+  setVal('businessHours', 'Segunda a Sexta: 9h as 18h. Sabado: 9h as 13h.');
+  setVal('pricing', 'Orcamento gratis! Precos a partir de R$ 50.');
+  setVal('fallback', 'Nao entendi muito bem. Posso te ajudar com precos, horarios, servicos e agendamentos.');
+
+  faqData = [
+    { question: 'Quanto custa trocar a tela?', answer: 'Troca de tela a partir de R$ 150. O valor exato depende do modelo do aparelho.' },
+    { question: 'Voces consertam iPhone?', answer: 'Sim! Consertamos todos os modelos de iPhone. Traga para orcamento gratis.' }
+  ];
+
+  renderTags();
+  renderFaq();
+}
+
+// ═══════════════════════════════════════════════════════
 // TOGGLE
+// ═══════════════════════════════════════════════════════
 $('botToggle').addEventListener('click', function() {
   this.classList.toggle('on');
+  saveLocal();
 });
 
+// ═══════════════════════════════════════════════════════
 // TAGS
+// ═══════════════════════════════════════════════════════
 function renderTags() {
   const el = $('escalationTags');
   if (!el) return;
@@ -233,19 +342,28 @@ function addTag() {
   const v = inp.value.trim().toLowerCase();
   if (!v) { alert('Digite uma palavra'); return; }
   if (escalation.includes(v)) { alert('Ja existe'); return; }
-  escalation.push(v); inp.value = ''; renderTags();
+  escalation.push(v); 
+  inp.value = ''; 
+  renderTags();
+  saveLocal();
 }
 
-function removeTag(i) { escalation.splice(i, 1); renderTags(); }
+function removeTag(i) { 
+  escalation.splice(i, 1); 
+  renderTags(); 
+  saveLocal();
+}
 
 $('btnAddTag').addEventListener('click', addTag);
 $('newTagInput').addEventListener('keypress', function(e) { if (e.key === 'Enter') addTag(); });
 
+// ═══════════════════════════════════════════════════════
 // FAQ
+// ═══════════════════════════════════════════════════════
 function renderFaq() {
   const el = $('faqList');
   if (!el) return;
-  if (faqData.length === 0) { el.innerHTML = '<small style="color:#999">Nenhuma FAQ</small>'; return; }
+  if (faqData.length === 0) { el.innerHTML = '<small style="color:#999">Nenhuma FAQ cadastrada</small>'; return; }
   el.innerHTML = faqData.map((f, i) => 
     '<div class="faq-item">' +
       '<strong>Q:</strong> ' + f.question + '<br>' +
@@ -255,7 +373,11 @@ function renderFaq() {
   ).join('');
 }
 
-function removeFaq(i) { faqData.splice(i, 1); renderFaq(); }
+function removeFaq(i) { 
+  faqData.splice(i, 1); 
+  renderFaq(); 
+  saveLocal();
+}
 
 function openFaq() {
   const q = prompt('Pergunta do cliente:');
@@ -264,27 +386,21 @@ function openFaq() {
   if (!a) return;
   faqData.push({ question: q, answer: a });
   renderFaq();
+  saveLocal();
 }
 
 $('btnOpenFaq').addEventListener('click', openFaq);
 
+// ═══════════════════════════════════════════════════════
 // SIMULADOR
+// ═══════════════════════════════════════════════════════
 $('testQ').addEventListener('input', function() {
   const q = this.value.trim();
   const box = $('previewBox');
   const txt = $('previewTxt');
   if (!q) { box.style.display = 'none'; return; }
 
-  const t = {
-    greeting_message: val('greeting'),
-    services: val('services'),
-    business_hours: val('businessHours'),
-    pricing_info: val('pricing'),
-    fallback_message: val('fallback'),
-    faq_data: faqData,
-    escalation_keywords: escalation
-  };
-
+  const t = buildPayload();
   txt.textContent = genResp(q, t);
   box.style.display = 'block';
 });
@@ -307,30 +423,18 @@ function genResp(m, t) {
   return (t.fallback_message || 'Nao compreendi.') + '\n\nDigite "atendente"!';
 }
 
-// SALVAR
+// ═══════════════════════════════════════════════════════
+// SALVAR NO SERVIDOR
+// ═══════════════════════════════════════════════════════
 $('saveBtn').addEventListener('click', async function() {
   const btn = this;
   btn.disabled = true;
   btn.textContent = 'Salvando...';
-  log('Salvando...');
+  showIndicator('saving', '💾 Salvando no servidor...');
+  log('Salvando no servidor...');
   setStatus('warn', 'Salvando...');
 
-  const payload = {
-    bot_name: val('botName'),
-    company_name: val('companyName'),
-    greeting_message: val('greeting'),
-    personality: val('personality'),
-    services: val('services'),
-    business_hours: val('businessHours'),
-    pricing_info: val('pricing'),
-    fallback_message: val('fallback'),
-    faq_data: faqData,
-    escalation_keywords: escalation,
-    active: $('botToggle').classList.contains('on'),
-    updated_at: new Date().toISOString()
-  };
-
-  try { localStorage.setItem('bot_training_v2', JSON.stringify(payload)); } catch (e) {}
+  const payload = buildPayload();
 
   try {
     log('POST ' + WEBHOOK_URL);
@@ -348,24 +452,42 @@ $('saveBtn').addEventListener('click', async function() {
 
     const d = JSON.parse(text);
     if (d.success || d.ok) {
-      setStatus('ok', 'Salvo e ativo ✓');
-      alert('✓ Configuracao salva com sucesso!');
-      log('SUCESSO!');
+      setStatus('ok', 'Salvo e ativo no servidor ✓');
+      showIndicator('saved', '✓ Salvo no servidor!');
+      alert('✓ Configuracao salva com sucesso no servidor!');
+      log('SUCESSO! Dados persistidos no Supabase');
+      saveLocal();
     } else {
       throw new Error(d.error || 'Erro servidor');
     }
 
   } catch (e) {
     log('ERRO SAVE: ' + e.message);
-    setStatus('err', 'Erro ao salvar: ' + e.message);
-    alert('✗ Erro: ' + e.message);
+    setStatus('err', 'Erro ao salvar no servidor: ' + e.message);
+    showIndicator('error', '✗ Erro: ' + e.message);
+    alert('✗ Erro ao salvar no servidor: ' + e.message + '\n\nMas seus dados estao salvos localmente e serao enviados na proxima tentativa.');
+    saveLocal();
   }
 
   btn.disabled = false;
   btn.textContent = 'Salvar e Ativar no WhatsApp';
 });
 
+// ═══════════════════════════════════════════════════════
+// AUTO-SAVE em inputs
+// ═══════════════════════════════════════════════════════
+const autoSaveFields = ['botName', 'companyName', 'greeting', 'personality', 'services', 'businessHours', 'pricing', 'fallback'];
+autoSaveFields.forEach(id => {
+  const el = $(id);
+  if (el) {
+    el.addEventListener('blur', saveLocal);
+    el.addEventListener('change', saveLocal);
+  }
+});
+
+// ═══════════════════════════════════════════════════════
 // INICIAR
+// ═══════════════════════════════════════════════════════
 load();
 </script>
 

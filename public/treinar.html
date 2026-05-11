@@ -3,41 +3,64 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Treinar Robo</title>
+<title>Treinar Robo - V2</title>
 <style>
-body { font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #f5f5f5; }
-h1 { font-size: 22px; color: #333; }
-.status { padding: 10px; border-radius: 5px; margin-bottom: 15px; font-size: 14px; font-weight: bold; }
-.status.ok { background: #d4edda; color: #155724; }
-.status.err { background: #f8d7da; color: #721c24; }
-.status.warn { background: #fff3cd; color: #856404; }
-.card { background: white; padding: 15px; border-radius: 8px; margin-bottom: 15px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-label { display: block; font-size: 12px; font-weight: bold; color: #666; margin-bottom: 5px; text-transform: uppercase; }
-input, textarea { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; margin-bottom: 10px; box-sizing: border-box; }
-textarea { min-height: 60px; resize: vertical; }
-button { padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
-.btn-primary { background: #007bff; color: white; width: 100%; padding: 12px; font-size: 16px; }
-.btn-primary:hover { background: #0056b3; }
-.btn-primary:disabled { background: #6c757d; cursor: not-allowed; }
+* { box-sizing: border-box; }
+body { font-family: 'Segoe UI', Arial, sans-serif; max-width: 700px; margin: 0 auto; padding: 20px; background: #f0f2f5; }
+h1 { font-size: 24px; color: #1a1a2e; margin-bottom: 5px; }
+.subtitle { color: #666; font-size: 13px; margin-bottom: 20px; }
+.status { padding: 12px; border-radius: 8px; margin-bottom: 15px; font-size: 14px; font-weight: 600; }
+.status.ok { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+.status.err { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+.status.warn { background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+.status.info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+.card { background: white; padding: 20px; border-radius: 12px; margin-bottom: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+.card h2 { font-size: 16px; color: #333; margin: 0 0 15px 0; display: flex; align-items: center; gap: 8px; }
+label { display: block; font-size: 11px; font-weight: 700; color: #555; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+input, textarea, select { width: 100%; padding: 10px; border: 1.5px solid #e0e0e0; border-radius: 8px; font-size: 14px; margin-bottom: 12px; transition: border-color 0.2s; }
+input:focus, textarea:focus, select:focus { outline: none; border-color: #007bff; }
+textarea { min-height: 70px; resize: vertical; }
+button { padding: 10px 18px; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; transition: all 0.2s; }
+button:hover { transform: translateY(-1px); }
+.btn-primary { background: linear-gradient(135deg, #007bff, #0056b3); color: white; width: 100%; padding: 14px; font-size: 16px; }
+.btn-primary:hover { background: linear-gradient(135deg, #0056b3, #004494); }
+.btn-primary:disabled { background: #6c757d; cursor: not-allowed; transform: none; }
 .btn-secondary { background: #6c757d; color: white; }
-.btn-danger { background: #dc3545; color: white; padding: 2px 8px; font-size: 12px; }
-.toggle-row { display: flex; align-items: center; justify-content: space-between; }
-.toggle { width: 50px; height: 26px; background: #ccc; border-radius: 13px; position: relative; cursor: pointer; transition: background 0.3s; }
+.btn-secondary:hover { background: #5a6268; }
+.btn-danger { background: #dc3545; color: white; padding: 4px 10px; font-size: 12px; }
+.btn-danger:hover { background: #c82333; }
+.btn-success { background: #28a745; color: white; }
+.btn-success:hover { background: #218838; }
+.btn-small { padding: 6px 12px; font-size: 12px; }
+.toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 5px 0; }
+.toggle { width: 52px; height: 28px; background: #ccc; border-radius: 14px; position: relative; cursor: pointer; transition: background 0.3s; }
 .toggle.on { background: #28a745; }
-.toggle::after { content: ''; position: absolute; width: 22px; height: 22px; background: white; border-radius: 50%; top: 2px; left: 2px; transition: left 0.3s; }
+.toggle::after { content: ''; position: absolute; width: 24px; height: 24px; background: white; border-radius: 50%; top: 2px; left: 2px; transition: left 0.3s; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
 .toggle.on::after { left: 26px; }
-.tag { display: inline-block; background: #ffcdd2; color: #c62828; padding: 3px 8px; border-radius: 12px; font-size: 13px; margin: 2px; }
-.faq-item { background: #f8f9fa; padding: 10px; border-left: 3px solid #007bff; margin-bottom: 8px; position: relative; }
-.faq-del { position: absolute; top: 5px; right: 5px; background: none; border: none; color: #dc3545; cursor: pointer; font-size: 18px; }
-.nav { position: fixed; bottom: 0; left: 0; right: 0; background: white; border-top: 1px solid #ddd; display: flex; justify-content: center; padding: 10px; z-index: 100; }
-.nav a { padding: 10px 30px; text-decoration: none; color: #666; font-size: 12px; text-transform: uppercase; }
-.nav a.active { color: #007bff; font-weight: bold; }
-#debug { background: #1e1e1e; color: #4ec9b0; padding: 10px; border-radius: 5px; font-family: monospace; font-size: 11px; max-height: 150px; overflow-y: auto; margin-bottom: 15px; display: none; }
-.save-indicator { position: fixed; top: 10px; right: 10px; padding: 8px 12px; border-radius: 4px; font-size: 12px; font-weight: bold; display: none; z-index: 1000; }
-.save-indicator.show { display: block; }
+.tag { display: inline-flex; align-items: center; gap: 4px; background: #e3f2fd; color: #1565c0; padding: 4px 10px; border-radius: 16px; font-size: 13px; margin: 3px; font-weight: 500; }
+.tag .del { background: none; border: none; color: #c62828; cursor: pointer; font-size: 16px; padding: 0; margin-left: 4px; }
+.faq-item { background: #f8f9fa; padding: 12px; border-left: 4px solid #007bff; margin-bottom: 10px; border-radius: 0 8px 8px 0; position: relative; }
+.faq-item .q { font-weight: 700; color: #007bff; margin-bottom: 4px; }
+.faq-item .a { color: #444; }
+.faq-del { position: absolute; top: 8px; right: 8px; background: none; border: none; color: #dc3545; cursor: pointer; font-size: 20px; }
+.lead-item { background: #f0f9ff; padding: 14px; border-left: 4px solid #0ea5e9; margin-bottom: 10px; border-radius: 0 8px 8px 0; position: relative; }
+.lead-item .field-name { font-weight: 700; color: #0ea5e9; font-size: 13px; text-transform: uppercase; }
+.lead-item .question-text { color: #444; margin-top: 4px; }
+.lead-del { position: absolute; top: 8px; right: 8px; background: none; border: none; color: #dc3545; cursor: pointer; font-size: 20px; }
+.nav { position: fixed; bottom: 0; left: 0; right: 0; background: white; border-top: 1px solid #e0e0e0; display: flex; justify-content: center; padding: 12px; z-index: 100; box-shadow: 0 -2px 10px rgba(0,0,0,0.05); }
+.nav a { padding: 10px 30px; text-decoration: none; color: #666; font-size: 13px; text-transform: uppercase; font-weight: 600; }
+.nav a.active { color: #007bff; font-weight: 700; }
+#debug { background: #1e1e1e; color: #4ec9b0; padding: 12px; border-radius: 8px; font-family: 'Consolas', monospace; font-size: 11px; max-height: 200px; overflow-y: auto; margin-bottom: 15px; display: none; }
+.save-indicator { position: fixed; top: 15px; right: 15px; padding: 10px 16px; border-radius: 8px; font-size: 13px; font-weight: 700; display: none; z-index: 1000; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+.save-indicator.show { display: block; animation: slideIn 0.3s ease; }
 .save-indicator.saved { background: #d4edda; color: #155724; }
 .save-indicator.saving { background: #fff3cd; color: #856404; }
 .save-indicator.error { background: #f8d7da; color: #721c24; }
+@keyframes slideIn { from { transform: translateX(100px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+.section-desc { color: #888; font-size: 13px; margin-bottom: 15px; line-height: 1.5; }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+@media (max-width: 500px) { .grid-2 { grid-template-columns: 1fr; } }
+.empty-state { text-align: center; padding: 20px; color: #999; font-size: 13px; }
 </style>
 <base target="_blank">
 <base target="_blank">
@@ -45,81 +68,148 @@ button { padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; 
 <body>
 
 <h1>🤖 Treinar Robo WhatsApp</h1>
+<div class="subtitle">Configure respostas, fluxo de atendimento e captura de leads</div>
 
 <div id="debug"></div>
 <div id="saveIndicator" class="save-indicator"></div>
 
-<div id="statusBox" class="status warn">Carregando...</div>
+<div id="statusBox" class="status warn">Carregando configuracao...</div>
 
+<!-- ATIVACAO -->
 <div class="card">
   <div class="toggle-row">
-    <div><strong>Robo Ativo</strong></div>
+    <div>
+      <strong style="font-size: 15px;">Robo Ativo</strong>
+      <div style="font-size: 12px; color: #888; margin-top: 2px;">Desligado = atendimento humano</div>
+    </div>
     <div class="toggle on" id="botToggle"></div>
   </div>
 </div>
 
+<!-- IDENTIDADE -->
 <div class="card">
-  <strong>Identidade</strong><br><br>
-  <label>Nome do Robo</label>
-  <input type="text" id="botName" placeholder="Ex: TecBot">
-
-  <label>Nome da Empresa</label>
-  <input type="text" id="companyName" placeholder="Ex: Assistencia Express">
-
+  <h2>🏢 Identidade da Empresa</h2>
+  <div class="section-desc">Como o robo se apresenta aos clientes</div>
+  <div class="grid-2">
+    <div>
+      <label>Nome do Robo</label>
+      <input type="text" id="botName" placeholder="Ex: TecBot">
+    </div>
+    <div>
+      <label>Nome da Empresa</label>
+      <input type="text" id="companyName" placeholder="Ex: Assistencia Express">
+    </div>
+  </div>
   <label>Saudacao Inicial</label>
-  <textarea id="greeting" placeholder="Ola! Bem-vindo..."></textarea>
+  <textarea id="greeting" placeholder="Ola! Bem-vindo a Assistencia Express. Sou o TecBot, seu assistente virtual..."></textarea>
 </div>
 
+<!-- SERVICOS -->
 <div class="card">
-  <strong>Personalidade e Servicos</strong><br><br>
-  <label>Comportamento</label>
-  <textarea id="personality" placeholder="Seja cordial e objetivo..."></textarea>
+  <h2>🔧 Servicos e Informacoes</h2>
+  <div class="section-desc">Respostas automaticas para perguntas comuns</div>
+  <label>Comportamento / Personalidade</label>
+  <textarea id="personality" placeholder="Seja cordial, objetivo e profissional. Sempre ofereca orcamento gratis."></textarea>
 
-  <label>Servicos</label>
-  <textarea id="services" placeholder="Conserto de celulares..."></textarea>
+  <label>Servicos Oferecidos</label>
+  <textarea id="services" placeholder="Conserto de geladeiras, maquinas de lavar, ar-condicionado, troca de telas de celular..."></textarea>
 
-  <label>Horario</label>
-  <textarea id="businessHours" placeholder="Seg-Sex: 9h as 18h"></textarea>
-
-  <label>Precos</label>
-  <textarea id="pricing" placeholder="Orcamento gratis..."></textarea>
-
-  <label>Resposta Padrao (fallback)</label>
-  <textarea id="fallback" placeholder="Nao entendi..."></textarea>
-</div>
-
-<div class="card">
-  <strong>Transferir para Humano</strong><br>
-  <small style="color:#666">Palavras que transferem para atendente</small><br><br>
-  <div id="escalationTags"></div>
-  <div style="display:flex;gap:5px;margin-top:8px;">
-    <input type="text" id="newTagInput" placeholder="Nova palavra..." style="flex:1;margin-bottom:0;">
-    <button class="btn-secondary" id="btnAddTag">+</button>
+  <div class="grid-2">
+    <div>
+      <label>Horario de Funcionamento</label>
+      <textarea id="businessHours" placeholder="Seg-Sex: 8h as 18h\nSab: 8h as 12h"></textarea>
+    </div>
+    <div>
+      <label>Informacoes de Preco</label>
+      <textarea id="pricing" placeholder="Orcamento gratis!\nVisita tecnica: R$ 80\nConserto a partir de R$ 150"></textarea>
+    </div>
   </div>
+
+  <label>Resposta Padrao (quando nao entende)</label>
+  <textarea id="fallback" placeholder="Nao entendi muito bem. Posso te ajudar com precos, horarios, servicos e agendamentos. Digite 'atendente' para falar com um humano!"></textarea>
 </div>
 
+<!-- FAQ -->
 <div class="card">
-  <strong>FAQ - Perguntas Frequentes</strong><br><br>
+  <h2>❓ Perguntas Frequentes (FAQ)</h2>
+  <div class="section-desc">O robo responde automaticamente quando detecta palavras-chave da pergunta</div>
   <div id="faqList"></div>
-  <button class="btn-secondary" id="btnOpenFaq" style="width:100%;margin-top:8px;">+ Nova Pergunta</button>
-</div>
-
-<div class="card">
-  <strong>Testar Resposta</strong><br><br>
-  <input type="text" id="testQ" placeholder="Ex: Quanto custa trocar a tela?">
-  <div id="previewBox" style="display:none;background:#e8f5e9;padding:10px;border-radius:4px;margin-top:8px;">
-    <small style="color:#2e7d32;font-weight:bold;">Resposta:</small>
-    <div id="previewTxt" style="white-space:pre-wrap;margin-top:4px;"></div>
+  <div id="faqEmpty" class="empty-state" style="display:none;">Nenhuma FAQ cadastrada. Adicione abaixo.</div>
+  <div style="display:flex;gap:8px;margin-top:12px;">
+    <input type="text" id="faqQ" placeholder="Pergunta do cliente (ex: Quanto custa trocar tela?)" style="flex:1;margin-bottom:0;">
+    <input type="text" id="faqA" placeholder="Resposta do robo" style="flex:1;margin-bottom:0;">
+    <button class="btn-secondary" id="btnAddFaq">+</button>
   </div>
 </div>
 
-<button class="btn-primary" id="saveBtn">Salvar e Ativar no WhatsApp</button>
+<!-- CAPTURA DE LEADS -->
+<div class="card" style="border: 2px solid #0ea5e9;">
+  <h2>🎯 Captura de Leads (Fluxo Conversacional)</h2>
+  <div class="section-desc">
+    <strong>Configure perguntas sequenciais</strong> que o robo fara ao cliente para capturar nome, endereco, tipo de aparelho, etc.<br>
+    O robo faz uma pergunta de cada vez e so avanca quando o cliente responde.
+  </div>
 
-<div style="height:80px;"></div>
+  <div id="leadList"></div>
+  <div id="leadEmpty" class="empty-state" style="display:none;">Nenhuma pergunta de lead configurada.</div>
+
+  <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-top: 12px;">
+    <div style="font-weight: 700; color: #333; margin-bottom: 10px; font-size: 13px;">➕ Nova Pergunta do Fluxo</div>
+    <div class="grid-2">
+      <div>
+        <label>Nome do Campo (para identificar)</label>
+        <input type="text" id="leadField" placeholder="ex: nome, endereco, aparelho, problema">
+      </div>
+      <div>
+        <label>Pergunta que o Robo faz</label>
+        <input type="text" id="leadQuestion" placeholder="ex: Qual o seu nome completo?">
+      </div>
+    </div>
+    <button class="btn-success btn-small" id="btnAddLead" style="width: 100%;">Adicionar Pergunta ao Fluxo</button>
+  </div>
+
+  <div style="margin-top: 15px; padding: 12px; background: #e8f5e9; border-radius: 8px; font-size: 13px; color: #2e7d32;">
+    <strong>💡 Exemplo de fluxo para conserto:</strong><br>
+    1. Campo: <code>nome</code> → Pergunta: "Qual seu nome completo?"<br>
+    2. Campo: <code>endereco</code> → Pergunta: "Qual o endereco para visita?"<br>
+    3. Campo: <code>aparelho</code> → Pergunta: "Qual aparelho precisa de conserto?"<br>
+    4. Campo: <code>problema</code> → Pergunta: "Qual o problema/defeito?"<br>
+    5. Campo: <code>data</code> → Pergunta: "Qual dia e horario prefere?"
+  </div>
+
+  <label style="margin-top: 15px;">Mensagem de Conclusao (quando capturar tudo)</label>
+  <textarea id="completionMsg" placeholder="✅ Obrigado {nome}! Recebemos seu pedido. Nosso tecnico entrara em contato em breve para confirmar a visita no endereco: {endereco}"></textarea>
+</div>
+
+<!-- ESCALONAMENTO -->
+<div class="card">
+  <h2>🚨 Transferir para Humano</h2>
+  <div class="section-desc">Palavras que fazem o robo transferir para atendente humano</div>
+  <div id="escalationTags"></div>
+  <div style="display:flex;gap:8px;margin-top:10px;">
+    <input type="text" id="newTagInput" placeholder="Nova palavra-chave..." style="flex:1;margin-bottom:0;">
+    <button class="btn-secondary" id="btnAddTag">+ Adicionar</button>
+  </div>
+</div>
+
+<!-- SIMULADOR -->
+<div class="card">
+  <h2>🧪 Simulador de Resposta</h2>
+  <div class="section-desc">Teste como o robo responderia antes de salvar</div>
+  <input type="text" id="testQ" placeholder="Digite uma mensagem de teste (ex: oi, quanto custa, quero agendar)...">
+  <div id="previewBox" style="display:none;background:#e8f5e9;padding:14px;border-radius:8px;margin-top:10px;border:1px solid #a5d6a7;">
+    <div style="font-size: 11px; color: #2e7d32; font-weight: 700; text-transform: uppercase; margin-bottom: 6px;">🤖 Resposta do Robo:</div>
+    <div id="previewTxt" style="white-space:pre-wrap;color:#1b5e20;font-size:14px;line-height:1.5;"></div>
+  </div>
+</div>
+
+<button class="btn-primary" id="saveBtn">💾 Salvar Configuracao no Servidor</button>
+
+<div style="height:100px;"></div>
 
 <nav class="nav">
-  <a href="painel.html">Intervencao</a>
-  <a href="treinar.html" class="active">Treinamento</a>
+  <a href="painel.html">📋 Painel de Conversas</a>
+  <a href="treinar.html" class="active">⚙️ Treinamento</a>
 </nav>
 
 <script>
@@ -135,12 +225,12 @@ const WEBHOOK_URL = (() => {
 console.log('Webhook URL:', WEBHOOK_URL);
 
 // ═══════════════════════════════════════════════════════
-// ESTADO PERSISTENTE
+// ESTADO
 // ═══════════════════════════════════════════════════════
-const STORAGE_KEY = 'bot_training_v3';
-const STORAGE_TIMESTAMP = 'bot_training_v3_ts';
+const STORAGE_KEY = 'bot_training_v4';
 
 let faqData = [];
+let leadQuestions = [];
 let escalation = ['atendente','humano','pessoa','reclamacao','cancelar','chefe','gerente','supervisor'];
 let isLoaded = false;
 
@@ -156,17 +246,14 @@ function log(msg) {
   const box = $('debug');
   if (box) {
     box.style.display = 'block';
-    box.innerHTML += '<div>' + new Date().toLocaleTimeString() + ' ' + msg + '</div>';
+    box.innerHTML += '<div>' + new Date().toLocaleTimeString() + ' | ' + msg + '</div>';
     box.scrollTop = box.scrollHeight;
   }
 }
 
 function setStatus(type, text) {
   const box = $('statusBox');
-  if (box) {
-    box.className = 'status ' + type;
-    box.textContent = text;
-  }
+  if (box) { box.className = 'status ' + type; box.textContent = text; }
 }
 
 function showIndicator(type, text) {
@@ -174,35 +261,25 @@ function showIndicator(type, text) {
   if (!el) return;
   el.className = 'save-indicator show ' + type;
   el.textContent = text;
-  setTimeout(() => { el.className = 'save-indicator'; }, 3000);
+  setTimeout(() => { el.className = 'save-indicator'; }, 4000);
 }
 
 // ═══════════════════════════════════════════════════════
-// PERSISTENCIA LOCAL (auto-save)
+// PERSISTENCIA LOCAL
 // ═══════════════════════════════════════════════════════
 function saveLocal() {
   const payload = buildPayload();
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-    localStorage.setItem(STORAGE_TIMESTAMP, Date.now().toString());
-    showIndicator('saved', '💾 Salvo localmente');
-    log('Cache local atualizado');
-  } catch (e) {
-    console.error('Erro localStorage:', e);
-  }
+    showIndicator('saved', '💾 Auto-salvo localmente');
+  } catch (e) { console.error('localStorage erro:', e); }
 }
 
 function loadLocal() {
   try {
     const cached = localStorage.getItem(STORAGE_KEY);
-    if (cached) {
-      const data = JSON.parse(cached);
-      log('Cache local encontrado');
-      return data;
-    }
-  } catch (e) {
-    console.error('Erro ler localStorage:', e);
-  }
+    if (cached) return JSON.parse(cached);
+  } catch (e) { console.error('localStorage erro:', e); }
   return null;
 }
 
@@ -216,7 +293,9 @@ function buildPayload() {
     business_hours: val('businessHours'),
     pricing_info: val('pricing'),
     fallback_message: val('fallback'),
+    completion_message: val('completionMsg'),
     faq_data: faqData,
+    lead_questions: leadQuestions,
     escalation_keywords: escalation,
     active: $('botToggle').classList.contains('on'),
     updated_at: new Date().toISOString()
@@ -224,53 +303,53 @@ function buildPayload() {
 }
 
 // ═══════════════════════════════════════════════════════
-// CARREGAR DADOS (servidor > local > padrao)
+// CARREGAR DADOS
 // ═══════════════════════════════════════════════════════
 async function load() {
-  log('Carregando...');
-  setStatus('warn', 'Carregando configuracao...');
+  log('Iniciando carregamento...');
+  setStatus('warn', 'Carregando...');
 
-  // 1. Tentar carregar do servidor (fonte da verdade)
+  // 1. Tentar servidor
   try {
     const url = WEBHOOK_URL + '?action=status&_=' + Date.now();
-    log('GET ' + url);
+    log('GET servidor: ' + url);
 
     const res = await fetch(url, { method: 'GET', headers: { Accept: 'application/json' }, cache: 'no-store' });
-    log('Status HTTP: ' + res.status);
+    log('HTTP Status: ' + res.status);
 
     if (!res.ok) {
       const txt = await res.text();
-      throw new Error('HTTP ' + res.status + ': ' + txt.substring(0, 100));
+      throw new Error('HTTP ' + res.status + ': ' + txt.substring(0, 150));
     }
 
     const d = await res.json();
-    log('Resposta servidor: ' + JSON.stringify(d).substring(0, 200));
+    log('Servidor respondeu: ' + JSON.stringify(d).substring(0, 200));
 
-    if (d.success !== false && d.id) {
+    if (d.id || d.success !== false) {
       applyData(d);
-      setStatus('ok', 'Conectado ao servidor ✓');
-      log('OK! Dados do servidor carregados');
+      setStatus('ok', '✓ Conectado ao servidor - dados sincronizados');
+      log('Dados do servidor carregados com sucesso');
       isLoaded = true;
-      saveLocal(); // Atualizar cache local
+      saveLocal();
       return;
     }
-    throw new Error(d.error || 'Erro servidor');
+    throw new Error(d.error || 'Resposta invalida do servidor');
 
   } catch (e) {
     log('ERRO servidor: ' + e.message);
 
-    // 2. Fallback: carregar do localStorage
+    // 2. Fallback localStorage
     const cached = loadLocal();
     if (cached) {
       applyData(cached);
-      setStatus('warn', 'Modo offline - usando cache local');
-      log('Cache local carregado');
+      setStatus('warn', '⚠ Modo offline - usando dados salvos localmente');
+      log('Dados carregados do cache local');
       isLoaded = true;
       return;
     }
 
-    // 3. Fallback final: usar padroes
-    setStatus('err', 'Erro: ' + e.message + ' (sem cache)');
+    // 3. Defaults
+    setStatus('err', '✗ ' + e.message + ' (sem dados salvos)');
     applyDefaults();
     isLoaded = true;
   }
@@ -278,6 +357,7 @@ async function load() {
 
 function applyData(d) {
   faqData = Array.isArray(d.faq_data) ? d.faq_data : [];
+  leadQuestions = Array.isArray(d.lead_questions) ? d.lead_questions : [];
   escalation = Array.isArray(d.escalation_keywords) ? d.escalation_keywords : escalation;
 
   setVal('botName', d.bot_name);
@@ -288,33 +368,49 @@ function applyData(d) {
   setVal('businessHours', d.business_hours);
   setVal('pricing', d.pricing_info);
   setVal('fallback', d.fallback_message);
+  setVal('completionMsg', d.completion_message);
 
   const tog = $('botToggle');
   const isOn = d.active !== false && d.bot_active !== false;
   if (tog) tog.classList.toggle('on', isOn);
 
-  renderTags();
-  renderFaq();
-  log('Dados aplicados na interface');
+  renderAll();
+  log('Interface atualizada com dados');
 }
 
 function applyDefaults() {
   setVal('botName', 'TecBot');
   setVal('companyName', 'Assistencia Express');
-  setVal('greeting', 'Ola! Bem-vindo a Assistencia Express. Como posso ajudar voce hoje?');
-  setVal('personality', 'Seja cordial, objetivo e profissional.');
-  setVal('services', 'Conserto de celulares, tablets, notebooks e troca de telas.');
-  setVal('businessHours', 'Segunda a Sexta: 9h as 18h. Sabado: 9h as 13h.');
-  setVal('pricing', 'Orcamento gratis! Precos a partir de R$ 50.');
-  setVal('fallback', 'Nao entendi muito bem. Posso te ajudar com precos, horarios, servicos e agendamentos.');
+  setVal('greeting', 'Ola! Bem-vindo a Assistencia Express. Sou o TecBot, seu assistente virtual. Como posso ajudar voce hoje?');
+  setVal('personality', 'Seja cordial, objetivo e profissional. Sempre ofereca orcamento gratis e visita tecnica.');
+  setVal('services', 'Conserto de geladeiras, maquinas de lavar, ar-condicionado, celulares, tablets e notebooks.');
+  setVal('businessHours', 'Segunda a Sexta: 8h as 18h\nSabado: 8h as 12h\nDomingo: Fechado');
+  setVal('pricing', '✅ Orcamento completamente GRATIS!\n💰 Visita tecnica: R$ 80\n🔧 Conserto a partir de R$ 150');
+  setVal('fallback', 'Nao entendi muito bem. Posso te ajudar com:\n• Precos e orcamentos\n• Horarios de funcionamento\n• Tipos de servico\n• Agendamento de visita\n\nDigite "atendente" para falar com um humano!');
+  setVal('completionMsg', '✅ Obrigado {nome}! Recebemos seu pedido de conserto.\n\n📋 Resumo:\n• Aparelho: {aparelho}\n• Problema: {problema}\n• Endereco: {endereco}\n• Data: {data}\n\nNosso tecnico entrara em contato em ate 2 horas para confirmar!');
 
   faqData = [
-    { question: 'Quanto custa trocar a tela?', answer: 'Troca de tela a partir de R$ 150. O valor exato depende do modelo do aparelho.' },
-    { question: 'Voces consertam iPhone?', answer: 'Sim! Consertamos todos os modelos de iPhone. Traga para orcamento gratis.' }
+    { question: 'Quanto custa conserto de geladeira?', answer: 'Orcamento gratis! O valor depende do defeito. Consertos a partir de R$ 150. Posso agendar uma visita tecnica para avaliacao.' },
+    { question: 'Voces consertam maquina de lavar?', answer: 'Sim! Consertamos todas as marcas de maquinas de lavar. Qual o modelo e o defeito?' },
+    { question: 'Quanto tempo demora o conserto?', answer: 'Depende do defeito. Simples: mesmo dia. Complexo: 1-3 dias. Fazemos orcamento em ate 24h!' }
   ];
 
+  leadQuestions = [
+    { field: 'nome', question: 'Qual seu nome completo?' },
+    { field: 'telefone', question: 'Confirme seu numero de telefone com DDD:' },
+    { field: 'endereco', question: 'Qual o endereco completo para a visita tecnica? (Rua, numero, bairro)' },
+    { field: 'aparelho', question: 'Qual aparelho precisa de conserto? (geladeira, maquina de lavar, ar-condicionado, etc)' },
+    { field: 'problema', question: 'Descreva o problema ou defeito que esta apresentando:' },
+    { field: 'data', question: 'Qual dia e horario voce prefere para a visita?' }
+  ];
+
+  renderAll();
+}
+
+function renderAll() {
   renderTags();
   renderFaq();
+  renderLeads();
 }
 
 // ═══════════════════════════════════════════════════════
@@ -331,8 +427,9 @@ $('botToggle').addEventListener('click', function() {
 function renderTags() {
   const el = $('escalationTags');
   if (!el) return;
-  el.innerHTML = escalation.map((t, i) => 
-    '<span class="tag">' + t + ' <button onclick="removeTag(' + i + ')" style="background:none;border:none;color:#c62828;cursor:pointer;">×</button></span>'
+  if (escalation.length === 0) { el.innerHTML = '<span style="color:#999;font-size:13px;">Nenhuma palavra configurada</span>'; return; }
+  el.innerHTML = escalation.map((t, i) =>
+    '<span class="tag">' + t + '<button class="del" onclick="removeTag(' + i + ')">×</button></span>'
   ).join('');
 }
 
@@ -341,16 +438,16 @@ function addTag() {
   if (!inp) return;
   const v = inp.value.trim().toLowerCase();
   if (!v) { alert('Digite uma palavra'); return; }
-  if (escalation.includes(v)) { alert('Ja existe'); return; }
-  escalation.push(v); 
-  inp.value = ''; 
+  if (escalation.includes(v)) { alert('Palavra ja existe'); return; }
+  escalation.push(v);
+  inp.value = '';
   renderTags();
   saveLocal();
 }
 
-function removeTag(i) { 
-  escalation.splice(i, 1); 
-  renderTags(); 
+function removeTag(i) {
+  escalation.splice(i, 1);
+  renderTags();
   saveLocal();
 }
 
@@ -362,34 +459,87 @@ $('newTagInput').addEventListener('keypress', function(e) { if (e.key === 'Enter
 // ═══════════════════════════════════════════════════════
 function renderFaq() {
   const el = $('faqList');
+  const empty = $('faqEmpty');
   if (!el) return;
-  if (faqData.length === 0) { el.innerHTML = '<small style="color:#999">Nenhuma FAQ cadastrada</small>'; return; }
-  el.innerHTML = faqData.map((f, i) => 
+
+  if (faqData.length === 0) {
+    el.innerHTML = '';
+    if (empty) empty.style.display = 'block';
+    return;
+  }
+  if (empty) empty.style.display = 'none';
+
+  el.innerHTML = faqData.map((f, i) =>
     '<div class="faq-item">' +
-      '<strong>Q:</strong> ' + f.question + '<br>' +
-      '<strong>A:</strong> ' + f.answer +
+      '<div class="q">Q: ' + f.question + '</div>' +
+      '<div class="a">A: ' + f.answer + '</div>' +
       '<button class="faq-del" onclick="removeFaq(' + i + ')">×</button>' +
     '</div>'
   ).join('');
 }
 
-function removeFaq(i) { 
-  faqData.splice(i, 1); 
-  renderFaq(); 
-  saveLocal();
-}
-
-function openFaq() {
-  const q = prompt('Pergunta do cliente:');
-  if (!q) return;
-  const a = prompt('Resposta do robo:');
-  if (!a) return;
+function addFaq() {
+  const q = $('faqQ').value.trim();
+  const a = $('faqA').value.trim();
+  if (!q || !a) { alert('Preencha pergunta e resposta'); return; }
   faqData.push({ question: q, answer: a });
+  $('faqQ').value = '';
+  $('faqA').value = '';
   renderFaq();
   saveLocal();
 }
 
-$('btnOpenFaq').addEventListener('click', openFaq);
+function removeFaq(i) {
+  faqData.splice(i, 1);
+  renderFaq();
+  saveLocal();
+}
+
+$('btnAddFaq').addEventListener('click', addFaq);
+
+// ═══════════════════════════════════════════════════════
+// LEADS (CAPTURA)
+// ═══════════════════════════════════════════════════════
+function renderLeads() {
+  const el = $('leadList');
+  const empty = $('leadEmpty');
+  if (!el) return;
+
+  if (leadQuestions.length === 0) {
+    el.innerHTML = '';
+    if (empty) empty.style.display = 'block';
+    return;
+  }
+  if (empty) empty.style.display = 'none';
+
+  el.innerHTML = leadQuestions.map((l, i) =>
+    '<div class="lead-item">' +
+      '<div class="field-name">📋 Campo: ' + l.field + '</div>' +
+      '<div class="question-text">' + l.question + '</div>' +
+      '<button class="lead-del" onclick="removeLead(' + i + ')">×</button>' +
+    '</div>'
+  ).join('');
+}
+
+function addLead() {
+  const field = $('leadField').value.trim().toLowerCase();
+  const question = $('leadQuestion').value.trim();
+  if (!field || !question) { alert('Preencha campo e pergunta'); return; }
+
+  leadQuestions.push({ field: field, question: question });
+  $('leadField').value = '';
+  $('leadQuestion').value = '';
+  renderLeads();
+  saveLocal();
+}
+
+function removeLead(i) {
+  leadQuestions.splice(i, 1);
+  renderLeads();
+  saveLocal();
+}
+
+$('btnAddLead').addEventListener('click', addLead);
 
 // ═══════════════════════════════════════════════════════
 // SIMULADOR
@@ -401,25 +551,36 @@ $('testQ').addEventListener('input', function() {
   if (!q) { box.style.display = 'none'; return; }
 
   const t = buildPayload();
-  txt.textContent = genResp(q, t);
+  txt.textContent = simulateResponse(q, t);
   box.style.display = 'block';
 });
 
-function genResp(m, t) {
+function simulateResponse(m, t) {
   const msg = m.toLowerCase().trim();
   const hi = ['oi', 'ola', 'olá', 'bom dia', 'boa tarde', 'boa noite', 'hey', 'hi', 'hello'];
-  if (hi.some(g => msg.includes(g))) return t.greeting_message || 'Ola!';
 
+  // Saudacao
+  if (hi.some(g => msg.includes(g))) {
+    const greeting = t.greeting_message || 'Ola!';
+    if (t.lead_questions && t.lead_questions.length > 0) {
+      return greeting + '\n\n' + t.lead_questions[0].question;
+    }
+    return greeting;
+  }
+
+  // FAQ
   for (const f of t.faq_data || []) {
     if (!f.question || !f.answer) continue;
     const ws = f.question.toLowerCase().split(/\s+/).filter(w => w.length > 2);
     if (ws.filter(w => msg.includes(w)).length >= 2 || msg.includes(f.question.toLowerCase())) return f.answer;
   }
 
+  // Keywords
   if (/preco|valor|custa|quanto|orcamento/i.test(msg)) return (t.pricing_info || 'Consulte-nos.') + '\n\nPosso agendar orcamento gratuito!';
-  if (/horario|hora|aberto|funciona/i.test(msg)) return 'Horario: ' + (t.business_hours || 'Comercial') + '\n\nEstamos prontos!';
-  if (/servico|conserta|reparo|arruma/i.test(msg)) return 'Servicos: ' + (t.services || 'Diversos') + '\n\nQual voce precisa?';
-  if ((t.escalation_keywords || []).some(w => msg.includes(w))) return 'Transferindo para atendente humano...';
+  if (/horario|hora|aberto|funciona/i.test(msg)) return '⏰ ' + (t.business_hours || 'Comercial') + '\n\nEstamos prontos!';
+  if (/servico|conserta|reparo|arruma|geladeira|maquina|ar-condicionado/i.test(msg)) return '🔧 ' + (t.services || 'Diversos servicos.') + '\n\nQual voce precisa?';
+  if ((t.escalation_keywords || []).some(w => msg.includes(w))) return '👨‍💼 Transferindo para atendente humano...';
+
   return (t.fallback_message || 'Nao compreendi.') + '\n\nDigite "atendente"!';
 }
 
@@ -431,52 +592,50 @@ $('saveBtn').addEventListener('click', async function() {
   btn.disabled = true;
   btn.textContent = 'Salvando...';
   showIndicator('saving', '💾 Salvando no servidor...');
-  log('Salvando no servidor...');
-  setStatus('warn', 'Salvando...');
+  setStatus('warn', 'Salvando no servidor...');
 
   const payload = buildPayload();
 
   try {
-    log('POST ' + WEBHOOK_URL);
+    log('POST para servidor...');
     const res = await fetch(WEBHOOK_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
       body: JSON.stringify(payload)
     });
 
-    log('Status: ' + res.status);
     const text = await res.text();
-    log('Resposta: ' + text.substring(0, 200));
+    log('Resposta servidor: ' + text.substring(0, 200));
 
-    if (!res.ok) throw new Error('HTTP ' + res.status + ': ' + text.substring(0, 100));
+    if (!res.ok) throw new Error('HTTP ' + res.status + ': ' + text.substring(0, 150));
 
     const d = JSON.parse(text);
     if (d.success || d.ok) {
-      setStatus('ok', 'Salvo e ativo no servidor ✓');
+      setStatus('ok', '✓ Configuracao salva e ativa no WhatsApp!');
       showIndicator('saved', '✓ Salvo no servidor!');
-      alert('✓ Configuracao salva com sucesso no servidor!');
-      log('SUCESSO! Dados persistidos no Supabase');
+      alert('✓ Configuracao salva com sucesso!\n\nO robo ja esta respondendo com as novas configuracoes.');
+      log('SUCESSO! Configuracao persistida no Supabase');
       saveLocal();
     } else {
-      throw new Error(d.error || 'Erro servidor');
+      throw new Error(d.error || 'Erro desconhecido do servidor');
     }
 
   } catch (e) {
-    log('ERRO SAVE: ' + e.message);
-    setStatus('err', 'Erro ao salvar no servidor: ' + e.message);
+    log('ERRO: ' + e.message);
+    setStatus('err', '✗ Erro ao salvar: ' + e.message);
     showIndicator('error', '✗ Erro: ' + e.message);
-    alert('✗ Erro ao salvar no servidor: ' + e.message + '\n\nMas seus dados estao salvos localmente e serao enviados na proxima tentativa.');
+    alert('✗ Erro ao salvar no servidor: ' + e.message + '\n\nSeus dados foram salvos localmente e serao enviados automaticamente na proxima tentativa.');
     saveLocal();
   }
 
   btn.disabled = false;
-  btn.textContent = 'Salvar e Ativar no WhatsApp';
+  btn.textContent = '💾 Salvar Configuracao no Servidor';
 });
 
 // ═══════════════════════════════════════════════════════
-// AUTO-SAVE em inputs
+// AUTO-SAVE
 // ═══════════════════════════════════════════════════════
-const autoSaveFields = ['botName', 'companyName', 'greeting', 'personality', 'services', 'businessHours', 'pricing', 'fallback'];
+const autoSaveFields = ['botName', 'companyName', 'greeting', 'personality', 'services', 'businessHours', 'pricing', 'fallback', 'completionMsg'];
 autoSaveFields.forEach(id => {
   const el = $(id);
   if (el) {

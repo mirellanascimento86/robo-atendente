@@ -1,12 +1,14 @@
 // ============================================
-// WEBHOOK WHATSAPP - RC REFORMA E CONSTRUCAO
-// Versao com PAINEL DE INTERVENCAO - CORRIGIDA
+// WEBHOOK WHATSAPP - CONSERTA RIO
+// Versao com PAINEL DE INTERVENCAO
 // ============================================
 
 // CONFIGURACAO
 const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
 const WHATSAPP_PHONE_ID = process.env.WHATSAPP_PHONE_ID;
 const VERIFY_TOKEN = 'roboatendente';
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+const TELEGRAM_GROUP_ID = process.env.TELEGRAM_GROUP_ID;
 
 // ============================================
 // MEMORIA DO SISTEMA
@@ -176,7 +178,7 @@ export default async function handler(req, res) {
       return;
     }
 
-    res.status(200).send('Webhook RC Reforma - OK');
+    res.status(200).send('Webhook Conserta Rio - OK');
 
   } catch (e) {
     console.error('ERRO GERAL:', e.message);
@@ -214,9 +216,15 @@ async function processarMensagem(body) {
       nome: nome,
       mensagens: [],
       emIntervencao: false,
-      etapa: 'novo',
+      etapa: 'saudacao',
       ultimaAtividade: new Date().toISOString(),
-      ultima: ''
+      ultima: '',
+      equipamento: '',
+      marca: '',
+      bairro: '',
+      endereco: '',
+      dataVisita: '',
+      horarioVisita: ''
     });
   }
 
@@ -234,96 +242,231 @@ async function processarMensagem(body) {
   conv.ultimaAtividade = new Date().toISOString();
 
   console.log(`[RECEBIDO] ${telefone} (${nome}): ${texto.substring(0,50)}`);
-  console.log(`[ESTADO] emIntervencao=${conv.emIntervencao}`);
+  console.log(`[ESTADO] emIntervencao=${conv.emIntervencao}, etapa=${conv.etapa}`);
 
   // SE NAO ESTIVER EM INTERVENCAO, RESPONDE AUTOMATICAMENTE
   if (!conv.emIntervencao) {
-    const resposta = gerarResposta(texto.toLowerCase(), nome);
-    await enviarWhatsApp(telefone, resposta);
+    const resposta = gerarResposta(texto, nome, conv);
+    
+    if (resposta) {
+      await enviarWhatsApp(telefone, resposta);
 
-    conv.mensagens.push({
-      tipo: 'bot',
-      mensagem: resposta,
-      data: new Date().toISOString(),
-      nome: 'Robo'
-    });
+      conv.mensagens.push({
+        tipo: 'bot',
+        mensagem: resposta,
+        data: new Date().toISOString(),
+        nome: 'Robo'
+      });
 
-    conv.ultima = resposta;
-    conv.ultimaAtividade = new Date().toISOString();
-    console.log(`[BOT] Resposta automatica enviada`);
+      conv.ultima = resposta;
+      conv.ultimaAtividade = new Date().toISOString();
+      console.log(`[BOT] Resposta automatica enviada`);
+    }
   } else {
     console.log(`[BOT] BLOQUEADO - conversa em intervencao humana`);
   }
 }
 
 // ============================================
-// GERAR RESPOSTA
+// GERAR RESPOSTA - FLUXO CONSERTA RIO
 // ============================================
 
-function gerarResposta(texto, nome) {
-  if (texto.match(/(oi|ola|bom dia|boa tarde|boa noite|hey|eai)/)) {
-    return `Ola, ${nome}! Sou o assistente da RC Reforma e Construcao.
+function gerarResposta(texto, nome, conv) {
+  const txt = texto.toLowerCase().trim();
+  const etapa = conv.etapa;
 
-Posso ajudar com:
-• Reformas: Marcenaria, Hidraulica, Eletrica, Pintura, Gesso, Pedreiro
-• Eletrodomesticos: Ar Condicionado, Lava e Seca, Geladeira
-
-Qual servico voce precisa e em qual bairro do Rio?`;
+  // ===== SOLICITACAO DE HUMANO =====
+  if (txt.match(/(humano|pessoa|atendente|funcionario|falar com|falar com alguem|atendente humano)/)) {
+    conv.emIntervencao = true;
+    enviarTelegramIntervencao(conv.telefone, nome);
+    return 'Um momento.';
   }
 
-  if (texto.match(/(preco|valor|custo|quanto|caro)/)) {
-    return `Nossa visita tecnica custa R$180.
+  // ===== FLUXO PRINCIPAL =====
 
-• Zona Sul: 50% OFF = R$90
-• Botafogo: GRATIS
-
-O valor da visita e abatido se voce aprovar o orcamento.
-
-Qual servico e bairro?`;
+  // ETAPA: SAUDACAO (primeira mensagem ou sem contexto)
+  if (etapa === 'saudacao') {
+    conv.etapa = 'equipamento';
+    return 'Ola! Qual equipamento esta com problema e qual a marca?';
   }
 
-  if (texto.match(/(agendar|marcar|visita|tecnico|horario)/)) {
-    return `Posso agendar uma visita tecnica para voce!
-
-Me informe:
-1. Qual servico precisa?
-2. Qual bairro?
-3. Prefere hoje, amanha ou outro dia?
-4. Qual horario: manha, tarde ou noite?`;
+  // ETAPA: EQUIPAMENTO (recebeu info do equipamento e marca)
+  if (etapa === 'equipamento') {
+    // Tenta extrair equipamento e marca da mensagem
+    const info = extrairEquipamentoMarca(texto);
+    if (info.equipamento) conv.equipamento = info.equipamento;
+    if (info.marca) conv.marca = info.marca;
+    
+    conv.etapa = 'perguntar_visita';
+    return 'Gostaria de marcar uma visita para hoje?';
   }
 
-  if (texto.match(/(servico|faz|trabalho|ajuda)/)) {
-    return `Trabalhamos com:
-
-REFORMAS:
-• Marcenaria, Hidraulica, Eletrica, Pintura, Gesso, Pedreiro
-
-ELETRODOMESTICOS:
-• Ar Condicionado, Lava e Seca, Geladeira
-
-Qual voce precisa?`;
+  // ETAPA: PERGUNTAR VISITA (resposta sim/nao para visita hoje)
+  if (etapa === 'perguntar_visita') {
+    if (txt.match(/(sim|quero|pode ser|claro|ok|pode|gostaria|top)/)) {
+      conv.etapa = 'perguntar_bairro';
+      return 'Qual o bairro?';
+    } else if (txt.match(/(nao|não|nop|negativo|depois|outro dia|amanha|outro|mais tarde)/)) {
+      conv.etapa = 'perguntar_quando';
+      return 'Quando poderia?';
+    } else {
+      // Se resposta nao clara, repete a pergunta
+      return 'Gostaria de marcar uma visita para hoje?';
+    }
   }
 
-  if (texto.match(/(humano|pessoa|atendente|funcionario)/)) {
-    return `Entendido! Vou transferir voce para um atendente humano.
-
-Aguarde um momento, por favor.`;
+  // ETAPA: PERGUNTAR QUANDO (cliente disse nao para hoje)
+  if (etapa === 'perguntar_quando') {
+    conv.dataVisita = texto;
+    conv.etapa = 'perguntar_horario';
+    return 'Qual horario?';
   }
 
-  if (texto.match(/(tchau|ate|obrigado|valeu)/)) {
-    return `Obrigado pelo contato, ${nome}!
-
-RC Reforma e Construcao - Botafogo
-Atendimento 24h`;
+  // ETAPA: PERGUNTAR HORARIO
+  if (etapa === 'perguntar_horario') {
+    conv.horarioVisita = texto;
+    conv.etapa = 'perguntar_endereco';
+    return 'Qual o endereco?';
   }
 
-  return `Entendi, ${nome}!
+  // ETAPA: PERGUNTAR BAIRRO (cliente disse sim para visita hoje)
+  if (etapa === 'perguntar_bairro') {
+    conv.bairro = texto;
+    
+    const bairroLower = txt;
+    
+    // Verifica se e Botafogo
+    if (bairroLower.includes('botafogo')) {
+      conv.etapa = 'confirmar_taxa';
+      conv.valorVisita = 100;
+      return 'Em Botafogo a taxa da visita e R$100. Essa taxa e deduzida do valor final, caso o orcamento seja aprovado. Gostaria de prosseguir?';
+    }
+    
+    // Verifica Zona Sul
+    if (ehZonaSul(bairroLower)) {
+      conv.etapa = 'confirmar_taxa';
+      conv.valorVisita = 120;
+      return 'Na Zona Sul a taxa da visita e R$120. Essa taxa e deduzida do valor final, caso o orcamento seja aprovado. Gostaria de prosseguir?';
+    }
+    
+    // Verifica Zona Norte
+    if (ehZonaNorte(bairroLower)) {
+      conv.etapa = 'confirmar_taxa';
+      conv.valorVisita = 190;
+      return 'Na Zona Norte a taxa da visita e R$190. Essa taxa e deduzida do valor final, caso o orcamento seja aprovado. Gostaria de prosseguir?';
+    }
+    
+    // Barra da Tijuca, Baixada ou outras regioes nao atendidas
+    if (bairroLower.includes('barra') || bairroLower.includes('baixada') || bairroLower.includes('jacarepagua') || bairroLower.includes('recreio')) {
+      conv.etapa = 'nao_atende';
+      return 'Infelizmente nao atendemos na sua regiao no momento.';
+    }
+    
+    // Se nao reconhecer o bairro, pergunta novamente ou assume zona sul
+    // Por padrao, vamos perguntar de qual regiao
+    conv.etapa = 'confirmar_taxa';
+    conv.valorVisita = 120;
+    return 'Qual a regiao? (Zona Sul, Zona Norte, Centro, etc.)';
+  }
 
-Para agilizar seu atendimento, me diga:
-1. Qual servico precisa?
-2. Qual bairro do Rio?
+  // ETAPA: CONFIRMAR TAXA
+  if (etapa === 'confirmar_taxa') {
+    if (txt.match(/(sim|quero|pode ser|claro|ok|pode|gostaria|top|prossiga)/)) {
+      conv.etapa = 'perguntar_endereco';
+      return 'Qual o endereco?';
+    } else if (txt.match(/(nao|não|nop|negativo|cancelar)/)) {
+      conv.etapa = 'perguntar_quando';
+      return 'Quando poderia?';
+    } else {
+      return 'Gostaria de prosseguir?';
+    }
+  }
 
-Ou pergunte sobre precos, horarios ou servicos disponiveis.`;
+  // ETAPA: PERGUNTAR ENDERECO
+  if (etapa === 'perguntar_endereco') {
+    conv.endereco = texto;
+    conv.etapa = 'visita_marcada';
+    
+    // Envia para o Telegram
+    enviarTelegramVisita(conv);
+    
+    return `Visita marcada para ${conv.dataVisita || 'hoje'} as ${conv.horarioVisita || 'a combinar'}.
+    
+Endereco: ${conv.endereco}
+Taxa da visita: R$${conv.valorVisita}
+
+Um tecnico da Conserta Rio entrara em contato para confirmar. Obrigado!`;
+  }
+
+  // ETAPA: VISITA MARCADA ou NAO ATENDE - resposta generica
+  if (etapa === 'visita_marcada' || etapa === 'nao_atende') {
+    return 'Posso ajudar com mais alguma coisa? Caso queira falar com um atendente, digite "humano".';
+  }
+
+  // Fallback: se etapa nao reconhecida, volta para pergunta de visita
+  conv.etapa = 'perguntar_visita';
+  return 'Gostaria de marcar uma visita para hoje?';
+}
+
+// ============================================
+// FUNCOES AUXILIARES
+// ============================================
+
+function extrairEquipamentoMarca(texto) {
+  const txt = texto.toLowerCase();
+  
+  const equipamentos = [
+    'maquina de lavar', 'lava e seca', 'lava-seca', 'lavaeseca',
+    'frigobar', 'geladeira', 'ar condicionado', 'ar-condicionado', 'arcondicionado'
+  ];
+  
+  let equipamento = '';
+  let marca = '';
+  
+  for (const eq of equipamentos) {
+    if (txt.includes(eq)) {
+      equipamento = eq;
+      break;
+    }
+  }
+  
+  // Se nao encontrou equipamento especifico, usa o texto todo como equipamento
+  if (!equipamento) {
+    equipamento = texto;
+  }
+  
+  // Tenta extrair marca (palavras comuns de marca)
+  const marcas = ['brastemp', 'consul', 'electrolux', 'lg', 'samsung', 'panasonic', 'midea', 'springer', 'carrier', 'fujitsu', 'gree', 'philco', 'eletrolux'];
+  for (const m of marcas) {
+    if (txt.includes(m)) {
+      marca = m;
+      break;
+    }
+  }
+  
+  return { equipamento, marca };
+}
+
+function ehZonaSul(bairro) {
+  const bairrosZonaSul = [
+    'copacabana', 'ipanema', 'leblon', 'laranjeiras', 'flamengo', 'botafogo',
+    'humaita', 'jardim botanico', 'gavea', 'sao conrado', 'vidigal', 'rocinha',
+    'catete', 'gloria', 'cosme velho', 'santa teresa', 'urca', 'leme'
+  ];
+  return bairrosZonaSul.some(b => bairro.includes(b));
+}
+
+function ehZonaNorte(bairro) {
+  const bairrosZonaNorte = [
+    'tijuca', 'vila isabel', 'grajau', 'andaraí', 'maracana', 'engenho novo',
+    'engenho de dentro', 'meier', 'alto da boa vista', 'praça da bandeira',
+    'riachuelo', 'sao cristovao', 'benfica', 'caju', 'centro', 'lapa', 'cidade nova',
+    'estacio', 'saude', ' gamboa', 'santo cristo', 'catumbi', 'rio comprido',
+    'sao francisco xavier', 'jacarezinho', 'manguinhos', 'complexo', 'rocha',
+    'rocha miranda', 'honorio gurgel', 'marechal hermes', 'deodoro', 'bento ribeiro',
+    'oswaldo cruz', 'madureira', 'campinho', 'cascadura', 'quintino', 'pilares'
+  ];
+  return bairrosZonaNorte.some(b => bairro.includes(b));
 }
 
 // ============================================
@@ -367,5 +510,72 @@ async function enviarWhatsApp(numero, texto) {
   } catch (e) {
     console.error('Erro ao enviar:', e.message);
     return false;
+  }
+}
+
+// ============================================
+// TELEGRAM - ENVIO DE NOTIFICACOES
+// ============================================
+
+async function enviarTelegramVisita(conv) {
+  if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_GROUP_ID) {
+    console.error('Telegram nao configurado');
+    return;
+  }
+
+  const mensagem = `🛠️ *NOVA VISITA MARCADA - CONSERTA RIO*
+
+📱 *Numero:* ${conv.telefone}
+👤 *Nome:* ${conv.nome}
+📍 *Endereco:* ${conv.endereco}
+🏘️ *Bairro:* ${conv.bairro}
+🔧 *Equipamento:* ${conv.equipamento}
+🏷️ *Marca:* ${conv.marca || 'Nao informada'}
+📅 *Data:* ${conv.dataVisita || 'Hoje'}
+🕐 *Horario:* ${conv.horarioVisita || 'A combinar'}
+💰 *Taxa Visita:* R$${conv.valorVisita || '---'}`;
+
+  try {
+    await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: TELEGRAM_GROUP_ID,
+        text: mensagem,
+        parse_mode: 'Markdown'
+      })
+    });
+    console.log('[TELEGRAM] Visita enviada ao grupo');
+  } catch (e) {
+    console.error('[TELEGRAM] Erro:', e.message);
+  }
+}
+
+async function enviarTelegramIntervencao(telefone, nome) {
+  if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_GROUP_ID) {
+    console.error('Telegram nao configurado');
+    return;
+  }
+
+  const mensagem = `🚨 *INTERVENCAO HUMANA SOLICITADA - CONSERTA RIO*
+
+📱 *Numero:* ${telefone}
+👤 *Nome:* ${nome}
+
+O cliente solicitou falar com um atendente humano.`;
+
+  try {
+    await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: TELEGRAM_GROUP_ID,
+        text: mensagem,
+        parse_mode: 'Markdown'
+      })
+    });
+    console.log('[TELEGRAM] Intervencao enviada ao grupo');
+  } catch (e) {
+    console.error('[TELEGRAM] Erro:', e.message);
   }
 }

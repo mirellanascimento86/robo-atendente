@@ -3,215 +3,127 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Treinar Robo WhatsApp</title>
+<title>Treinar Robo</title>
 <style>
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; color: #333; padding: 20px; }
-.container { max-width: 600px; margin: 0 auto; }
-h1 { font-size: 24px; margin-bottom: 20px; color: #1a1a1a; }
-.status-bar { background: #fff; border-radius: 8px; padding: 12px 16px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-.status-dot { width: 10px; height: 10px; border-radius: 50%; background: #ccc; }
-.status-dot.ok { background: #22c55e; }
-.status-dot.err { background: #ef4444; }
-.status-dot.warn { background: #f59e0b; }
-.status-text { font-size: 14px; font-weight: 500; }
-.card { background: #fff; border-radius: 8px; padding: 20px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-.card-title { font-size: 16px; font-weight: 600; margin-bottom: 16px; color: #1a1a1a; }
-.field { margin-bottom: 16px; }
-.field label { display: block; font-size: 13px; font-weight: 500; color: #666; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
-.field input, .field textarea { width: 100%; padding: 10px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; font-family: inherit; transition: border-color 0.2s; }
-.field input:focus, .field textarea:focus { outline: none; border-color: #3b82f6; }
-.field textarea { min-height: 80px; resize: vertical; }
+body { font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #f5f5f5; }
+h1 { font-size: 22px; color: #333; }
+.status { padding: 10px; border-radius: 5px; margin-bottom: 15px; font-size: 14px; font-weight: bold; }
+.status.ok { background: #d4edda; color: #155724; }
+.status.err { background: #f8d7da; color: #721c24; }
+.status.warn { background: #fff3cd; color: #856404; }
+.card { background: white; padding: 15px; border-radius: 8px; margin-bottom: 15px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+label { display: block; font-size: 12px; font-weight: bold; color: #666; margin-bottom: 5px; text-transform: uppercase; }
+input, textarea { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; margin-bottom: 10px; box-sizing: border-box; }
+textarea { min-height: 60px; resize: vertical; }
+button { padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
+.btn-primary { background: #007bff; color: white; width: 100%; padding: 12px; font-size: 16px; }
+.btn-primary:hover { background: #0056b3; }
+.btn-secondary { background: #6c757d; color: white; }
+.btn-danger { background: #dc3545; color: white; padding: 2px 8px; font-size: 12px; }
 .toggle-row { display: flex; align-items: center; justify-content: space-between; }
-.toggle { width: 48px; height: 26px; background: #ccc; border-radius: 13px; position: relative; cursor: pointer; transition: background 0.3s; }
-.toggle.on { background: #22c55e; }
-.toggle::after { content: ''; position: absolute; width: 22px; height: 22px; background: #fff; border-radius: 50%; top: 2px; left: 2px; transition: left 0.3s; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
-.toggle.on::after { left: 24px; }
-.tags-list { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
-.tag { display: inline-flex; align-items: center; gap: 6px; background: #fee2e2; border: 1px solid #fecaca; color: #dc2626; padding: 4px 10px; border-radius: 16px; font-size: 13px; }
-.tag button { background: none; border: none; color: #dc2626; cursor: pointer; font-size: 16px; line-height: 1; padding: 0; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; }
-.tag button:hover { background: rgba(220,38,38,0.1); border-radius: 50%; }
-.tag-input-row { display: flex; gap: 8px; }
-.tag-input-row input { flex: 1; }
-.btn { padding: 10px 16px; border: none; border-radius: 6px; font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.2s; font-family: inherit; }
-.btn-primary { background: #1a1a1a; color: #fff; }
-.btn-primary:hover { background: #333; }
-.btn-secondary { background: #f3f4f6; color: #666; }
-.btn-secondary:hover { background: #e5e7eb; }
-.btn-danger { background: #fee2e2; color: #dc2626; }
-.btn-full { width: 100%; padding: 14px; font-size: 15px; }
-.btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.faq-item { background: #f9fafb; border-radius: 6px; padding: 12px; margin-bottom: 8px; border-left: 3px solid #3b82f6; position: relative; }
-.faq-q { font-weight: 500; font-size: 14px; margin-bottom: 4px; }
-.faq-a { font-size: 13px; color: #666; line-height: 1.5; }
-.faq-del { position: absolute; top: 8px; right: 8px; background: none; border: none; color: #dc2626; cursor: pointer; font-size: 18px; opacity: 0.5; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border-radius: 50%; }
-.faq-del:hover { opacity: 1; background: rgba(220,38,38,0.1); }
-.empty-msg { text-align: center; color: #999; font-size: 14px; padding: 20px; font-style: italic; }
-.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: none; align-items: flex-end; justify-content: center; z-index: 100; }
-.modal-overlay.open { display: flex; }
-.modal { background: #fff; border-radius: 12px 12px 0 0; padding: 24px; width: 100%; max-width: 600px; max-height: 90vh; overflow-y: auto; }
-.modal-title { font-size: 18px; font-weight: 600; margin-bottom: 20px; }
-.modal-actions { display: flex; gap: 10px; margin-top: 20px; }
-.modal-actions .btn { flex: 1; }
-.toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(100px); background: #1a1a1a; color: #fff; padding: 12px 24px; border-radius: 8px; font-size: 14px; font-weight: 500; opacity: 0; transition: all 0.3s; z-index: 200; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
-.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-.toast.success { background: #16a34a; }
-.toast.error { background: #dc2626; }
-.nav { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; border-top: 1px solid #eee; display: flex; justify-content: center; padding: 8px 0; z-index: 50; }
-.nav a { text-decoration: none; padding: 8px 32px; color: #999; font-size: 12px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; border-top: 2px solid transparent; }
-.nav a.active { color: #1a1a1a; border-top-color: #1a1a1a; }
-.debug { background: #1e1e1e; color: #4ec9b0; padding: 12px; border-radius: 6px; font-family: monospace; font-size: 11px; margin-bottom: 16px; max-height: 200px; overflow-y: auto; display: none; }
-.debug.open { display: block; }
-.debug-line { margin-bottom: 2px; }
-.spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.8s linear infinite; margin-right: 6px; vertical-align: middle; }
-@keyframes spin { to { transform: rotate(360deg); } }
+.toggle { width: 50px; height: 26px; background: #ccc; border-radius: 13px; position: relative; cursor: pointer; }
+.toggle.on { background: #28a745; }
+.toggle::after { content: ''; position: absolute; width: 22px; height: 22px; background: white; border-radius: 50%; top: 2px; left: 2px; transition: left 0.3s; }
+.toggle.on::after { left: 26px; }
+.tag { display: inline-block; background: #ffcdd2; color: #c62828; padding: 3px 8px; border-radius: 12px; font-size: 13px; margin: 2px; }
+.faq-item { background: #f8f9fa; padding: 10px; border-left: 3px solid #007bff; margin-bottom: 8px; position: relative; }
+.faq-del { position: absolute; top: 5px; right: 5px; background: none; border: none; color: #dc3545; cursor: pointer; font-size: 18px; }
+.nav { position: fixed; bottom: 0; left: 0; right: 0; background: white; border-top: 1px solid #ddd; display: flex; justify-content: center; padding: 10px; }
+.nav a { padding: 10px 30px; text-decoration: none; color: #666; font-size: 12px; text-transform: uppercase; }
+.nav a.active { color: #007bff; font-weight: bold; }
+#debug { background: #1e1e1e; color: #4ec9b0; padding: 10px; border-radius: 5px; font-family: monospace; font-size: 11px; max-height: 150px; overflow-y: auto; margin-bottom: 15px; display: none; }
 </style>
 <base target="_blank">
 </head>
 <body>
 
-<div class="container">
-  <h1>🤖 Treinar Robo WhatsApp</h1>
+<h1>🤖 Treinar Robo WhatsApp</h1>
 
-  <div class="status-bar">
-    <div class="status-dot warn" id="statusDot"></div>
-    <span class="status-text" id="statusText">Verificando conexao...</span>
-  </div>
+<div id="debug"></div>
 
-  <div class="debug" id="debugBox"></div>
+<div id="statusBox" class="status warn">Carregando...</div>
 
-  <!-- BOT ATIVO -->
-  <div class="card">
-    <div class="toggle-row">
-      <div>
-        <div style="font-weight:600; margin-bottom:4px;">Robo Ativo</div>
-        <div style="font-size:13px; color:#666;" id="toggleDesc">Respondendo automaticamente</div>
-      </div>
-      <div class="toggle on" id="botToggle"></div>
-    </div>
-  </div>
-
-  <!-- IDENTIDADE -->
-  <div class="card">
-    <div class="card-title">Identidade</div>
-    <div class="field">
-      <label>Nome do Robo</label>
-      <input type="text" id="botName" placeholder="Ex: TecBot">
-    </div>
-    <div class="field">
-      <label>Nome da Empresa</label>
-      <input type="text" id="companyName" placeholder="Ex: Assistencia Express">
-    </div>
-    <div class="field">
-      <label>Saudacao Inicial</label>
-      <textarea id="greeting" placeholder="Ola! Bem-vindo a nossa assistencia..."></textarea>
-    </div>
-  </div>
-
-  <!-- PERSONALIDADE -->
-  <div class="card">
-    <div class="card-title">Personalidade e Servicos</div>
-    <div class="field">
-      <label>Comportamento</label>
-      <textarea id="personality" placeholder="Seja cordial, objetivo e profissional..."></textarea>
-    </div>
-    <div class="field">
-      <label>Servicos</label>
-      <textarea id="services" placeholder="Conserto de celulares, tablets, notebooks..."></textarea>
-    </div>
-    <div class="field">
-      <label>Horario</label>
-      <textarea id="businessHours" placeholder="Seg-Sex: 9h as 18h, Sab: 9h as 13h"></textarea>
-    </div>
-    <div class="field">
-      <label>Precos</label>
-      <textarea id="pricing" placeholder="Orcamento gratis. Troca de tela a partir de R$150..."></textarea>
-    </div>
-    <div class="field">
-      <label>Resposta Padrao (quando nao entende)</label>
-      <textarea id="fallback" placeholder="Nao entendi. Posso te ajudar com precos, horarios ou agendamento?"></textarea>
-    </div>
-  </div>
-
-  <!-- ESCALONAMENTO -->
-  <div class="card">
-    <div class="card-title">Transferir para Humano</div>
-    <p style="font-size:13px; color:#666; margin-bottom:12px;">Ao detectar estas palavras, a conversa vai para atendente humano.</p>
-    <div class="tags-list" id="escalationTags"></div>
-    <div class="tag-input-row">
-      <input type="text" id="newTagInput" placeholder="Nova palavra-chave...">
-      <button class="btn btn-primary" id="btnAddTag">+</button>
-    </div>
-  </div>
-
-  <!-- FAQ -->
-  <div class="card">
-    <div class="card-title">Perguntas Frequentes (FAQ)</div>
-    <p style="font-size:13px; color:#666; margin-bottom:12px;">O robo reconhece estas perguntas e responde automaticamente.</p>
-    <div id="faqList"></div>
-    <button class="btn btn-secondary btn-full" id="btnOpenFaq" style="margin-top:8px;">+ Nova Pergunta e Resposta</button>
-  </div>
-
-  <!-- SIMULADOR -->
-  <div class="card">
-    <div class="card-title">Testar Resposta</div>
-    <div class="field">
-      <label>Mensagem do cliente</label>
-      <input type="text" id="testQ" placeholder="Ex: Quanto custa trocar a tela?">
-    </div>
-    <div id="previewBox" style="display:none; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:6px; padding:12px; margin-top:8px;">
-      <div style="font-size:12px; color:#166534; font-weight:500; margin-bottom:4px;">Resposta do Robo:</div>
-      <div id="previewTxt" style="font-size:14px; color:#1a1a1a; white-space:pre-wrap;"></div>
-    </div>
-  </div>
-
-  <!-- SALVAR -->
-  <div style="margin-bottom: 80px;">
-    <button class="btn btn-primary btn-full" id="saveBtn">Salvar e Ativar no WhatsApp</button>
+<div class="card">
+  <div class="toggle-row">
+    <div><strong>Robo Ativo</strong></div>
+    <div class="toggle on" id="botToggle"></div>
   </div>
 </div>
 
-<!-- MODAL FAQ -->
-<div class="modal-overlay" id="faqModal">
-  <div class="modal">
-    <div class="modal-title">Nova Pergunta e Resposta</div>
-    <div class="field">
-      <label>Pergunta do Cliente</label>
-      <input type="text" id="modalQ" placeholder="Ex: Quanto custa trocar a tela?">
-    </div>
-    <div class="field">
-      <label>Resposta do Robo</label>
-      <textarea id="modalA" placeholder="Ex: O valor varia de R$150 a R$400..." style="min-height:80px;"></textarea>
-    </div>
-    <div class="modal-actions">
-      <button class="btn btn-secondary" id="btnCancelFaq">Cancelar</button>
-      <button class="btn btn-primary" id="btnSaveFaq">Salvar FAQ</button>
-    </div>
+<div class="card">
+  <strong>Identidade</strong><br><br>
+  <label>Nome do Robo</label>
+  <input type="text" id="botName" placeholder="Ex: TecBot">
+
+  <label>Nome da Empresa</label>
+  <input type="text" id="companyName" placeholder="Ex: Assistencia Express">
+
+  <label>Saudacao Inicial</label>
+  <textarea id="greeting" placeholder="Ola! Bem-vindo..."></textarea>
+</div>
+
+<div class="card">
+  <strong>Personalidade e Servicos</strong><br><br>
+  <label>Comportamento</label>
+  <textarea id="personality" placeholder="Seja cordial e objetivo..."></textarea>
+
+  <label>Servicos</label>
+  <textarea id="services" placeholder="Conserto de celulares..."></textarea>
+
+  <label>Horario</label>
+  <textarea id="businessHours" placeholder="Seg-Sex: 9h as 18h"></textarea>
+
+  <label>Precos</label>
+  <textarea id="pricing" placeholder="Orcamento gratis..."></textarea>
+
+  <label>Resposta Padrao (fallback)</label>
+  <textarea id="fallback" placeholder="Nao entendi..."></textarea>
+</div>
+
+<div class="card">
+  <strong>Transferir para Humano</strong><br>
+  <small style="color:#666">Palavras que transferem para atendente</small><br><br>
+  <div id="escalationTags"></div>
+  <div style="display:flex;gap:5px;margin-top:8px;">
+    <input type="text" id="newTagInput" placeholder="Nova palavra..." style="flex:1;margin-bottom:0;">
+    <button class="btn-secondary" id="btnAddTag">+</button>
   </div>
 </div>
 
-<!-- TOAST -->
-<div class="toast" id="toast"></div>
+<div class="card">
+  <strong>FAQ - Perguntas Frequentes</strong><br><br>
+  <div id="faqList"></div>
+  <button class="btn-secondary" id="btnOpenFaq" style="width:100%;margin-top:8px;">+ Nova Pergunta</button>
+</div>
 
-<!-- NAV -->
+<div class="card">
+  <strong>Testar Resposta</strong><br><br>
+  <input type="text" id="testQ" placeholder="Ex: Quanto custa trocar a tela?">
+  <div id="previewBox" style="display:none;background:#e8f5e9;padding:10px;border-radius:4px;margin-top:8px;">
+    <small style="color:#2e7d32;font-weight:bold;">Resposta:</small>
+    <div id="previewTxt" style="white-space:pre-wrap;margin-top:4px;"></div>
+  </div>
+</div>
+
+<button class="btn-primary" id="saveBtn">Salvar e Ativar no WhatsApp</button>
+
+<div style="height:80px;"></div>
+
 <nav class="nav">
   <a href="painel.html">Intervencao</a>
   <a href="treinar.html" class="active">Treinamento</a>
 </nav>
 
 <script>
-// CONFIG
+// CONFIGURACAO
 const WEBHOOK_URL = (() => {
   const host = window.location.host;
-  if (host.includes('localhost') || host.includes('127.0.0.1')) {
-    return 'https://robo-atendente.vercel.app/api/webhook';
-  }
+  if (host.includes('localhost')) return 'https://robo-atendente.vercel.app/api/webhook';
   return window.location.protocol + '//' + host + '/api/webhook';
 })();
 
 console.log('Webhook URL:', WEBHOOK_URL);
 
-// DADOS
 let faqData = [];
 let escalation = ['atendente','humano','pessoa','reclamacao','cancelar','chefe','gerente','supervisor'];
 
@@ -220,146 +132,98 @@ function $(id) { return document.getElementById(id); }
 function val(id) { const el = $(id); return el ? el.value.trim() : ''; }
 function setVal(id, v) { const el = $(id); if (el) el.value = v || ''; }
 
-function showToast(msg, type, ms) {
-  ms = ms || 3000;
-  const el = $('toast');
-  if (!el) return;
-  el.textContent = msg;
-  el.className = 'toast ' + (type || '');
-  setTimeout(() => el.classList.add('show'), 10);
-  setTimeout(() => el.classList.remove('show'), ms);
+function log(msg) {
+  console.log(msg);
+  const box = $('debug');
+  if (box) {
+    box.style.display = 'block';
+    box.innerHTML += '<div>' + new Date().toLocaleTimeString() + ' ' + msg + '</div>';
+    box.scrollTop = box.scrollHeight;
+  }
 }
 
 function setStatus(type, text) {
-  const dot = $('statusDot');
-  const txt = $('statusText');
-  if (dot) { dot.className = 'status-dot ' + type; }
-  if (txt) { txt.textContent = text; }
+  const box = $('statusBox');
+  if (box) {
+    box.className = 'status ' + type;
+    box.textContent = text;
+  }
 }
 
-function debug(msg) {
-  console.log('[DEBUG]', msg);
-  const box = $('debugBox');
-  if (!box) return;
-  box.classList.add('open');
-  const line = document.createElement('div');
-  line.className = 'debug-line';
-  line.textContent = new Date().toLocaleTimeString() + ' ' + msg;
-  box.appendChild(line);
-  box.scrollTop = box.scrollHeight;
+function toast(msg) {
+  alert(msg);
 }
 
-// CARREGAR
-async function loadData() {
-  debug('Carregando dados...');
-  setStatus('warn', 'Carregando...');
-  showToast('Carregando configuracao...', 'info', 2000);
+// CARREGAR DADOS
+async function load() {
+  log('Carregando...');
+  setStatus('warn', 'Carregando configuracao...');
 
   try {
     const url = WEBHOOK_URL + '?action=status&_=' + Date.now();
-    debug('GET ' + url);
+    log('GET ' + url);
 
-    const res = await fetch(url, {
-      method: 'GET',
-      headers: { Accept: 'application/json' },
-      cache: 'no-store'
-    });
-
-    debug('Status: ' + res.status);
+    const res = await fetch(url, { method: 'GET', headers: { Accept: 'application/json' }, cache: 'no-store' });
+    log('Status HTTP: ' + res.status);
 
     if (!res.ok) {
       const txt = await res.text();
       throw new Error('HTTP ' + res.status + ': ' + txt.substring(0, 100));
     }
 
-    const data = await res.json();
-    debug('Dados recebidos: ' + JSON.stringify(data).substring(0, 200));
+    const d = await res.json();
+    log('Resposta: ' + JSON.stringify(d).substring(0, 200));
 
-    if (data.success === false) {
-      throw new Error(data.error || 'Erro no servidor');
+    if (d.success !== false) {
+      applyData(d);
+      setStatus('ok', 'Conectado ✓');
+      log('OK!');
+      return;
     }
+    throw new Error(d.error || 'Erro servidor');
 
-    // Aplicar dados
-    faqData = Array.isArray(data.faq_data) ? data.faq_data : [];
-    escalation = Array.isArray(data.escalation_keywords) ? data.escalation_keywords : escalation;
+  } catch (e) {
+    log('ERRO: ' + e.message);
+    setStatus('err', 'Erro: ' + e.message);
 
-    setVal('botName', data.bot_name);
-    setVal('companyName', data.company_name);
-    setVal('greeting', data.greeting_message || data.greeting);
-    setVal('personality', data.personality);
-    setVal('services', data.services);
-    setVal('businessHours', data.business_hours);
-    setVal('pricing', data.pricing_info);
-    setVal('fallback', data.fallback_message);
-
-    const isOn = data.active !== false && data.bot_active !== false;
-    const tog = $('botToggle');
-    if (tog) {
-      tog.classList.toggle('on', isOn);
-    }
-    updateToggleText(isOn);
-    renderTags();
-    renderFaq();
-
-    setStatus('ok', 'Conectado ✓');
-    showToast('Configuracao carregada!', 'success', 2000);
-
-  } catch (err) {
-    debug('ERRO: ' + err.message);
-    console.error('Load error:', err);
-
-    // Tentar cache local
     try {
       const cached = JSON.parse(localStorage.getItem('bot_training_v2') || 'null');
-      if (cached) {
-        applyLocalData(cached);
-        setStatus('warn', 'Modo offline (cache)');
-        showToast('Usando cache local', 'info', 3000);
-        return;
-      }
-    } catch (e) {}
-
-    setStatus('err', 'Sem conexao');
-    showToast('Erro: ' + err.message, 'error', 5000);
+      if (cached) { applyData(cached); setStatus('warn', 'Cache local'); }
+    } catch (e2) {}
   }
 }
 
-function applyLocalData(d) {
+function applyData(d) {
   faqData = Array.isArray(d.faq_data) ? d.faq_data : [];
   escalation = Array.isArray(d.escalation_keywords) ? d.escalation_keywords : escalation;
   setVal('botName', d.bot_name);
   setVal('companyName', d.company_name);
-  setVal('greeting', d.greeting_message);
+  setVal('greeting', d.greeting_message || d.greeting);
   setVal('personality', d.personality);
   setVal('services', d.services);
   setVal('businessHours', d.business_hours);
   setVal('pricing', d.pricing_info);
   setVal('fallback', d.fallback_message);
+
+  const tog = $('botToggle');
+  const isOn = d.active !== false && d.bot_active !== false;
+  if (tog) tog.classList.toggle('on', isOn);
+
   renderTags();
   renderFaq();
 }
 
 // TOGGLE
-function toggleBot() {
-  const tog = $('botToggle');
-  if (!tog) return;
-  tog.classList.toggle('on');
-  updateToggleText(tog.classList.contains('on'));
-}
-
-function updateToggleText(isOn) {
-  const desc = $('toggleDesc');
-  if (desc) {
-    desc.textContent = isOn ? 'Respondendo automaticamente' : 'Desativado - apenas humano';
-  }
-}
+$('botToggle').addEventListener('click', function() {
+  this.classList.toggle('on');
+});
 
 // TAGS
 function renderTags() {
   const el = $('escalationTags');
   if (!el) return;
   el.innerHTML = escalation.map((t, i) => 
-    '<div class="tag">' + t + '<button type="button" onclick="removeTag(' + i + ')">×</button></div>'
+    '<span class="tag">' + t + ' <button onclick="removeTag(' + i + ')" style="background:none;border:none;color:#c62828;cursor:pointer;">×</button></span>'
   ).join('');
 }
 
@@ -367,95 +231,51 @@ function addTag() {
   const inp = $('newTagInput');
   if (!inp) return;
   const v = inp.value.trim().toLowerCase();
-  if (!v) { showToast('Digite uma palavra', 'info'); return; }
-  if (escalation.includes(v)) { showToast('Ja existe', 'info'); return; }
-  escalation.push(v);
-  inp.value = '';
-  renderTags();
-  showToast('Adicionado!', 'success', 1500);
+  if (!v) { alert('Digite uma palavra'); return; }
+  if (escalation.includes(v)) { alert('Ja existe'); return; }
+  escalation.push(v); inp.value = ''; renderTags();
 }
 
-function removeTag(i) {
-  escalation.splice(i, 1);
-  renderTags();
-}
+function removeTag(i) { escalation.splice(i, 1); renderTags(); }
+
+$('btnAddTag').addEventListener('click', addTag);
+$('newTagInput').addEventListener('keypress', function(e) { if (e.key === 'Enter') addTag(); });
 
 // FAQ
 function renderFaq() {
   const el = $('faqList');
   if (!el) return;
-  if (faqData.length === 0) {
-    el.innerHTML = '<div class="empty-msg">Nenhuma FAQ ainda. Adicione abaixo.</div>';
-    return;
-  }
+  if (faqData.length === 0) { el.innerHTML = '<small style="color:#999">Nenhuma FAQ</small>'; return; }
   el.innerHTML = faqData.map((f, i) => 
     '<div class="faq-item">' +
-      '<div class="faq-q">Q: ' + escapeHtml(f.question) + '</div>' +
-      '<div class="faq-a">A: ' + escapeHtml(f.answer) + '</div>' +
-      '<button class="faq-del" type="button" onclick="removeFaq(' + i + ')">🗑</button>' +
+      '<strong>Q:</strong> ' + f.question + '<br>' +
+      '<strong>A:</strong> ' + f.answer +
+      '<button class="faq-del" onclick="removeFaq(' + i + ')">×</button>' +
     '</div>'
   ).join('');
 }
 
-function escapeHtml(text) {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
-}
+function removeFaq(i) { faqData.splice(i, 1); renderFaq(); }
 
-function removeFaq(i) {
-  faqData.splice(i, 1);
+function openFaq() {
+  const q = prompt('Pergunta do cliente:');
+  if (!q) return;
+  const a = prompt('Resposta do robo:');
+  if (!a) return;
+  faqData.push({ question: q, answer: a });
   renderFaq();
-  showToast('Removido', 'info', 1500);
 }
 
-function openFaqModal() {
-  const modal = $('faqModal');
-  const q = $('modalQ');
-  const a = $('modalA');
-  if (q) q.value = '';
-  if (a) a.value = '';
-  if (modal) modal.classList.add('open');
-  setTimeout(() => { if (q) q.focus(); }, 100);
-}
-
-function closeFaqModal() {
-  const modal = $('faqModal');
-  if (modal) modal.classList.remove('open');
-}
-
-function saveFaq() {
-  const q = $('modalQ');
-  const a = $('modalA');
-  if (!q || !a) return;
-
-  const question = q.value.trim();
-  const answer = a.value.trim();
-
-  if (!question || !answer) {
-    showToast('Preencha pergunta e resposta', 'error');
-    return;
-  }
-
-  faqData.push({ question: question, answer: answer });
-  renderFaq();
-  closeFaqModal();
-  showToast('FAQ salvo!', 'success', 2000);
-}
+$('btnOpenFaq').addEventListener('click', openFaq);
 
 // SIMULADOR
-function testResponse() {
-  const q = val('testQ');
+$('testQ').addEventListener('input', function() {
+  const q = this.value.trim();
   const box = $('previewBox');
   const txt = $('previewTxt');
-  if (!box || !txt) return;
+  if (!q) { box.style.display = 'none'; return; }
 
-  if (!q) {
-    box.style.display = 'none';
-    return;
-  }
-
-  const training = {
+  const t = {
     greeting_message: val('greeting'),
     services: val('services'),
     business_hours: val('businessHours'),
@@ -465,51 +285,35 @@ function testResponse() {
     escalation_keywords: escalation
   };
 
-  txt.textContent = generateResponse(q, training);
+  txt.textContent = genResp(q, t);
   box.style.display = 'block';
-}
+});
 
-function generateResponse(msg, training) {
-  const m = msg.toLowerCase().trim();
-  const greetings = ['oi', 'ola', 'olá', 'bom dia', 'boa tarde', 'boa noite', 'hey', 'hi', 'hello'];
+function genResp(m, t) {
+  const msg = m.toLowerCase().trim();
+  const hi = ['oi', 'ola', 'olá', 'bom dia', 'boa tarde', 'boa noite', 'hey', 'hi', 'hello'];
+  if (hi.some(g => msg.includes(g))) return t.greeting_message || 'Ola!';
 
-  if (greetings.some(g => m.includes(g))) {
-    return training.greeting_message || 'Ola! Como posso ajudar?';
-  }
-
-  for (const f of training.faq_data || []) {
+  for (const f of t.faq_data || []) {
     if (!f.question || !f.answer) continue;
-    const words = f.question.toLowerCase().split(/\s+/).filter(w => w.length > 2);
-    const matches = words.filter(w => m.includes(w)).length;
-    if (matches >= 2 || m.includes(f.question.toLowerCase())) {
-      return f.answer;
-    }
+    const ws = f.question.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+    if (ws.filter(w => msg.includes(w)).length >= 2 || msg.includes(f.question.toLowerCase())) return f.answer;
   }
 
-  if (/preco|valor|custa|quanto|orcamento/i.test(m)) {
-    return (training.pricing_info || 'Consulte-nos.') + '\n\nPosso agendar orcamento gratuito!';
-  }
-  if (/horario|hora|aberto|funciona/i.test(m)) {
-    return 'Horario: ' + (training.business_hours || 'Comercial') + '\n\nEstamos prontos!';
-  }
-  if (/servico|conserta|reparo|arruma/i.test(m)) {
-    return 'Servicos: ' + (training.services || 'Diversos') + '\n\nQual voce precisa?';
-  }
-  if ((training.escalation_keywords || []).some(w => m.includes(w))) {
-    return 'Transferindo para atendente humano...';
-  }
-  return (training.fallback_message || 'Nao entendi.') + '\n\nDigite "atendente" para humano.';
+  if (/preco|valor|custa|quanto|orcamento/i.test(msg)) return (t.pricing_info || 'Consulte-nos.') + '\n\nPosso agendar orcamento gratuito!';
+  if (/horario|hora|aberto|funciona/i.test(msg)) return 'Horario: ' + (t.business_hours || 'Comercial') + '\n\nEstamos prontos!';
+  if (/servico|conserta|reparo|arruma/i.test(msg)) return 'Servicos: ' + (t.services || 'Diversos') + '\n\nQual voce precisa?';
+  if ((t.escalation_keywords || []).some(w => msg.includes(w))) return 'Transferindo para atendente humano...';
+  return (t.fallback_message || 'Nao compreendi.') + '\n\nDigite "atendente"!';
 }
 
 // SALVAR
-async function saveAll() {
-  const btn = $('saveBtn');
-  if (!btn) return;
-
+$('saveBtn').addEventListener('click', async function() {
+  const btn = this;
   btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span> Salvando...';
-  debug('Salvando...');
-  showToast('Salvando no servidor...', 'info', 99999);
+  btn.textContent = 'Salvando...';
+  log('Salvando...');
+  setStatus('warn', 'Salvando...');
 
   const payload = {
     bot_name: val('botName'),
@@ -526,114 +330,44 @@ async function saveAll() {
     updated_at: new Date().toISOString()
   };
 
-  // Cache local
-  try {
-    localStorage.setItem('bot_training_v2', JSON.stringify(payload));
-  } catch (e) {}
+  try { localStorage.setItem('bot_training_v2', JSON.stringify(payload)); } catch (e) {}
 
   try {
-    debug('POST ' + WEBHOOK_URL);
+    log('POST ' + WEBHOOK_URL);
     const res = await fetch(WEBHOOK_URL, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json'
-      },
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
       body: JSON.stringify(payload)
     });
 
-    debug('Status: ' + res.status);
+    log('Status: ' + res.status);
     const text = await res.text();
-    debug('Resposta: ' + text.substring(0, 200));
+    log('Resposta: ' + text.substring(0, 200));
 
-    if (!res.ok) {
-      throw new Error('HTTP ' + res.status + ': ' + text.substring(0, 100));
-    }
+    if (!res.ok) throw new Error('HTTP ' + res.status + ': ' + text.substring(0, 100));
 
-    const data = JSON.parse(text);
-
-    if (data.success || data.ok) {
+    const d = JSON.parse(text);
+    if (d.success || d.ok) {
       setStatus('ok', 'Salvo e ativo ✓');
-      showToast('✓ Configuracao salva no WhatsApp!', 'success', 4000);
-      debug('SUCESSO!');
+      alert('✓ Configuracao salva com sucesso!');
+      log('SUCESSO!');
     } else {
-      throw new Error(data.error || 'Erro desconhecido');
+      throw new Error(d.error || 'Erro servidor');
     }
 
-  } catch (err) {
-    debug('ERRO SAVE: ' + err.message);
-    console.error('Save error:', err);
-    setStatus('err', 'Erro ao salvar');
-    showToast('✗ ' + err.message, 'error', 6000);
+  } catch (e) {
+    log('ERRO SAVE: ' + e.message);
+    setStatus('err', 'Erro ao salvar: ' + e.message);
+    alert('✗ Erro: ' + e.message);
   }
 
   btn.disabled = false;
   btn.textContent = 'Salvar e Ativar no WhatsApp';
-}
+});
 
-// EVENT LISTENERS - Tudo aqui, garantido
-function init() {
-  debug('Inicializando...');
-
-  // Toggle
-  const tog = $('botToggle');
-  if (tog) tog.addEventListener('click', toggleBot);
-
-  // Add tag
-  const btnTag = $('btnAddTag');
-  if (btnTag) btnTag.addEventListener('click', addTag);
-
-  // Tag input Enter
-  const inpTag = $('newTagInput');
-  if (inpTag) {
-    inpTag.addEventListener('keypress', function(e) {
-      if (e.key === 'Enter') addTag();
-    });
-  }
-
-  // Open FAQ modal
-  const btnOpen = $('btnOpenFaq');
-  if (btnOpen) btnOpen.addEventListener('click', openFaqModal);
-
-  // Cancel FAQ
-  const btnCancel = $('btnCancelFaq');
-  if (btnCancel) btnCancel.addEventListener('click', closeFaqModal);
-
-  // Save FAQ
-  const btnSaveF = $('btnSaveFaq');
-  if (btnSaveF) btnSaveF.addEventListener('click', saveFaq);
-
-  // Modal overlay click
-  const modal = $('faqModal');
-  if (modal) {
-    modal.addEventListener('click', function(e) {
-      if (e.target === modal) closeFaqModal();
-    });
-  }
-
-  // ESC key
-  document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') closeFaqModal();
-  });
-
-  // Simulador
-  const testQ = $('testQ');
-  if (testQ) testQ.addEventListener('input', testResponse);
-
-  // Salvar tudo
-  const saveBtn = $('saveBtn');
-  if (saveBtn) saveBtn.addEventListener('click', saveAll);
-
-  debug('Eventos configurados. Carregando dados...');
-  loadData();
-}
-
-// Iniciar quando DOM pronto
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', init);
-} else {
-  init();
-}
+// INICIAR
+load();
 </script>
+
 </body>
 </html>

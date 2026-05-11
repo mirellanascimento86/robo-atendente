@@ -1,27 +1,26 @@
 // ============================================
 // WEBHOOK WHATSAPP - CONSERTA RIO
-// Versao com PAINEL DE INTERVENCAO
+// Atendimento humanizado 24/7
 // ============================================
 
 // CONFIGURACAO
 const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN;
 const WHATSAPP_PHONE_ID = process.env.WHATSAPP_PHONE_ID;
 const VERIFY_TOKEN = 'roboatendente';
-const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const TELEGRAM_GROUP_ID = process.env.TELEGRAM_GROUP_ID;
+const TELEGRAM_BOT_TOKEN = '8517608136:AAFJmE04CPd7DecwKVh_MzGA6bnGGmbT3zI';
+const TELEGRAM_GROUP_ID = '-5246111585';
 
 // ============================================
 // MEMORIA DO SISTEMA
 // ============================================
 const conversas = new Map();
-const timers = new Map(); // Timers para delay de 2 minutos
+const timers = new Map();
 
 // ============================================
 // HANDLER PRINCIPAL
 // ============================================
 
 export default async function handler(req, res) {
-  // CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -43,27 +42,18 @@ export default async function handler(req, res) {
     }
 
     // ===== 2. ROTAS DO PAINEL =====
-
-    // LISTAR CONVERSAS
     if (action === 'list') {
       const lista = Array.from(conversas.values())
         .sort((a, b) => new Date(b.ultimaAtividade || 0) - new Date(a.ultimaAtividade || 0));
-
-      console.log(`[LIST] Retornando ${lista.length} conversas`);
       return res.status(200).json({ conversas: lista });
     }
 
-    // BUSCAR MENSAGENS
     if (action === 'messages') {
       const phone = req.query.phone;
       const conv = conversas.get(phone);
-
       if (!conv) {
-        console.log(`[MESSAGES] Conversa nao encontrada: ${phone}`);
         return res.status(404).json({ erro: 'Conversa nao encontrada' });
       }
-
-      console.log(`[MESSAGES] ${phone} - ${conv.mensagens?.length || 0} msgs, intervencao=${conv.emIntervencao}`);
       return res.status(200).json({ 
         mensagens: conv.mensagens || [],
         emIntervencao: conv.emIntervencao,
@@ -72,15 +62,10 @@ export default async function handler(req, res) {
       });
     }
 
-    // ASSUMIR CONTROLE
     if (action === 'intervene' && req.method === 'POST') {
       const { phone } = req.body;
-      console.log(`[INTERVENE] Recebido phone=${phone}`);
-
       const conv = conversas.get(phone);
-
       if (!conv) {
-        console.log(`[INTERVENE] Conversa nao existe, criando...`);
         conversas.set(phone, {
           telefone: phone,
           nome: 'Cliente',
@@ -99,9 +84,7 @@ export default async function handler(req, res) {
           data: new Date().toISOString(),
           nome: 'Sistema'
         });
-        console.log(`[INTERVENE] Conversa ${phone} agora emIntervencao=true`);
       }
-
       const convAtual = conversas.get(phone);
       return res.status(200).json({ 
         ok: true, 
@@ -111,13 +94,9 @@ export default async function handler(req, res) {
       });
     }
 
-    // LIBERAR ROBO
     if (action === 'release' && req.method === 'POST') {
       const { phone } = req.body;
-      console.log(`[RELEASE] phone=${phone}`);
-
       const conv = conversas.get(phone);
-
       if (conv) {
         conv.emIntervencao = false;
         conv.ultimaAtividade = new Date().toISOString();
@@ -127,32 +106,21 @@ export default async function handler(req, res) {
           data: new Date().toISOString(),
           nome: 'Sistema'
         });
-        console.log(`[RELEASE] Conversa ${phone} emIntervencao=false`);
       }
-
       return res.status(200).json({ ok: true, emIntervencao: false });
     }
 
-    // ENVIAR MENSAGEM MANUAL
     if (action === 'send' && req.method === 'POST') {
       const { phone, message } = req.body;
-      console.log(`[SEND] phone=${phone} message="${message?.substring(0,30)}..."`);
-
       const conv = conversas.get(phone);
-
-      // VERIFICACAO CRITICA: so envia se estiver em intervencao
       if (!conv || !conv.emIntervencao) {
-        console.log(`[SEND] BLOQUEADO - emIntervencao=${conv?.emIntervencao}`);
         return res.status(403).json({ 
           ok: false, 
           erro: 'Nao esta em intervencao',
           emIntervencao: conv?.emIntervencao || false
         });
       }
-
-      // Envia pelo WhatsApp API
       const enviado = await enviarWhatsApp(phone, message);
-
       if (enviado) {
         conv.mensagens.push({
           tipo: 'humano',
@@ -162,20 +130,16 @@ export default async function handler(req, res) {
         });
         conv.ultima = message;
         conv.ultimaAtividade = new Date().toISOString();
-        console.log(`[SEND] Mensagem enviada e salva`);
       }
-
       return res.status(200).json({ ok: enviado });
     }
 
     // ===== 3. RECEBER MENSAGEM DO WHATSAPP =====
     if (req.method === 'POST' && !action) {
       res.status(200).send('OK');
-
       processarMensagem(req.body).catch(err => {
         console.error('Erro ao processar:', err);
       });
-
       return;
     }
 
@@ -225,12 +189,13 @@ async function processarMensagem(body) {
       bairro: '',
       endereco: '',
       dataVisita: '',
-      horarioVisita: '',
       horarioInicio: '',
       horarioFim: '',
       valorVisita: 0,
       ultimaMsgBot: null,
-      aguardandoResposta: false
+      aguardandoResposta: false,
+      tentativas: 0,
+      contexto: {}
     });
   }
 
@@ -247,8 +212,9 @@ async function processarMensagem(body) {
   conv.ultima = texto;
   conv.ultimaAtividade = new Date().toISOString();
   conv.aguardandoResposta = false;
+  conv.tentativas = 0;
 
-  // Limpa timer anterior se existir
+  // Limpa timer anterior
   if (timers.has(telefone)) {
     clearTimeout(timers.get(telefone));
     timers.delete(telefone);
@@ -259,13 +225,12 @@ async function processarMensagem(body) {
 
   // SE NAO ESTIVER EM INTERVENCAO, RESPONDE AUTOMATICAMENTE
   if (!conv.emIntervencao) {
-    // Se ja marcou visita, nao responde mais nada
     if (conv.etapa === 'visita_marcada') {
       console.log(`[BOT] VISITA JA MARCADA - silencio total`);
       return;
     }
 
-    const resposta = gerarResposta(texto, nome, conv);
+    const resposta = gerarRespostaInteligente(texto, nome, conv);
     
     if (resposta) {
       await enviarWhatsApp(telefone, resposta);
@@ -282,61 +247,65 @@ async function processarMensagem(body) {
       conv.ultimaMsgBot = resposta;
       conv.aguardandoResposta = true;
 
-      // Agenda timer de 2 minutos para reengajamento
+      // Timer de reengajamento de 2 minutos
       if (conv.etapa !== 'visita_marcada' && conv.etapa !== 'nao_atende') {
         const timer = setTimeout(() => {
           reengajarCliente(telefone);
-        }, 2 * 60 * 1000); // 2 minutos
-        
+        }, 2 * 60 * 1000);
         timers.set(telefone, timer);
       }
 
-      console.log(`[BOT] Resposta automatica enviada`);
+      console.log(`[BOT] Resposta enviada`);
     }
   } else {
-    console.log(`[BOT] BLOQUEADO - conversa em intervencao humana`);
+    console.log(`[BOT] BLOQUEADO - intervencao humana`);
   }
 }
 
 // ============================================
-// REENGAGEMENT - 2 MINUTOS SEM RESPOSTA
+// REENGAGEMENT - 2 MINUTOS
 // ============================================
 
 async function reengajarCliente(telefone) {
   const conv = conversas.get(telefone);
   if (!conv) return;
   
-  // So reengaja se estiver aguardando resposta e nao for visita marcada
   if (!conv.aguardandoResposta || conv.etapa === 'visita_marcada' || conv.etapa === 'nao_atende') {
     return;
   }
 
-  // Verifica se passou mais de 2 minutos desde ultima mensagem do cliente
   const ultimaAtividade = new Date(conv.ultimaAtividade);
   const agora = new Date();
   const diffMin = (agora - ultimaAtividade) / 1000 / 60;
   
-  if (diffMin < 1.8) return; // Ainda nao passou tempo suficiente
+  if (diffMin < 1.8) return;
 
   let msgReengajamento = '';
 
-  // Mensagem de reengajamento baseada na etapa
-  if (conv.etapa === 'equipamento') {
-    msgReengajamento = 'Ola! Qual equipamento esta com problema e qual a marca?';
-  } else if (conv.etapa === 'perguntar_visita') {
-    msgReengajamento = 'Gostaria de marcar uma visita para hoje?';
-  } else if (conv.etapa === 'perguntar_quando') {
-    msgReengajamento = 'Quando poderia receber a visita?';
-  } else if (conv.etapa === 'perguntar_horario') {
-    msgReengajamento = 'Qual horario seria melhor para voce?';
-  } else if (conv.etapa === 'perguntar_bairro') {
-    msgReengajamento = 'Qual o bairro?';
-  } else if (conv.etapa === 'confirmar_taxa') {
-    msgReengajamento = 'Gostaria de prosseguir com a visita?';
-  } else if (conv.etapa === 'perguntar_endereco') {
-    msgReengajamento = 'Qual o endereco completo?';
-  } else {
-    msgReengajamento = 'Gostaria de marcar uma visita para hoje?';
+  switch (conv.etapa) {
+    case 'equipamento':
+      msgReengajamento = 'Ola! Qual equipamento esta com problema e qual a marca?';
+      break;
+    case 'perguntar_visita':
+      msgReengajamento = 'Gostaria de marcar uma visita para hoje?';
+      break;
+    case 'perguntar_quando':
+      msgReengajamento = 'Quando poderia receber a visita?';
+      break;
+    case 'perguntar_horario':
+      msgReengajamento = 'Qual horario seria melhor para voce?';
+      break;
+    case 'perguntar_bairro':
+      msgReengajamento = 'Qual o bairro?';
+      break;
+    case 'confirmar_taxa':
+      msgReengajamento = 'Gostaria de prosseguir com a visita?';
+      break;
+    case 'perguntar_endereco':
+      msgReengajamento = 'Qual o endereco completo?';
+      break;
+    default:
+      msgReengajamento = 'Gostaria de marcar uma visita para hoje?';
   }
 
   await enviarWhatsApp(telefone, msgReengajamento);
@@ -355,135 +324,178 @@ async function reengajarCliente(telefone) {
 }
 
 // ============================================
-// GERAR RESPOSTA - FLUXO CONSERTA RIO
+// GERAR RESPOSTA INTELIGENTE - HUMANIZADA
 // ============================================
 
-function gerarResposta(texto, nome, conv) {
+function gerarRespostaInteligente(texto, nome, conv) {
   const txt = texto.toLowerCase().trim();
   const etapa = conv.etapa;
 
   // ===== SOLICITACAO DE HUMANO =====
-  if (txt.match(/(humano|pessoa|atendente|funcionario|falar com|falar com alguem|atendente humano|real|vivo|pessoa de verdade)/)) {
+  if (txt.match(/(humano|pessoa|atendente|funcionario|falar com alguem|atendente humano|real|vivo|pessoa de verdade|quero falar com|falar com atendente)/)) {
     conv.emIntervencao = true;
     enviarTelegramIntervencao(conv.telefone, nome);
     return 'Um momento.';
   }
 
+  // ===== DETECTAR OBJECOES E RESISTENCIAS (em qualquer etapa) =====
+  
+  // Cliente diz que nao quer pagar, acha caro, etc.
+  if (txt.match(/(nao quero pagar|nao vou pagar|caro|muito caro|absurdo|taxa alta|por que tem taxa|porque tem taxa|taxa injusta|nao gostei|nao aceito|recuso|reclama|reclamar|protesto|indignado|revoltado)/)) {
+    return handleObjecaoTaxa(conv, txt);
+  }
+
+  // Cliente pergunta sobre o que fazemos, servicos
+  if (txt.match(/(o que voces fazem|o que fazem|quais servicos|o que conserta|trabalham com o que|atende o que|faz o que|conserta o que)/)) {
+    return 'Trabalhamos com conserto de maquina de lavar, lava e seca, frigobar, geladeira e ar condicionado de todas as marcas e modelos. Qual equipamento esta com problema e qual a marca?';
+  }
+
+  // Cliente pergunta preco do conserto
+  if (txt.match(/(quanto custa o conserto|preco do conserto|valor do conserto|quanto fica|quanto sai|orçamento|orcamento)/)) {
+    return 'O valor do conserto so e possivel definir apos a visita tecnica, pois depende do defeito apresentado. A visita tem uma taxa que varia conforme a regiao, e esse valor e abatido do conserto caso voce aprove o orcamento. Qual equipamento esta com problema?';
+  }
+
+  // Cliente pergunta sobre a taxa em geral
+  if (txt.match(/(taxa|visita tem custo|custo da visita|paga visita|visita paga|valor da visita)/) && etapa !== 'confirmar_taxa') {
+    return 'Sim, a visita tecnica tem uma taxa que varia de R$100 a R$190 conforme a regiao. Esse valor e descontado do conserto se voce aprovar o orcamento. Qual equipamento esta com problema e qual a marca?';
+  }
+
   // ===== FLUXO PRINCIPAL =====
 
-  // ETAPA: SAUDACAO (primeira mensagem ou sem contexto)
+  // ETAPA: SAUDACAO
   if (etapa === 'saudacao') {
     conv.etapa = 'equipamento';
     return 'Ola! Qual equipamento esta com problema e qual a marca?';
   }
 
-  // ETAPA: EQUIPAMENTO (recebeu info do equipamento e marca)
+  // ETAPA: EQUIPAMENTO
   if (etapa === 'equipamento') {
-    // Tenta extrair equipamento e marca da mensagem
     const info = extrairEquipamentoMarca(texto);
-    if (info.equipamento) conv.equipamento = info.equipamento;
-    if (info.marca) conv.marca = info.marca;
     
-    // Se nao conseguiu extrair, pergunta novamente com educacao
-    if (!info.equipamento) {
-      return 'Desculpe, nao entendi bem. Poderia me dizer qual equipamento esta com problema e qual a marca?';
+    if (info.equipamento) {
+      conv.equipamento = info.equipamento;
+      conv.marca = info.marca || 'Nao informada';
+      conv.etapa = 'perguntar_visita';
+      return 'Gostaria de marcar uma visita para hoje?';
     }
     
-    conv.etapa = 'perguntar_visita';
+    // Se nao entendeu, pergunta de forma diferente
+    conv.tentativas++;
+    if (conv.tentativas === 1) {
+      return 'Desculpe, nao entendi direito. Poderia me dizer qual equipamento esta com problema? Por exemplo: geladeira, maquina de lavar, ar condicionado... E qual a marca?';
+    }
+    return 'Só para eu entender melhor: e uma geladeira, maquina de lavar, ar condicionado ou outro aparelho? E qual a marca?';
+  }
+
+  // ETAPA: PERGUNTAR VISITA
+  if (etapa === 'perguntar_visita') {
+    if (txt.match(/(sim|quero|pode ser|claro|ok|pode|gostaria|top|vamos|vamo|bora|beleza|show|demais|perfeito|combina|fechado|ta bom|tá bom|ta certo|tá certo)/)) {
+      conv.etapa = 'perguntar_bairro';
+      return 'Qual o bairro?';
+    }
+    
+    if (txt.match(/(nao|não|nop|negativo|depois|outro dia|amanha|outro|mais tarde|nao quero|nao posso|hoje nao|outro horario|outra data|nao sei|talvez depois)/)) {
+      conv.etapa = 'perguntar_quando';
+      return 'Sem problema. Quando poderia receber a visita?';
+    }
+    
+    // Resposta evasiva ou nao clara
+    if (txt.match(/(nao sei|talvez|depende|vou ver|perguntar|pensar)/)) {
+      return 'Tudo bem, fica a vontade. So para eu organizar: voce prefere hoje ou outro dia?';
+    }
+    
     return 'Gostaria de marcar uma visita para hoje?';
   }
 
-  // ETAPA: PERGUNTAR VISITA (resposta sim/nao para visita hoje)
-  if (etapa === 'perguntar_visita') {
-    if (txt.match(/(sim|quero|pode ser|claro|ok|pode|gostaria|top|vamos|vamo|bora|beleza|show|demais|perfeito)/)) {
-      conv.etapa = 'perguntar_bairro';
-      return 'Qual o bairro?';
-    } else if (txt.match(/(nao|não|nop|negativo|depois|outro dia|amanha|outro|mais tarde|nao quero|nao posso|hoje nao|outro horario|outra data)/)) {
-      conv.etapa = 'perguntar_quando';
-      return 'Quando poderia?';
-    } else {
-      // Se resposta nao clara, repete a pergunta com gentileza
-      return 'Gostaria de marcar uma visita para hoje?';
-    }
-  }
-
-  // ETAPA: PERGUNTAR QUANDO (cliente disse nao para hoje)
+  // ETAPA: PERGUNTAR QUANDO
   if (etapa === 'perguntar_quando') {
     conv.dataVisita = texto;
     conv.etapa = 'perguntar_horario';
-    return 'Qual horario?';
+    return 'Qual horario seria melhor para voce?';
   }
 
   // ETAPA: PERGUNTAR HORARIO
   if (etapa === 'perguntar_horario') {
-    conv.horarioVisita = texto;
-    
-    // Tenta extrair horario para calcular janela de 2h
     const horarioExtraido = extrairHorario(texto);
+    
     if (horarioExtraido) {
       conv.horarioInicio = horarioExtraido.inicio;
       conv.horarioFim = horarioExtraido.fim;
     } else {
-      // Se nao conseguiu extrair, assume horario atual + 2h
+      // Robo define horario: agora + 2h
       const agora = new Date();
       const h1 = agora.getHours() + 2;
       const h2 = h1 + 2;
-      conv.horarioInicio = `${h1}:00`;
-      conv.horarioFim = `${h2}:00`;
+      conv.horarioInicio = `${h1.toString().padStart(2,'0')}:00`;
+      conv.horarioFim = `${h2.toString().padStart(2,'0')}:00`;
     }
     
     conv.etapa = 'perguntar_endereco';
-    return 'Qual o endereco?';
+    return 'Qual o endereco completo?';
   }
 
-  // ETAPA: PERGUNTAR BAIRRO (cliente disse sim para visita hoje)
+  // ETAPA: PERGUNTAR BAIRRO
   if (etapa === 'perguntar_bairro') {
     conv.bairro = texto;
-    
     const bairroLower = txt;
     
-    // Verifica se e Botafogo
+    // Botafogo
     if (bairroLower.includes('botafogo')) {
       conv.etapa = 'confirmar_taxa';
       conv.valorVisita = 100;
       return 'Em Botafogo a taxa da visita e R$100. Essa taxa e deduzida do valor final, caso o orcamento seja aprovado. Gostaria de prosseguir?';
     }
     
-    // Verifica Zona Sul
+    // Zona Sul
     if (ehZonaSul(bairroLower)) {
       conv.etapa = 'confirmar_taxa';
       conv.valorVisita = 120;
       return 'Na Zona Sul a taxa da visita e R$120. Essa taxa e deduzida do valor final, caso o orcamento seja aprovado. Gostaria de prosseguir?';
     }
     
-    // Verifica Zona Norte
+    // Zona Norte
     if (ehZonaNorte(bairroLower)) {
       conv.etapa = 'confirmar_taxa';
       conv.valorVisita = 190;
       return 'Na Zona Norte a taxa da visita e R$190. Essa taxa e deduzida do valor final, caso o orcamento seja aprovado. Gostaria de prosseguir?';
     }
     
-    // Barra da Tijuca, Baixada ou outras regioes nao atendidas
-    if (bairroLower.includes('barra') || bairroLower.includes('baixada') || bairroLower.includes('jacarepagua') || bairroLower.includes('recreio') || bairroLower.includes('curicica') || bairroLower.includes('tanque')) {
+    // Barra, Baixada, regioes nao atendidas
+    if (bairroLower.includes('barra') || bairroLower.includes('baixada') || bairroLower.includes('jacarepagua') || bairroLower.includes('recreio') || bairroLower.includes('curicica') || bairroLower.includes('tanque') || bairroLower.includes('campo grande') || bairroLower.includes('santa cruz') || bairroLower.includes('sepetiba') || bairroLower.includes('guaratiba')) {
       conv.etapa = 'nao_atende';
-      return 'Infelizmente nao atendemos na sua regiao no momento.';
+      return 'Infelizmente nao atendemos na sua regiao no momento. Atendemos Botafogo, Zona Sul e Zona Norte do Rio. Caso mude de ideia ou queira falar com um atendente, e so avisar.';
     }
     
-    // Se nao reconhecer o bairro, pergunta de qual regiao
-    return 'De qual regiao e esse bairro? (Zona Sul, Zona Norte, Centro, etc.)';
+    // Bairro nao reconhecido
+    return 'De qual regiao e esse bairro? E Zona Sul, Zona Norte, Centro ou outra regiao?';
   }
 
   // ETAPA: CONFIRMAR TAXA
   if (etapa === 'confirmar_taxa') {
-    if (txt.match(/(sim|quero|pode ser|claro|ok|pode|gostaria|top|prossiga|vamos|vamo|bora|beleza|show|demais|perfeito)/)) {
-      conv.etapa = 'perguntar_horario';
-      return 'Qual horario?';
-    } else if (txt.match(/(nao|não|nop|negativo|cancelar|desistir|outro dia|outro horario)/)) {
-      conv.etapa = 'perguntar_quando';
-      return 'Quando poderia?';
-    } else {
-      return 'Gostaria de prosseguir?';
+    if (txt.match(/(sim|quero|pode ser|claro|ok|pode|gostaria|top|prossiga|vamos|vamo|bora|beleza|show|demais|perfeito|combina|fechado|ta bom|tá bom|ta certo|tá certo|vai|manda|partiu)/)) {
+      // Define horario automaticamente se ainda nao tiver
+      if (!conv.horarioInicio) {
+        const agora = new Date();
+        const h1 = agora.getHours() + 2;
+        const h2 = h1 + 2;
+        conv.horarioInicio = `${h1.toString().padStart(2,'0')}:00`;
+        conv.horarioFim = `${h2.toString().padStart(2,'0')}:00`;
+      }
+      conv.etapa = 'perguntar_endereco';
+      return 'Perfeito. Qual o endereco completo?';
     }
+    
+    if (txt.match(/(nao|não|nop|negativo|cancelar|desistir|outro dia|outro horario|nao quero|recuso|rejeito)/)) {
+      conv.etapa = 'perguntar_quando';
+      return 'Entendo perfeitamente. Quando seria melhor para voce? A visita pode ser em outro dia sem problema.';
+    }
+    
+    // Objecao sobre taxa ja e tratada no inicio, mas se chegou aqui e ainda nao respondeu claramente
+    if (txt.match(/(por que|porque|qual o motivo|explique|nao entendi|duvida)/)) {
+      return 'A taxa da visita tecnica cobre o deslocamento do tecnico ate o seu endereco. Se voce aprovar o orcamento do conserto, esse valor e descontado. E uma forma de garantir que o tecnico va ate la com seriedade. Gostaria de prosseguir?';
+    }
+    
+    return 'Gostaria de prosseguir com a visita?';
   }
 
   // ETAPA: PERGUNTAR ENDERECO
@@ -503,17 +515,41 @@ Obrigada!`;
 
   // ETAPA: VISITA MARCADA - silencio absoluto
   if (etapa === 'visita_marcada') {
-    return null; // Nao responde nada
+    return null;
   }
 
-  // ETAPA: NAO ATENDE - resposta generica
+  // ETAPA: NAO ATENDE
   if (etapa === 'nao_atende') {
-    return 'Infelizmente nao atendemos na sua regiao no momento. Caso queira falar com um atendente, digite "humano".';
+    return 'Infelizmente nao atendemos na sua regiao no momento. Caso queira falar com um atendente, e so digitar "humano".';
   }
 
-  // Fallback: se etapa nao reconhecida, volta para pergunta de visita
+  // Fallback
   conv.etapa = 'perguntar_visita';
   return 'Gostaria de marcar uma visita para hoje?';
+}
+
+// ============================================
+// LIDAR COM OBJECOES - HUMANIZADO
+// ============================================
+
+function handleObjecaoTaxa(conv, txt) {
+  // Cliente diz que nao quer pagar taxa
+  if (txt.match(/(nao quero pagar|nao vou pagar|recuso|rejeito|nao aceito|absurdo)/)) {
+    return 'Entendo sua preocupacao. A taxa e apenas para cobrir o deslocamento do tecnico. O bom e que se voce aprovar o conserto, esse valor sai totalmente do orcamento. Fica como um adiantamento, sabe? Posso verificar o bairro para te passar o valor exato?';
+  }
+  
+  // Cliente acha caro
+  if (txt.match(/(caro|muito caro|alto|absurdo|injusto|roubo)/)) {
+    return 'Sei que parece um valor a mais, mas garanto que e justo pelo deslocamento e diagnostico. E como falei, vira desconto no conserto. Qual bairro voce esta? Posso verificar o valor exato para sua regiao.';
+  }
+  
+  // Cliente pergunta por que tem taxa
+  if (txt.match(/(por que tem taxa|porque tem|por que paga|por que cobra|motivo da taxa)/)) {
+    return 'A taxa cobre o deslocamento do tecnico ate o seu endereco e o tempo de diagnostico. Se voce aprovar o orcamento, esse valor e abatido. E uma pratica comum para garantir o compromisso de ambas as partes. Posso verificar o valor para seu bairro?';
+  }
+  
+  // Cliente reclama em geral
+  return 'Entendo perfeitamente. Posso te explicar melhor: a taxa e para o deslocamento do tecnico e vira desconto no conserto. Qual bairro voce esta? Assim eu te passo o valor certinho.';
 }
 
 // ============================================
@@ -524,8 +560,8 @@ function extrairEquipamentoMarca(texto) {
   const txt = texto.toLowerCase();
   
   const equipamentos = [
-    'maquina de lavar', 'lava e seca', 'lava-seca', 'lavaeseca', 'lavaeseca',
-    'frigobar', 'geladeira', 'ar condicionado', 'ar-condicionado', 'arcondicionado', 'ar condicionado', 'arcond'
+    'maquina de lavar', 'lava e seca', 'lava-seca', 'lavaeseca',
+    'frigobar', 'geladeira', 'ar condicionado', 'ar-condicionado', 'arcondicionado', 'arcond'
   ];
   
   let equipamento = '';
@@ -538,16 +574,18 @@ function extrairEquipamentoMarca(texto) {
     }
   }
   
-  // Se nao encontrou equipamento especifico, usa o texto todo como equipamento
   if (!equipamento) {
-    equipamento = texto;
+    // Tenta identificar por palavras-chave
+    if (txt.includes('lavar') || txt.includes('lava')) equipamento = 'maquina de lavar';
+    else if (txt.includes('geladeira') || txt.includes('frigo') || txt.includes('side') || txt.includes('frost')) equipamento = 'geladeira';
+    else if (txt.includes('ar') || txt.includes('condicionado') || txt.includes('split')) equipamento = 'ar condicionado';
+    else equipamento = texto;
   }
   
-  // Tenta extrair marca (palavras comuns de marca)
-  const marcas = ['brastemp', 'consul', 'electrolux', 'eletrolux', 'lg', 'samsung', 'panasonic', 'midea', 'springer', 'carrier', 'fujitsu', 'gree', 'philco', 'continental', 'bosch', 'ge', 'general electric'];
+  const marcas = ['brastemp', 'consul', 'electrolux', 'eletrolux', 'lg', 'samsung', 'panasonic', 'midea', 'springer', 'carrier', 'fujitsu', 'gree', 'philco', 'continental', 'bosch', 'ge', 'general electric', 'electrolux'];
   for (const m of marcas) {
     if (txt.includes(m)) {
-      marca = m;
+      marca = m === 'eletrolux' ? 'electrolux' : m;
       break;
     }
   }
@@ -558,7 +596,7 @@ function extrairEquipamentoMarca(texto) {
 function extrairHorario(texto) {
   const txt = texto.toLowerCase();
   
-  // Padroes de horario: 14h, 14:00, 14 hs, 14 horas, 2 da tarde, etc.
+  // Padroes: 14h, 14:00, 14 hs, 14 horas, 2 da tarde
   const padroes = [
     /(\d{1,2})[h:](\d{2})/,
     /(\d{1,2})\s*h(?:s|oras?)?/,
@@ -573,23 +611,17 @@ function extrairHorario(texto) {
     const match = txt.match(padrao);
     if (match) {
       hora = parseInt(match[1]);
-      
-      // Se tem minutos no match
       if (match[2] && !isNaN(parseInt(match[2]))) {
         minuto = parseInt(match[2]);
       }
-      
-      // Ajusta para tarde/noite
       if (match[2] === 'tarde' && hora < 12) hora += 12;
       if (match[2] === 'noite' && hora < 12) hora += 12;
-      
       break;
     }
   }
   
   if (hora === null) return null;
   
-  // Calcula janela de 2 horas
   const horaFim = hora + 2;
   
   const formatar = (h, m) => {
@@ -607,7 +639,7 @@ function ehZonaSul(bairro) {
     'copacabana', 'ipanema', 'leblon', 'laranjeiras', 'flamengo', 'botafogo',
     'humaita', 'jardim botanico', 'gavea', 'sao conrado', 'vidigal', 'rocinha',
     'catete', 'gloria', 'cosme velho', 'santa teresa', 'urca', 'leme', 'gavea',
-    'jardim botanico', 'lagoa', 'jardim oceanico', 'itaim bibi', 'vila nova'
+    'lagoa', 'jardim oceanico', 'itaim bibi', 'vila nova', 'leme', 'copacabana'
   ];
   return bairrosZonaSul.some(b => bairro.includes(b));
 }
@@ -657,7 +689,7 @@ async function enviarWhatsApp(numero, texto) {
 
     if (!response.ok) {
       const erro = await response.json();
-      console.error('Erro API:', erro);
+      console.error('Erro API WhatsApp:', erro);
       return false;
     }
 
@@ -665,20 +697,19 @@ async function enviarWhatsApp(numero, texto) {
     return true;
 
   } catch (e) {
-    console.error('Erro ao enviar:', e.message);
+    console.error('Erro ao enviar WhatsApp:', e.message);
     return false;
   }
 }
 
 // ============================================
-// TELEGRAM - ENVIO DE NOTIFICACOES
+// TELEGRAM - NOTIFICACOES
 // ============================================
 
 async function enviarTelegramVisita(conv) {
-  if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_GROUP_ID) {
-    console.error('Telegram nao configurado - TOKEN:', !!TELEGRAM_BOT_TOKEN, 'GROUP:', !!TELEGRAM_GROUP_ID);
-    return;
-  }
+  console.log('[TELEGRAM] Tentando enviar visita...');
+  console.log('[TELEGRAM] TOKEN presente:', !!TELEGRAM_BOT_TOKEN);
+  console.log('[TELEGRAM] GROUP ID:', TELEGRAM_GROUP_ID);
 
   const mensagem = `NOVA VISITA CONFIRMADA - CONSERTA RIO
 
@@ -692,7 +723,10 @@ Horario da visita: ${conv.horarioInicio} as ${conv.horarioFim}
 Taxa Visita: R$${conv.valorVisita || '---'}`;
 
   try {
-    const response = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+    const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
+    console.log('[TELEGRAM] URL:', url);
+    
+    const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -703,21 +737,29 @@ Taxa Visita: R$${conv.valorVisita || '---'}`;
     });
     
     const data = await response.json();
+    console.log('[TELEGRAM] Resposta:', JSON.stringify(data));
+    
     if (!data.ok) {
       console.error('[TELEGRAM] Erro na resposta:', data);
+      // Tenta sem parse_mode se deu erro
+      await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: TELEGRAM_GROUP_ID,
+          text: mensagem
+        })
+      });
     } else {
-      console.log('[TELEGRAM] Visita enviada ao grupo com sucesso');
+      console.log('[TELEGRAM] Visita enviada com sucesso');
     }
   } catch (e) {
-    console.error('[TELEGRAM] Erro:', e.message);
+    console.error('[TELEGRAM] Erro fetch:', e.message);
   }
 }
 
 async function enviarTelegramIntervencao(telefone, nome) {
-  if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_GROUP_ID) {
-    console.error('Telegram nao configurado');
-    return;
-  }
+  console.log('[TELEGRAM] Tentando enviar intervencao...');
 
   const mensagem = `INTERVENCAO HUMANA SOLICITADA - CONSERTA RIO
 
@@ -727,7 +769,8 @@ Nome: ${nome}
 O cliente solicitou falar com um atendente humano.`;
 
   try {
-    const response = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+    const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
+    const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -738,12 +781,22 @@ O cliente solicitou falar com um atendente humano.`;
     });
     
     const data = await response.json();
+    console.log('[TELEGRAM] Resposta intervencao:', JSON.stringify(data));
+    
     if (!data.ok) {
-      console.error('[TELEGRAM] Erro na resposta:', data);
+      console.error('[TELEGRAM] Erro intervencao:', data);
+      await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: TELEGRAM_GROUP_ID,
+          text: mensagem
+        })
+      });
     } else {
-      console.log('[TELEGRAM] Intervencao enviada ao grupo com sucesso');
+      console.log('[TELEGRAM] Intervencao enviada com sucesso');
     }
   } catch (e) {
-    console.error('[TELEGRAM] Erro:', e.message);
+    console.error('[TELEGRAM] Erro fetch intervencao:', e.message);
   }
 }

@@ -3,35 +3,37 @@ import { createClient } from '@supabase/supabase-js';
 // ═══════════════════════════════════════════════════════
 // CONFIGURACAO
 // ═══════════════════════════════════════════════════════
-const SUPABASE_URL = process.env.SUPABASE_URL || '';
-const SUPABASE_KEY = process.env.SUPABASE_KEY || '';
-const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN || '';
-const WHATSAPP_PHONE_ID = process.env.WHATSAPP_PHONE_ID || '';
-const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
-const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID || '';
+const SUPABASE_URL = process.env.SUPABASE_URL || 'https://fwcljognwdutsagppxcq.supabase.co';
+const SUPABASE_KEY = process.env.SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ3Y2xqb2dud2R1dHNhZ3BweGNxIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NDg5NjgyMywiZXhwIjoyMDkwNDcyODIzfQ.lMntp1GpMQ-MeOeVDYK13Ayq9GNlFA0qkrMbhylgsRE';
+const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN || 'EAFmfvvzzQO4BRETZCcUIqfW7eBoXRJRlrf8ROZBaVnODG0T5aKfyCxzeKqeupaXI9r6q1c0Vh6yrJrLgoO43g6asjAZB1sKajLOFWPpLzLODbDv97LuLjGbyZCuJADT6FYeT0pDX9o9pTHfZCz1jFatnecBs6w8WjI9KPV8b0aaaKCxePmwozA5ZAXUZCGvIcQ9RAZDZD';
+const WHATSAPP_PHONE_ID = process.env.WHATSAPP_PHONE_ID || '738758095978120';
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '8517608136:AAFJmE04CPd7DecwKVh_MzGA6bnGGmbT3zI';
+const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID || '-5246111585';
 
-console.log('[INIT] Webhook iniciando...');
+console.log('[INIT] ========== WEBHOOK INICIANDO ==========');
 console.log('[INIT] SUPABASE_URL:', SUPABASE_URL ? 'OK' : 'FALTA');
 console.log('[INIT] SUPABASE_KEY:', SUPABASE_KEY ? 'OK' : 'FALTA');
+console.log('[INIT] WHATSAPP_TOKEN:', WHATSAPP_TOKEN ? 'OK' : 'FALTA');
+console.log('[INIT] WHATSAPP_PHONE_ID:', WHATSAPP_PHONE_ID ? 'OK' : 'FALTA');
+console.log('[INIT] TELEGRAM_BOT_TOKEN:', TELEGRAM_BOT_TOKEN ? 'OK' : 'FALTA');
+console.log('[INIT] TELEGRAM_CHAT_ID:', TELEGRAM_CHAT_ID ? 'OK' : 'FALTA');
 
 let supabase = null;
 try {
-  if (SUPABASE_URL && SUPABASE_KEY) {
-    supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
-    console.log('[INIT] Supabase OK');
-  }
+  supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+  console.log('[INIT] Supabase client criado');
 } catch (err) {
-  console.error('[INIT] FALHA:', err.message);
+  console.error('[INIT] FALHA Supabase:', err.message);
 }
 
 // ═══════════════════════════════════════════════════════
-// HANDLER
+// HANDLER PRINCIPAL
 // ═══════════════════════════════════════════════════════
 export default async function handler(req, res) {
   const rid = Math.random().toString(36).substring(2, 8);
 
   try {
-    console.log(`[${rid}] ${req.method} ${req.url}`);
+    console.log(`\n[${rid}] ${req.method} ${req.url}`);
 
     // CORS
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -44,8 +46,10 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'Supabase nao inicializado' });
     }
 
+    // ═══════════════════════════════════════════════════════
     // GET ?action=status
-    if (req.method === 'GET' && req.query?.action === 'status') {
+    // ═══════════════════════════════════════════════════════
+    if (req.method === 'GET' && req.query && req.query.action === 'status') {
       try {
         const { data: training, error } = await supabase
           .from('bot_training')
@@ -70,7 +74,7 @@ export default async function handler(req, res) {
     }
 
     // GET ?action=list
-    if (req.method === 'GET' && req.query?.action === 'list') {
+    if (req.method === 'GET' && req.query && req.query.action === 'list') {
       try {
         const { data: conversations, error } = await supabase
           .from('conversations')
@@ -96,7 +100,7 @@ export default async function handler(req, res) {
     }
 
     // GET ?action=messages&phone=...
-    if (req.method === 'GET' && req.query?.action === 'messages') {
+    if (req.method === 'GET' && req.query && req.query.action === 'messages') {
       const phone = req.query.phone;
       if (!phone) return res.status(400).json({ error: 'Phone required' });
 
@@ -136,11 +140,13 @@ export default async function handler(req, res) {
       }
     }
 
+    // ═══════════════════════════════════════════════════════
     // POST — Salvar treinamento
-    if (req.method === 'POST' && (!req.query?.action || req.query?.action === 'saveconfig')) {
+    // ═══════════════════════════════════════════════════════
+    if (req.method === 'POST' && (!req.query.action || req.query.action === 'saveconfig')) {
       try {
         const body = req.body;
-        console.log(`[${rid}] Salvando...`);
+        console.log(`[${rid}] Salvando treinamento...`);
 
         if (!body || typeof body !== 'object') {
           throw new Error('Body invalido');
@@ -170,7 +176,7 @@ export default async function handler(req, res) {
 
         let result, error;
 
-        if (existing?.id) {
+        if (existing && existing.id) {
           ({ data: result, error } = await supabase
             .from('bot_training')
             .update(trainingData)
@@ -202,11 +208,13 @@ export default async function handler(req, res) {
       }
     }
 
+    // ═══════════════════════════════════════════════════════
     // POST ?action=intervene/release/send
-    if (req.method === 'POST' && req.query?.action) {
+    // ═══════════════════════════════════════════════════════
+    if (req.method === 'POST' && req.query && req.query.action) {
       const action = req.query.action;
       const body = req.body;
-      const phone = body?.phone;
+      const phone = body && body.phone;
 
       if (action === 'intervene') {
         try {
@@ -234,7 +242,7 @@ export default async function handler(req, res) {
 
       if (action === 'send') {
         try {
-          const message = body?.message;
+          const message = body && body.message;
           if (!message) return res.status(400).json({ error: 'Message required' });
           await saveMessage(phone, message, 'outbound', 'human');
           if (WHATSAPP_TOKEN && WHATSAPP_PHONE_ID) {
@@ -247,37 +255,65 @@ export default async function handler(req, res) {
       }
     }
 
+    // ═══════════════════════════════════════════════════════
     // POST — WEBHOOK WHATSAPP
+    // ═══════════════════════════════════════════════════════
     if (req.method === 'POST') {
+      console.log(`[${rid}] WHATSAPP WEBHOOK`);
+
+      // Responder 200 IMEDIATAMENTE para o Meta
       res.status(200).send('OK');
-      console.log(`[${rid}] WhatsApp webhook`);
+      console.log(`[${rid}] 200 OK enviado`);
 
       try {
         const body = req.body;
-        console.log(`[${rid}] Body:`, JSON.stringify(body).substring(0, 300));
+        console.log(`[${rid}] Body:`, JSON.stringify(body).substring(0, 500));
 
+        // Verificar se e ping de verificacao
         if (body.object === 'whatsapp_business_account' && !body.entry) {
-          console.log(`[${rid}] Ping Meta`);
+          console.log(`[${rid}] Ping Meta - ignorando`);
           return;
         }
 
-        const entry = body.entry?.[0];
-        const changes = entry?.changes?.[0];
-        const value = changes?.value;
-        const message = value?.messages?.[0];
+        const entry = body.entry && body.entry[0];
+        if (!entry) {
+          console.log(`[${rid}] Sem entry`);
+          return;
+        }
 
-        if (!message || message.type !== 'text') {
-          console.log(`[${rid}] Sem mensagem texto`);
+        const changes = entry.changes && entry.changes[0];
+        if (!changes) {
+          console.log(`[${rid}] Sem changes`);
+          return;
+        }
+
+        const value = changes.value;
+        if (!value) {
+          console.log(`[${rid}] Sem value`);
+          return;
+        }
+
+        const message = value.messages && value.messages[0];
+        if (!message) {
+          console.log(`[${rid}] Sem mensagem`);
+          return;
+        }
+
+        console.log(`[${rid}] Message type:`, message.type);
+
+        if (message.type !== 'text') {
+          console.log(`[${rid}] Ignorado: tipo ${message.type}`);
           return;
         }
 
         const from = message.from;
-        const text = message.text?.body || '';
-        const contactName = value?.contacts?.[0]?.profile?.name || from;
+        const text = message.text && message.text.body ? message.text.body : '';
+        const contactName = value.contacts && value.contacts[0] && value.contacts[0].profile && value.contacts[0].profile.name ? value.contacts[0].profile.name : from;
 
-        console.log(`[${rid}] >>> ${from}: "${text}"`);
+        console.log(`[${rid}] >>> ${from} (${contactName}): "${text}"`);
 
-        // Buscar treinamento
+        // 1. BUSCAR TREINAMENTO
+        console.log(`[${rid}] [1] Buscando treinamento...`);
         const { data: training, error: trainingError } = await supabase
           .from('bot_training')
           .select('*')
@@ -285,63 +321,82 @@ export default async function handler(req, res) {
           .limit(1)
           .maybeSingle();
 
-        if (trainingError || !training) {
-          console.error(`[${rid}] Sem treinamento:`, trainingError);
+        if (trainingError) {
+          console.error(`[${rid}] [1] Erro:`, trainingError);
           await saveMessage(from, text, 'inbound', 'human', contactName);
           return;
         }
 
+        if (!training) {
+          console.log(`[${rid}] [1] Nenhum treinamento`);
+          await saveMessage(from, text, 'inbound', 'human', contactName);
+          return;
+        }
+
+        console.log(`[${rid}] [1] Treinamento OK. Ativo:`, training.active);
+
+        // 2. VERIFICAR SE BOT ATIVO
         if (!training.active) {
-          console.log(`[${rid}] Bot desativado`);
+          console.log(`[${rid}] [2] Bot desativado`);
           await saveMessage(from, text, 'inbound', 'human', contactName);
           return;
         }
 
+        // 3. SALVAR MENSAGEM DO CLIENTE
         await saveMessage(from, text, 'inbound', 'bot', contactName);
 
-        // Verificar modo humano
+        // 4. VERIFICAR MODO HUMANO
         const { data: conversation } = await supabase
           .from('conversations')
           .select('status')
           .eq('phone_number', from)
           .maybeSingle();
 
-        if (conversation?.status === 'human') {
-          console.log(`[${rid}] Modo humano`);
+        if (conversation && conversation.status === 'human') {
+          console.log(`[${rid}] [4] Modo humano`);
           return;
         }
 
-        // Gerar resposta
+        // 5. GERAR RESPOSTA
+        console.log(`[${rid}] [5] Gerando resposta...`);
         const responseData = await generateResponse(text, training, from, contactName);
         const botResponse = responseData.text;
 
-        console.log(`[${rid}] Resposta: "${botResponse.substring(0, 80)}..."`);
+        console.log(`[${rid}] [5] Resposta: "${botResponse.substring(0, 80)}..."`);
 
-        // Enviar WhatsApp
+        // 6. ENVIAR WHATSAPP
+        console.log(`[${rid}] [6] Enviando WhatsApp...`);
         if (WHATSAPP_TOKEN && WHATSAPP_PHONE_ID) {
           try {
             await sendWhatsAppMessage(from, botResponse);
-            console.log(`[${rid}] WhatsApp OK`);
+            console.log(`[${rid}] [6] WhatsApp OK`);
           } catch (err) {
-            console.error(`[${rid}] Erro WhatsApp:`, err.message);
+            console.error(`[${rid}] [6] Erro WhatsApp:`, err.message);
           }
+        } else {
+          console.log(`[${rid}] [6] SEM WHATSAPP_TOKEN`);
         }
 
-        // Salvar resposta
+        // 7. SALVAR RESPOSTA
         await saveMessage(from, botResponse, 'outbound', 'bot', contactName);
 
-        // Notificar Telegram
-        if (responseData.notify && TELEGRAM_BOT_TOKEN && TELEGRAM_CHAT_ID) {
-          try {
-            await sendTelegram(responseData.notifyMessage);
-            console.log(`[${rid}] Telegram OK:`, responseData.notifyType);
-          } catch (err) {
-            console.error(`[${rid}] Erro Telegram:`, err.message);
+        // 8. NOTIFICAR TELEGRAM
+        if (responseData.notify) {
+          console.log(`[${rid}] [8] Notificando Telegram...`);
+          if (TELEGRAM_BOT_TOKEN && TELEGRAM_CHAT_ID) {
+            try {
+              await sendTelegram(responseData.notifyMessage);
+              console.log(`[${rid}] [8] Telegram OK`);
+            } catch (err) {
+              console.error(`[${rid}] [8] Erro Telegram:`, err.message);
+            }
           }
         }
 
+        console.log(`[${rid}] ====== FIM ======`);
+
       } catch (error) {
-        console.error(`[${rid}] Erro:`, error);
+        console.error(`[${rid}] ERRO GERAL:`, error);
       }
       return;
     }
@@ -363,17 +418,18 @@ async function generateResponse(userMessage, training, phoneNumber, contactName)
 
   // SAUDACOES
   const greetings = ['oi', 'ola', 'olá', 'bom dia', 'boa tarde', 'boa noite', 'hey', 'hi', 'hello', 'eai', 'eae', 'opa', 'fala'];
-  if (greetings.some(g => msg === g || msg.startsWith(g + ' '))) {
+  if (greetings.some(function(g) { return msg === g || msg.startsWith(g + ' '); })) {
     return { text: training.greeting_message || 'Ola! Como posso ajudar?', notify: false, notifyType: '', notifyMessage: '' };
   }
 
   // FAQ
   const faq = training.faq_data || [];
-  for (const item of faq) {
+  for (let i = 0; i < faq.length; i++) {
+    const item = faq[i];
     if (!item.question || !item.answer) continue;
     const q = item.question.toLowerCase();
-    const words = q.split(/\s+/).filter(w => w.length > 2);
-    const matches = words.filter(w => msg.includes(w)).length;
+    const words = q.split(/\s+/).filter(function(w) { return w.length > 2; });
+    const matches = words.filter(function(w) { return msg.includes(w); }).length;
     if (matches >= 2 || msg.includes(q)) {
       return { text: item.answer, notify: false, notifyType: '', notifyMessage: '' };
     }
@@ -411,7 +467,7 @@ async function generateResponse(userMessage, training, phoneNumber, contactName)
 
   // AGENDAR → NOTIFICAR TELEGRAM
   if (msg.includes('agendar') || msg.includes('marcar') || msg.includes('visita') || msg.includes('posso ir') || msg.includes('levar')) {
-    const notifyMsg = `📅 *VISITA AGENDADA*\n\nCliente: ${name}\nTelefone: ${phoneNumber}\nMensagem: "${userMessage}"\n\n➡️ Entre em contato para confirmar horario!`;
+    const notifyMsg = '📅 *VISITA AGENDADA*\n\nCliente: ' + name + '\nTelefone: ' + phoneNumber + '\nMensagem: "' + userMessage + '"\n\n➡️ Entre em contato para confirmar horario!';
     return {
       text: '📅 Perfeito! Para agendar, preciso saber:\n1️⃣ Qual equipamento?\n2️⃣ Qual o problema?\n3️⃣ Qual dia e horario?\n\nOu digite "atendente" para humano!',
       notify: true,
@@ -422,7 +478,15 @@ async function generateResponse(userMessage, training, phoneNumber, contactName)
 
   // ESCALONAMENTO → NOTIFICAR TELEGRAM
   const escalationWords = training.escalation_keywords || ['atendente', 'humano', 'pessoa', 'reclamacao', 'problema grave', 'cancelar', 'chefe', 'gerente', 'supervisor', 'dono'];
-  if (escalationWords.some(word => msg.includes(word))) {
+  let shouldEscalate = false;
+  for (let i = 0; i < escalationWords.length; i++) {
+    if (msg.includes(escalationWords[i])) {
+      shouldEscalate = true;
+      break;
+    }
+  }
+
+  if (shouldEscalate) {
     try {
       await supabase.from('conversations')
         .update({ status: 'human', updated_at: new Date().toISOString() })
@@ -431,7 +495,7 @@ async function generateResponse(userMessage, training, phoneNumber, contactName)
       console.error('Erro transferir:', err);
     }
 
-    const notifyMsg = `🚨 *ATENDIMENTO HUMANO*\n\nCliente: ${name}\nTelefone: ${phoneNumber}\nMensagem: "${userMessage}"\n\n➡️ Transferido para fila humana!`;
+    const notifyMsg = '🚨 *ATENDIMENTO HUMANO*\n\nCliente: ' + name + '\nTelefone: ' + phoneNumber + '\nMensagem: "' + userMessage + '"\n\n➡️ Transferido para fila humana!';
     return {
       text: '👨‍💼 Entendido! Vou transferir voce para um atendente humano. Aguarde um momento...',
       notify: true,
@@ -507,12 +571,12 @@ async function saveMessage(phone, content, direction, senderType, contactName) {
 // ENVIAR WHATSAPP
 // ═══════════════════════════════════════════════════════
 async function sendWhatsAppMessage(to, text) {
-  const url = `https://graph.facebook.com/v18.0/${WHATSAPP_PHONE_ID}/messages`;
+  const url = 'https://graph.facebook.com/v18.0/' + WHATSAPP_PHONE_ID + '/messages';
 
   const response = await fetch(url, {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${WHATSAPP_TOKEN}`,
+      'Authorization': 'Bearer ' + WHATSAPP_TOKEN,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
@@ -525,7 +589,13 @@ async function sendWhatsAppMessage(to, text) {
   });
 
   const data = await response.json();
-  if (!response.ok) throw new Error(data.error?.message || 'Erro WhatsApp');
+
+  if (!response.ok) {
+    console.error('WhatsApp API erro:', JSON.stringify(data));
+    throw new Error(data.error && data.error.message ? data.error.message : 'Erro WhatsApp');
+  }
+
+  console.log('WhatsApp enviado:', data.messages && data.messages[0] ? data.messages[0].id : 'sem ID');
   return data;
 }
 
@@ -533,9 +603,12 @@ async function sendWhatsAppMessage(to, text) {
 // ENVIAR TELEGRAM
 // ═══════════════════════════════════════════════════════
 async function sendTelegram(text) {
-  if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) return;
+  if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
+    console.log('Telegram nao configurado');
+    return;
+  }
 
-  const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
+  const url = 'https://api.telegram.org/bot' + TELEGRAM_BOT_TOKEN + '/sendMessage';
 
   const response = await fetch(url, {
     method: 'POST',
@@ -549,6 +622,12 @@ async function sendTelegram(text) {
   });
 
   const data = await response.json();
-  if (!response.ok || !data.ok) throw new Error(data.description || 'Erro Telegram');
+
+  if (!response.ok || !data.ok) {
+    console.error('Telegram erro:', JSON.stringify(data));
+    throw new Error(data.description ? data.description : 'Erro Telegram');
+  }
+
+  console.log('Telegram enviado');
   return data;
 }

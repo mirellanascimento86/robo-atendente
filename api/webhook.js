@@ -14,6 +14,7 @@ const TELEGRAM_GROUP_ID = process.env.TELEGRAM_GROUP_ID;
 // MEMORIA DO SISTEMA
 // ============================================
 const conversas = new Map();
+const timers = new Map(); // Timers para delay de 2 minutos
 
 // ============================================
 // HANDLER PRINCIPAL
@@ -94,7 +95,7 @@ export default async function handler(req, res) {
         conv.ultimaAtividade = new Date().toISOString();
         conv.mensagens.push({
           tipo: 'system',
-          mensagem: '⚡ Humano assumiu o controle',
+          mensagem: 'Humano assumiu o controle',
           data: new Date().toISOString(),
           nome: 'Sistema'
         });
@@ -122,7 +123,7 @@ export default async function handler(req, res) {
         conv.ultimaAtividade = new Date().toISOString();
         conv.mensagens.push({
           tipo: 'system',
-          mensagem: '🤖 Robo retomou o atendimento',
+          mensagem: 'Robo retomou o atendimento',
           data: new Date().toISOString(),
           nome: 'Sistema'
         });
@@ -224,7 +225,12 @@ async function processarMensagem(body) {
       bairro: '',
       endereco: '',
       dataVisita: '',
-      horarioVisita: ''
+      horarioVisita: '',
+      horarioInicio: '',
+      horarioFim: '',
+      valorVisita: 0,
+      ultimaMsgBot: null,
+      aguardandoResposta: false
     });
   }
 
@@ -240,12 +246,25 @@ async function processarMensagem(body) {
 
   conv.ultima = texto;
   conv.ultimaAtividade = new Date().toISOString();
+  conv.aguardandoResposta = false;
+
+  // Limpa timer anterior se existir
+  if (timers.has(telefone)) {
+    clearTimeout(timers.get(telefone));
+    timers.delete(telefone);
+  }
 
   console.log(`[RECEBIDO] ${telefone} (${nome}): ${texto.substring(0,50)}`);
   console.log(`[ESTADO] emIntervencao=${conv.emIntervencao}, etapa=${conv.etapa}`);
 
   // SE NAO ESTIVER EM INTERVENCAO, RESPONDE AUTOMATICAMENTE
   if (!conv.emIntervencao) {
+    // Se ja marcou visita, nao responde mais nada
+    if (conv.etapa === 'visita_marcada') {
+      console.log(`[BOT] VISITA JA MARCADA - silencio total`);
+      return;
+    }
+
     const resposta = gerarResposta(texto, nome, conv);
     
     if (resposta) {
@@ -260,11 +279,79 @@ async function processarMensagem(body) {
 
       conv.ultima = resposta;
       conv.ultimaAtividade = new Date().toISOString();
+      conv.ultimaMsgBot = resposta;
+      conv.aguardandoResposta = true;
+
+      // Agenda timer de 2 minutos para reengajamento
+      if (conv.etapa !== 'visita_marcada' && conv.etapa !== 'nao_atende') {
+        const timer = setTimeout(() => {
+          reengajarCliente(telefone);
+        }, 2 * 60 * 1000); // 2 minutos
+        
+        timers.set(telefone, timer);
+      }
+
       console.log(`[BOT] Resposta automatica enviada`);
     }
   } else {
     console.log(`[BOT] BLOQUEADO - conversa em intervencao humana`);
   }
+}
+
+// ============================================
+// REENGAGEMENT - 2 MINUTOS SEM RESPOSTA
+// ============================================
+
+async function reengajarCliente(telefone) {
+  const conv = conversas.get(telefone);
+  if (!conv) return;
+  
+  // So reengaja se estiver aguardando resposta e nao for visita marcada
+  if (!conv.aguardandoResposta || conv.etapa === 'visita_marcada' || conv.etapa === 'nao_atende') {
+    return;
+  }
+
+  // Verifica se passou mais de 2 minutos desde ultima mensagem do cliente
+  const ultimaAtividade = new Date(conv.ultimaAtividade);
+  const agora = new Date();
+  const diffMin = (agora - ultimaAtividade) / 1000 / 60;
+  
+  if (diffMin < 1.8) return; // Ainda nao passou tempo suficiente
+
+  let msgReengajamento = '';
+
+  // Mensagem de reengajamento baseada na etapa
+  if (conv.etapa === 'equipamento') {
+    msgReengajamento = 'Ola! Qual equipamento esta com problema e qual a marca?';
+  } else if (conv.etapa === 'perguntar_visita') {
+    msgReengajamento = 'Gostaria de marcar uma visita para hoje?';
+  } else if (conv.etapa === 'perguntar_quando') {
+    msgReengajamento = 'Quando poderia receber a visita?';
+  } else if (conv.etapa === 'perguntar_horario') {
+    msgReengajamento = 'Qual horario seria melhor para voce?';
+  } else if (conv.etapa === 'perguntar_bairro') {
+    msgReengajamento = 'Qual o bairro?';
+  } else if (conv.etapa === 'confirmar_taxa') {
+    msgReengajamento = 'Gostaria de prosseguir com a visita?';
+  } else if (conv.etapa === 'perguntar_endereco') {
+    msgReengajamento = 'Qual o endereco completo?';
+  } else {
+    msgReengajamento = 'Gostaria de marcar uma visita para hoje?';
+  }
+
+  await enviarWhatsApp(telefone, msgReengajamento);
+  
+  conv.mensagens.push({
+    tipo: 'bot',
+    mensagem: msgReengajamento,
+    data: new Date().toISOString(),
+    nome: 'Robo'
+  });
+  
+  conv.ultima = msgReengajamento;
+  conv.ultimaAtividade = new Date().toISOString();
+  
+  console.log(`[REENGAGE] ${telefone} - ${msgReengajamento}`);
 }
 
 // ============================================
@@ -276,7 +363,7 @@ function gerarResposta(texto, nome, conv) {
   const etapa = conv.etapa;
 
   // ===== SOLICITACAO DE HUMANO =====
-  if (txt.match(/(humano|pessoa|atendente|funcionario|falar com|falar com alguem|atendente humano)/)) {
+  if (txt.match(/(humano|pessoa|atendente|funcionario|falar com|falar com alguem|atendente humano|real|vivo|pessoa de verdade)/)) {
     conv.emIntervencao = true;
     enviarTelegramIntervencao(conv.telefone, nome);
     return 'Um momento.';
@@ -297,20 +384,25 @@ function gerarResposta(texto, nome, conv) {
     if (info.equipamento) conv.equipamento = info.equipamento;
     if (info.marca) conv.marca = info.marca;
     
+    // Se nao conseguiu extrair, pergunta novamente com educacao
+    if (!info.equipamento) {
+      return 'Desculpe, nao entendi bem. Poderia me dizer qual equipamento esta com problema e qual a marca?';
+    }
+    
     conv.etapa = 'perguntar_visita';
     return 'Gostaria de marcar uma visita para hoje?';
   }
 
   // ETAPA: PERGUNTAR VISITA (resposta sim/nao para visita hoje)
   if (etapa === 'perguntar_visita') {
-    if (txt.match(/(sim|quero|pode ser|claro|ok|pode|gostaria|top)/)) {
+    if (txt.match(/(sim|quero|pode ser|claro|ok|pode|gostaria|top|vamos|vamo|bora|beleza|show|demais|perfeito)/)) {
       conv.etapa = 'perguntar_bairro';
       return 'Qual o bairro?';
-    } else if (txt.match(/(nao|não|nop|negativo|depois|outro dia|amanha|outro|mais tarde)/)) {
+    } else if (txt.match(/(nao|não|nop|negativo|depois|outro dia|amanha|outro|mais tarde|nao quero|nao posso|hoje nao|outro horario|outra data)/)) {
       conv.etapa = 'perguntar_quando';
       return 'Quando poderia?';
     } else {
-      // Se resposta nao clara, repete a pergunta
+      // Se resposta nao clara, repete a pergunta com gentileza
       return 'Gostaria de marcar uma visita para hoje?';
     }
   }
@@ -325,6 +417,21 @@ function gerarResposta(texto, nome, conv) {
   // ETAPA: PERGUNTAR HORARIO
   if (etapa === 'perguntar_horario') {
     conv.horarioVisita = texto;
+    
+    // Tenta extrair horario para calcular janela de 2h
+    const horarioExtraido = extrairHorario(texto);
+    if (horarioExtraido) {
+      conv.horarioInicio = horarioExtraido.inicio;
+      conv.horarioFim = horarioExtraido.fim;
+    } else {
+      // Se nao conseguiu extrair, assume horario atual + 2h
+      const agora = new Date();
+      const h1 = agora.getHours() + 2;
+      const h2 = h1 + 2;
+      conv.horarioInicio = `${h1}:00`;
+      conv.horarioFim = `${h2}:00`;
+    }
+    
     conv.etapa = 'perguntar_endereco';
     return 'Qual o endereco?';
   }
@@ -357,24 +464,21 @@ function gerarResposta(texto, nome, conv) {
     }
     
     // Barra da Tijuca, Baixada ou outras regioes nao atendidas
-    if (bairroLower.includes('barra') || bairroLower.includes('baixada') || bairroLower.includes('jacarepagua') || bairroLower.includes('recreio')) {
+    if (bairroLower.includes('barra') || bairroLower.includes('baixada') || bairroLower.includes('jacarepagua') || bairroLower.includes('recreio') || bairroLower.includes('curicica') || bairroLower.includes('tanque')) {
       conv.etapa = 'nao_atende';
       return 'Infelizmente nao atendemos na sua regiao no momento.';
     }
     
-    // Se nao reconhecer o bairro, pergunta novamente ou assume zona sul
-    // Por padrao, vamos perguntar de qual regiao
-    conv.etapa = 'confirmar_taxa';
-    conv.valorVisita = 120;
-    return 'Qual a regiao? (Zona Sul, Zona Norte, Centro, etc.)';
+    // Se nao reconhecer o bairro, pergunta de qual regiao
+    return 'De qual regiao e esse bairro? (Zona Sul, Zona Norte, Centro, etc.)';
   }
 
   // ETAPA: CONFIRMAR TAXA
   if (etapa === 'confirmar_taxa') {
-    if (txt.match(/(sim|quero|pode ser|claro|ok|pode|gostaria|top|prossiga)/)) {
-      conv.etapa = 'perguntar_endereco';
-      return 'Qual o endereco?';
-    } else if (txt.match(/(nao|não|nop|negativo|cancelar)/)) {
+    if (txt.match(/(sim|quero|pode ser|claro|ok|pode|gostaria|top|prossiga|vamos|vamo|bora|beleza|show|demais|perfeito)/)) {
+      conv.etapa = 'perguntar_horario';
+      return 'Qual horario?';
+    } else if (txt.match(/(nao|não|nop|negativo|cancelar|desistir|outro dia|outro horario)/)) {
       conv.etapa = 'perguntar_quando';
       return 'Quando poderia?';
     } else {
@@ -390,17 +494,21 @@ function gerarResposta(texto, nome, conv) {
     // Envia para o Telegram
     enviarTelegramVisita(conv);
     
-    return `Visita marcada para ${conv.dataVisita || 'hoje'} as ${conv.horarioVisita || 'a combinar'}.
-    
-Endereco: ${conv.endereco}
-Taxa da visita: R$${conv.valorVisita}
+    return `Visita marcada para hoje entre ${conv.horarioInicio} e ${conv.horarioFim}.
 
-Um tecnico da Conserta Rio entrara em contato para confirmar. Obrigado!`;
+A taxa de R$${conv.valorVisita} deve ser paga no ato da visita
+
+Obrigada!`;
   }
 
-  // ETAPA: VISITA MARCADA ou NAO ATENDE - resposta generica
-  if (etapa === 'visita_marcada' || etapa === 'nao_atende') {
-    return 'Posso ajudar com mais alguma coisa? Caso queira falar com um atendente, digite "humano".';
+  // ETAPA: VISITA MARCADA - silencio absoluto
+  if (etapa === 'visita_marcada') {
+    return null; // Nao responde nada
+  }
+
+  // ETAPA: NAO ATENDE - resposta generica
+  if (etapa === 'nao_atende') {
+    return 'Infelizmente nao atendemos na sua regiao no momento. Caso queira falar com um atendente, digite "humano".';
   }
 
   // Fallback: se etapa nao reconhecida, volta para pergunta de visita
@@ -416,8 +524,8 @@ function extrairEquipamentoMarca(texto) {
   const txt = texto.toLowerCase();
   
   const equipamentos = [
-    'maquina de lavar', 'lava e seca', 'lava-seca', 'lavaeseca',
-    'frigobar', 'geladeira', 'ar condicionado', 'ar-condicionado', 'arcondicionado'
+    'maquina de lavar', 'lava e seca', 'lava-seca', 'lavaeseca', 'lavaeseca',
+    'frigobar', 'geladeira', 'ar condicionado', 'ar-condicionado', 'arcondicionado', 'ar condicionado', 'arcond'
   ];
   
   let equipamento = '';
@@ -436,7 +544,7 @@ function extrairEquipamentoMarca(texto) {
   }
   
   // Tenta extrair marca (palavras comuns de marca)
-  const marcas = ['brastemp', 'consul', 'electrolux', 'lg', 'samsung', 'panasonic', 'midea', 'springer', 'carrier', 'fujitsu', 'gree', 'philco', 'eletrolux'];
+  const marcas = ['brastemp', 'consul', 'electrolux', 'eletrolux', 'lg', 'samsung', 'panasonic', 'midea', 'springer', 'carrier', 'fujitsu', 'gree', 'philco', 'continental', 'bosch', 'ge', 'general electric'];
   for (const m of marcas) {
     if (txt.includes(m)) {
       marca = m;
@@ -447,11 +555,59 @@ function extrairEquipamentoMarca(texto) {
   return { equipamento, marca };
 }
 
+function extrairHorario(texto) {
+  const txt = texto.toLowerCase();
+  
+  // Padroes de horario: 14h, 14:00, 14 hs, 14 horas, 2 da tarde, etc.
+  const padroes = [
+    /(\d{1,2})[h:](\d{2})/,
+    /(\d{1,2})\s*h(?:s|oras?)?/,
+    /(\d{1,2})\s*:\s*(\d{2})/,
+    /(\d{1,2})\s*da\s*(manha|tarde|noite)/,
+  ];
+  
+  let hora = null;
+  let minuto = 0;
+  
+  for (const padrao of padroes) {
+    const match = txt.match(padrao);
+    if (match) {
+      hora = parseInt(match[1]);
+      
+      // Se tem minutos no match
+      if (match[2] && !isNaN(parseInt(match[2]))) {
+        minuto = parseInt(match[2]);
+      }
+      
+      // Ajusta para tarde/noite
+      if (match[2] === 'tarde' && hora < 12) hora += 12;
+      if (match[2] === 'noite' && hora < 12) hora += 12;
+      
+      break;
+    }
+  }
+  
+  if (hora === null) return null;
+  
+  // Calcula janela de 2 horas
+  const horaFim = hora + 2;
+  
+  const formatar = (h, m) => {
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+  };
+  
+  return {
+    inicio: formatar(hora, minuto),
+    fim: formatar(horaFim, minuto)
+  };
+}
+
 function ehZonaSul(bairro) {
   const bairrosZonaSul = [
     'copacabana', 'ipanema', 'leblon', 'laranjeiras', 'flamengo', 'botafogo',
     'humaita', 'jardim botanico', 'gavea', 'sao conrado', 'vidigal', 'rocinha',
-    'catete', 'gloria', 'cosme velho', 'santa teresa', 'urca', 'leme'
+    'catete', 'gloria', 'cosme velho', 'santa teresa', 'urca', 'leme', 'gavea',
+    'jardim botanico', 'lagoa', 'jardim oceanico', 'itaim bibi', 'vila nova'
   ];
   return bairrosZonaSul.some(b => bairro.includes(b));
 }
@@ -461,10 +617,11 @@ function ehZonaNorte(bairro) {
     'tijuca', 'vila isabel', 'grajau', 'andaraí', 'maracana', 'engenho novo',
     'engenho de dentro', 'meier', 'alto da boa vista', 'praça da bandeira',
     'riachuelo', 'sao cristovao', 'benfica', 'caju', 'centro', 'lapa', 'cidade nova',
-    'estacio', 'saude', ' gamboa', 'santo cristo', 'catumbi', 'rio comprido',
+    'estacio', 'saude', 'gamboa', 'santo cristo', 'catumbi', 'rio comprido',
     'sao francisco xavier', 'jacarezinho', 'manguinhos', 'complexo', 'rocha',
     'rocha miranda', 'honorio gurgel', 'marechal hermes', 'deodoro', 'bento ribeiro',
-    'oswaldo cruz', 'madureira', 'campinho', 'cascadura', 'quintino', 'pilares'
+    'oswaldo cruz', 'madureira', 'campinho', 'cascadura', 'quintino', 'pilares',
+    'del castilho', 'inhauma', 'engenheiro leal', 'encantado', 'manguiera', 'tomas coelho'
   ];
   return bairrosZonaNorte.some(b => bairro.includes(b));
 }
@@ -519,33 +676,38 @@ async function enviarWhatsApp(numero, texto) {
 
 async function enviarTelegramVisita(conv) {
   if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_GROUP_ID) {
-    console.error('Telegram nao configurado');
+    console.error('Telegram nao configurado - TOKEN:', !!TELEGRAM_BOT_TOKEN, 'GROUP:', !!TELEGRAM_GROUP_ID);
     return;
   }
 
-  const mensagem = `🛠️ *NOVA VISITA MARCADA - CONSERTA RIO*
+  const mensagem = `NOVA VISITA CONFIRMADA - CONSERTA RIO
 
-📱 *Numero:* ${conv.telefone}
-👤 *Nome:* ${conv.nome}
-📍 *Endereco:* ${conv.endereco}
-🏘️ *Bairro:* ${conv.bairro}
-🔧 *Equipamento:* ${conv.equipamento}
-🏷️ *Marca:* ${conv.marca || 'Nao informada'}
-📅 *Data:* ${conv.dataVisita || 'Hoje'}
-🕐 *Horario:* ${conv.horarioVisita || 'A combinar'}
-💰 *Taxa Visita:* R$${conv.valorVisita || '---'}`;
+Numero: ${conv.telefone}
+Nome: ${conv.nome}
+Endereco: ${conv.endereco}
+Bairro: ${conv.bairro}
+Equipamento: ${conv.equipamento}
+Marca: ${conv.marca || 'Nao informada'}
+Horario da visita: ${conv.horarioInicio} as ${conv.horarioFim}
+Taxa Visita: R$${conv.valorVisita || '---'}`;
 
   try {
-    await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+    const response = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         chat_id: TELEGRAM_GROUP_ID,
         text: mensagem,
-        parse_mode: 'Markdown'
+        parse_mode: 'HTML'
       })
     });
-    console.log('[TELEGRAM] Visita enviada ao grupo');
+    
+    const data = await response.json();
+    if (!data.ok) {
+      console.error('[TELEGRAM] Erro na resposta:', data);
+    } else {
+      console.log('[TELEGRAM] Visita enviada ao grupo com sucesso');
+    }
   } catch (e) {
     console.error('[TELEGRAM] Erro:', e.message);
   }
@@ -557,24 +719,30 @@ async function enviarTelegramIntervencao(telefone, nome) {
     return;
   }
 
-  const mensagem = `🚨 *INTERVENCAO HUMANA SOLICITADA - CONSERTA RIO*
+  const mensagem = `INTERVENCAO HUMANA SOLICITADA - CONSERTA RIO
 
-📱 *Numero:* ${telefone}
-👤 *Nome:* ${nome}
+Numero: ${telefone}
+Nome: ${nome}
 
 O cliente solicitou falar com um atendente humano.`;
 
   try {
-    await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+    const response = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         chat_id: TELEGRAM_GROUP_ID,
         text: mensagem,
-        parse_mode: 'Markdown'
+        parse_mode: 'HTML'
       })
     });
-    console.log('[TELEGRAM] Intervencao enviada ao grupo');
+    
+    const data = await response.json();
+    if (!data.ok) {
+      console.error('[TELEGRAM] Erro na resposta:', data);
+    } else {
+      console.log('[TELEGRAM] Intervencao enviada ao grupo com sucesso');
+    }
   } catch (e) {
     console.error('[TELEGRAM] Erro:', e.message);
   }

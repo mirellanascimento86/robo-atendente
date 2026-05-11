@@ -1,654 +1,813 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Treinar Robo - V2</title>
-<style>
-* { box-sizing: border-box; }
-body { font-family: 'Segoe UI', Arial, sans-serif; max-width: 700px; margin: 0 auto; padding: 20px; background: #f0f2f5; }
-h1 { font-size: 24px; color: #1a1a2e; margin-bottom: 5px; }
-.subtitle { color: #666; font-size: 13px; margin-bottom: 20px; }
-.status { padding: 12px; border-radius: 8px; margin-bottom: 15px; font-size: 14px; font-weight: 600; }
-.status.ok { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
-.status.err { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
-.status.warn { background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
-.status.info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
-.card { background: white; padding: 20px; border-radius: 12px; margin-bottom: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
-.card h2 { font-size: 16px; color: #333; margin: 0 0 15px 0; display: flex; align-items: center; gap: 8px; }
-label { display: block; font-size: 11px; font-weight: 700; color: #555; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
-input, textarea, select { width: 100%; padding: 10px; border: 1.5px solid #e0e0e0; border-radius: 8px; font-size: 14px; margin-bottom: 12px; transition: border-color 0.2s; }
-input:focus, textarea:focus, select:focus { outline: none; border-color: #007bff; }
-textarea { min-height: 70px; resize: vertical; }
-button { padding: 10px 18px; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; transition: all 0.2s; }
-button:hover { transform: translateY(-1px); }
-.btn-primary { background: linear-gradient(135deg, #007bff, #0056b3); color: white; width: 100%; padding: 14px; font-size: 16px; }
-.btn-primary:hover { background: linear-gradient(135deg, #0056b3, #004494); }
-.btn-primary:disabled { background: #6c757d; cursor: not-allowed; transform: none; }
-.btn-secondary { background: #6c757d; color: white; }
-.btn-secondary:hover { background: #5a6268; }
-.btn-danger { background: #dc3545; color: white; padding: 4px 10px; font-size: 12px; }
-.btn-danger:hover { background: #c82333; }
-.btn-success { background: #28a745; color: white; }
-.btn-success:hover { background: #218838; }
-.btn-small { padding: 6px 12px; font-size: 12px; }
-.toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 5px 0; }
-.toggle { width: 52px; height: 28px; background: #ccc; border-radius: 14px; position: relative; cursor: pointer; transition: background 0.3s; }
-.toggle.on { background: #28a745; }
-.toggle::after { content: ''; position: absolute; width: 24px; height: 24px; background: white; border-radius: 50%; top: 2px; left: 2px; transition: left 0.3s; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
-.toggle.on::after { left: 26px; }
-.tag { display: inline-flex; align-items: center; gap: 4px; background: #e3f2fd; color: #1565c0; padding: 4px 10px; border-radius: 16px; font-size: 13px; margin: 3px; font-weight: 500; }
-.tag .del { background: none; border: none; color: #c62828; cursor: pointer; font-size: 16px; padding: 0; margin-left: 4px; }
-.faq-item { background: #f8f9fa; padding: 12px; border-left: 4px solid #007bff; margin-bottom: 10px; border-radius: 0 8px 8px 0; position: relative; }
-.faq-item .q { font-weight: 700; color: #007bff; margin-bottom: 4px; }
-.faq-item .a { color: #444; }
-.faq-del { position: absolute; top: 8px; right: 8px; background: none; border: none; color: #dc3545; cursor: pointer; font-size: 20px; }
-.lead-item { background: #f0f9ff; padding: 14px; border-left: 4px solid #0ea5e9; margin-bottom: 10px; border-radius: 0 8px 8px 0; position: relative; }
-.lead-item .field-name { font-weight: 700; color: #0ea5e9; font-size: 13px; text-transform: uppercase; }
-.lead-item .question-text { color: #444; margin-top: 4px; }
-.lead-del { position: absolute; top: 8px; right: 8px; background: none; border: none; color: #dc3545; cursor: pointer; font-size: 20px; }
-.nav { position: fixed; bottom: 0; left: 0; right: 0; background: white; border-top: 1px solid #e0e0e0; display: flex; justify-content: center; padding: 12px; z-index: 100; box-shadow: 0 -2px 10px rgba(0,0,0,0.05); }
-.nav a { padding: 10px 30px; text-decoration: none; color: #666; font-size: 13px; text-transform: uppercase; font-weight: 600; }
-.nav a.active { color: #007bff; font-weight: 700; }
-#debug { background: #1e1e1e; color: #4ec9b0; padding: 12px; border-radius: 8px; font-family: 'Consolas', monospace; font-size: 11px; max-height: 200px; overflow-y: auto; margin-bottom: 15px; display: none; }
-.save-indicator { position: fixed; top: 15px; right: 15px; padding: 10px 16px; border-radius: 8px; font-size: 13px; font-weight: 700; display: none; z-index: 1000; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
-.save-indicator.show { display: block; animation: slideIn 0.3s ease; }
-.save-indicator.saved { background: #d4edda; color: #155724; }
-.save-indicator.saving { background: #fff3cd; color: #856404; }
-.save-indicator.error { background: #f8d7da; color: #721c24; }
-@keyframes slideIn { from { transform: translateX(100px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-.section-desc { color: #888; font-size: 13px; margin-bottom: 15px; line-height: 1.5; }
-.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-@media (max-width: 500px) { .grid-2 { grid-template-columns: 1fr; } }
-.empty-state { text-align: center; padding: 20px; color: #999; font-size: 13px; }
-</style>
-<base target="_blank">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#075e54">
+    <title>WhatsApp Pro - Painel de Treinamento</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        :root {
+            --primary: #075e54;
+            --primary-dark: #054d44;
+            --secondary: #128c7e;
+            --accent: #25d366;
+            --bg: #0a1014;
+            --card-bg: #111b21;
+            --text: #e9edef;
+            --text-secondary: #8696a0;
+            --border: #2a3942;
+            --danger: #f15c6d;
+            --warning: #ffd700;
+            --success: #25d366;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        .header {
+            background: var(--card-bg);
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .status-badge {
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+        .status-badge.online { background: var(--accent); color: #111; }
+        .status-badge.offline { background: var(--danger); color: white; }
+        .status-badge.sync { background: var(--warning); color: #111; }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .btn-primary { background: var(--secondary); color: white; }
+        .btn-primary:hover { background: var(--accent); }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-success { background: var(--success); color: #111; }
+        .btn-secondary { background: var(--border); color: var(--text); }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 24px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 12px;
+        }
+
+        .tab {
+            padding: 10px 20px;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 15px;
+            font-weight: 500;
+            border-radius: 8px;
+            transition: all 0.2s;
+        }
+        .tab:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+        .tab.active { color: var(--accent); background: rgba(37, 211, 102, 0.1); }
+
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+            border: 1px solid var(--border);
+        }
+
+        .card h2 {
+            font-size: 18px;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 12px 16px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-size: 15px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            border-color: var(--secondary);
+        }
+        .form-group textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        .training-item {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 12px;
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+        }
+
+        .training-item .info {
+            flex: 1;
+        }
+
+        .training-item .info .key {
+            font-weight: 600;
+            color: var(--accent);
+            font-size: 14px;
+            margin-bottom: 4px;
+        }
+
+        .training-item .info .value {
+            color: var(--text-secondary);
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .training-item .info .category {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            margin-top: 8px;
+            background: rgba(37, 211, 102, 0.1);
+            color: var(--accent);
+        }
+
+        .training-item .actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .icon-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+        .icon-btn:hover { background: rgba(255,255,255,0.1); }
+        .icon-btn.delete:hover { background: var(--danger); color: white; }
+        .icon-btn.edit:hover { background: var(--secondary); color: white; }
+
+        .bairro-item {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr 1fr auto;
+            gap: 12px;
+            align-items: center;
+            padding: 12px;
+            background: var(--bg);
+            border-radius: 8px;
+            margin-bottom: 8px;
+            border: 1px solid var(--border);
+        }
+
+        .bairro-item .nome { font-weight: 500; }
+        .bairro-item .regiao { 
+            padding: 4px 10px; 
+            border-radius: 12px; 
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .regiao-botafogo { background: rgba(37, 211, 102, 0.2); color: var(--accent); }
+        .regiao-zona_sul { background: rgba(18, 140, 126, 0.2); color: var(--secondary); }
+        .regiao-zona_norte { background: rgba(255, 193, 7, 0.2); color: var(--warning); }
+        .regiao-zona_oeste { background: rgba(241, 92, 109, 0.2); color: var(--danger); }
+        .regiao-baixada { background: rgba(241, 92, 109, 0.2); color: var(--danger); }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-secondary);
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.8);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal.active { display: flex; }
+        .modal-content {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 24px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .modal-header h3 { font-size: 20px; }
+        .close-btn {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 24px;
+            cursor: pointer;
+        }
+
+        .preview-box {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 16px;
+            margin-top: 12px;
+            font-size: 14px;
+            line-height: 1.6;
+            color: var(--text-secondary);
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            padding: 16px 24px;
+            border-radius: 8px;
+            color: white;
+            font-weight: 600;
+            z-index: 10000;
+            animation: slideIn 0.3s ease;
+        }
+        .toast.success { background: var(--success); color: #111; }
+        .toast.error { background: var(--danger); }
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        @media (max-width: 768px) {
+            .bairro-item {
+                grid-template-columns: 1fr;
+                gap: 8px;
+            }
+            .header { flex-direction: column; gap: 12px; }
+            .container { padding: 16px; }
+        }
+    </style>
 <base target="_blank">
 </head>
 <body>
-
-<h1>🤖 Treinar Robo WhatsApp</h1>
-<div class="subtitle">Configure respostas, fluxo de atendimento e captura de leads</div>
-
-<div id="debug"></div>
-<div id="saveIndicator" class="save-indicator"></div>
-
-<div id="statusBox" class="status warn">Carregando configuracao...</div>
-
-<!-- ATIVACAO -->
-<div class="card">
-  <div class="toggle-row">
-    <div>
-      <strong style="font-size: 15px;">Robo Ativo</strong>
-      <div style="font-size: 12px; color: #888; margin-top: 2px;">Desligado = atendimento humano</div>
+    <div class="header">
+        <h1>
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+            </svg>
+            Painel de Treinamento - WhatsApp Pro
+        </h1>
+        <div class="header-actions">
+            <span class="status-badge sync" id="statusBadge">Sincronizando...</span>
+            <button class="btn btn-primary" onclick="app.openModal()">
+                + Nova Mensagem
+            </button>
+        </div>
     </div>
-    <div class="toggle on" id="botToggle"></div>
-  </div>
-</div>
 
-<!-- IDENTIDADE -->
-<div class="card">
-  <h2>🏢 Identidade da Empresa</h2>
-  <div class="section-desc">Como o robo se apresenta aos clientes</div>
-  <div class="grid-2">
-    <div>
-      <label>Nome do Robo</label>
-      <input type="text" id="botName" placeholder="Ex: TecBot">
+    <div class="container">
+        <div class="tabs">
+            <button class="tab active" onclick="app.switchTab('fluxo')">📋 Fluxo de Conversa</button>
+            <button class="tab" onclick="app.switchTab('precos')">💰 Preços e Descontos</button>
+            <button class="tab" onclick="app.switchTab('bairros')">🏘️ Bairros</button>
+            <button class="tab" onclick="app.switchTab('palavras')">🔑 Palavras-chave</button>
+            <button class="tab" onclick="app.switchTab('preview')">👁️ Preview do Bot</button>
+        </div>
+
+        <!-- ABA: FLUXO DE CONVERSA -->
+        <div class="tab-content active" id="tab-fluxo">
+            <div class="card">
+                <h2>🤖 Mensagens do Fluxo Principal</h2>
+                <p style="color: var(--text-secondary); margin-bottom: 20px;">
+                    Estas são as mensagens que o robô envia durante o atendimento. 
+                    Use <code>{horario}</code> para inserir horário dinâmico e <code>{valor}</code> para preço.
+                </p>
+                <div id="listaFluxo"></div>
+            </div>
+        </div>
+
+        <!-- ABA: PREÇOS -->
+        <div class="tab-content" id="tab-precos">
+            <div class="card">
+                <h2>💰 Configuração de Preços</h2>
+                <div id="listaPrecos"></div>
+            </div>
+            <div class="card">
+                <h2>🏷️ Mensagens de Desconto</h2>
+                <div id="listaDescontos"></div>
+            </div>
+        </div>
+
+        <!-- ABA: BAIRROS -->
+        <div class="tab-content" id="tab-bairros">
+            <div class="card">
+                <h2>🏘️ Gerenciar Bairros</h2>
+                <div class="form-group" style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr auto; gap: 12px;">
+                    <input type="text" id="novoBairro" placeholder="Nome do bairro">
+                    <select id="novaRegiao">
+                        <option value="botafogo">Botafogo</option>
+                        <option value="zona_sul">Zona Sul</option>
+                        <option value="zona_norte">Zona Norte</option>
+                        <option value="zona_oeste">Zona Oeste</option>
+                        <option value="baixada">Baixada</option>
+                    </select>
+                    <input type="number" id="novoValor" placeholder="Valor" value="120">
+                    <select id="novoAtende">
+                        <option value="true">Atende</option>
+                        <option value="false">Não atende</option>
+                    </select>
+                    <button class="btn btn-success" onclick="app.addBairro()">+</button>
+                </div>
+                <div id="listaBairros"></div>
+            </div>
+        </div>
+
+        <!-- ABA: PALAVRAS-CHAVE -->
+        <div class="tab-content" id="tab-palavras">
+            <div class="card">
+                <h2>🔑 Palavras-chave para Humanizar</h2>
+                <p style="color: var(--text-secondary); margin-bottom: 20px;">
+                    Quando o cliente digitar qualquer uma dessas palavras, o robô para e chama um humano.
+                </p>
+                <div class="form-group" style="display: flex; gap: 12px;">
+                    <input type="text" id="novaPalavra" placeholder="Nova palavra-chave" style="flex: 1;">
+                    <button class="btn btn-success" onclick="app.addPalavra()">Adicionar</button>
+                </div>
+                <div id="listaPalavras"></div>
+            </div>
+        </div>
+
+        <!-- ABA: PREVIEW -->
+        <div class="tab-content" id="tab-preview">
+            <div class="card">
+                <h2>👁️ Simulação do Atendimento</h2>
+                <div class="preview-box" id="previewBox">
+                    <p><strong>Cliente:</strong> Olá, preciso de ajuda</p>
+                    <p style="color: var(--accent); margin: 8px 0;"><strong>🤖 Bot:</strong> <span id="previewSaudacao">Carregando...</span></p>
+                    <p><strong>Cliente:</strong> Meu ar condicionado LG está com problema</p>
+                    <p style="color: var(--accent); margin: 8px 0;"><strong>🤖 Bot:</strong> <span id="previewHorario">Carregando...</span></p>
+                    <p><strong>Cliente:</strong> Sim, pode ser</p>
+                    <p style="color: var(--accent); margin: 8px 0;"><strong>🤖 Bot:</strong> <span id="previewBairro">Carregando...</span></p>
+                    <p><strong>Cliente:</strong> Botafogo</p>
+                    <p style="color: var(--accent); margin: 8px 0;"><strong>🤖 Bot:</strong> <span id="previewPreco">Carregando...</span></p>
+                </div>
+            </div>
+        </div>
     </div>
-    <div>
-      <label>Nome da Empresa</label>
-      <input type="text" id="companyName" placeholder="Ex: Assistencia Express">
+
+    <!-- MODAL -->
+    <div class="modal" id="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">Nova Mensagem</h3>
+                <button class="close-btn" onclick="app.closeModal()">&times;</button>
+            </div>
+            <div class="form-group">
+                <label>Chave de identificação</label>
+                <input type="text" id="modalChave" placeholder="ex: saudacao, preco_botafogo">
+            </div>
+            <div class="form-group">
+                <label>Categoria</label>
+                <select id="modalCategoria">
+                    <option value="fluxo">Fluxo de Conversa</option>
+                    <option value="precos">Preços</option>
+                    <option value="descontos">Descontos</option>
+                    <option value="humano">Humano</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Mensagem</label>
+                <textarea id="modalValor" placeholder="Digite a mensagem que o robô enviará..."></textarea>
+            </div>
+            <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                <button class="btn btn-secondary" onclick="app.closeModal()">Cancelar</button>
+                <button class="btn btn-primary" onclick="app.saveTraining()">Salvar</button>
+            </div>
+        </div>
     </div>
-  </div>
-  <label>Saudacao Inicial</label>
-  <textarea id="greeting" placeholder="Ola! Bem-vindo a Assistencia Express. Sou o TecBot, seu assistente virtual..."></textarea>
-</div>
-
-<!-- SERVICOS -->
-<div class="card">
-  <h2>🔧 Servicos e Informacoes</h2>
-  <div class="section-desc">Respostas automaticas para perguntas comuns</div>
-  <label>Comportamento / Personalidade</label>
-  <textarea id="personality" placeholder="Seja cordial, objetivo e profissional. Sempre ofereca orcamento gratis."></textarea>
-
-  <label>Servicos Oferecidos</label>
-  <textarea id="services" placeholder="Conserto de geladeiras, maquinas de lavar, ar-condicionado, troca de telas de celular..."></textarea>
-
-  <div class="grid-2">
-    <div>
-      <label>Horario de Funcionamento</label>
-      <textarea id="businessHours" placeholder="Seg-Sex: 8h as 18h\nSab: 8h as 12h"></textarea>
-    </div>
-    <div>
-      <label>Informacoes de Preco</label>
-      <textarea id="pricing" placeholder="Orcamento gratis!\nVisita tecnica: R$ 80\nConserto a partir de R$ 150"></textarea>
-    </div>
-  </div>
-
-  <label>Resposta Padrao (quando nao entende)</label>
-  <textarea id="fallback" placeholder="Nao entendi muito bem. Posso te ajudar com precos, horarios, servicos e agendamentos. Digite 'atendente' para falar com um humano!"></textarea>
-</div>
-
-<!-- FAQ -->
-<div class="card">
-  <h2>❓ Perguntas Frequentes (FAQ)</h2>
-  <div class="section-desc">O robo responde automaticamente quando detecta palavras-chave da pergunta</div>
-  <div id="faqList"></div>
-  <div id="faqEmpty" class="empty-state" style="display:none;">Nenhuma FAQ cadastrada. Adicione abaixo.</div>
-  <div style="display:flex;gap:8px;margin-top:12px;">
-    <input type="text" id="faqQ" placeholder="Pergunta do cliente (ex: Quanto custa trocar tela?)" style="flex:1;margin-bottom:0;">
-    <input type="text" id="faqA" placeholder="Resposta do robo" style="flex:1;margin-bottom:0;">
-    <button class="btn-secondary" id="btnAddFaq">+</button>
-  </div>
-</div>
-
-<!-- CAPTURA DE LEADS -->
-<div class="card" style="border: 2px solid #0ea5e9;">
-  <h2>🎯 Captura de Leads (Fluxo Conversacional)</h2>
-  <div class="section-desc">
-    <strong>Configure perguntas sequenciais</strong> que o robo fara ao cliente para capturar nome, endereco, tipo de aparelho, etc.<br>
-    O robo faz uma pergunta de cada vez e so avanca quando o cliente responde.
-  </div>
-
-  <div id="leadList"></div>
-  <div id="leadEmpty" class="empty-state" style="display:none;">Nenhuma pergunta de lead configurada.</div>
-
-  <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-top: 12px;">
-    <div style="font-weight: 700; color: #333; margin-bottom: 10px; font-size: 13px;">➕ Nova Pergunta do Fluxo</div>
-    <div class="grid-2">
-      <div>
-        <label>Nome do Campo (para identificar)</label>
-        <input type="text" id="leadField" placeholder="ex: nome, endereco, aparelho, problema">
-      </div>
-      <div>
-        <label>Pergunta que o Robo faz</label>
-        <input type="text" id="leadQuestion" placeholder="ex: Qual o seu nome completo?">
-      </div>
-    </div>
-    <button class="btn-success btn-small" id="btnAddLead" style="width: 100%;">Adicionar Pergunta ao Fluxo</button>
-  </div>
-
-  <div style="margin-top: 15px; padding: 12px; background: #e8f5e9; border-radius: 8px; font-size: 13px; color: #2e7d32;">
-    <strong>💡 Exemplo de fluxo para conserto:</strong><br>
-    1. Campo: <code>nome</code> → Pergunta: "Qual seu nome completo?"<br>
-    2. Campo: <code>endereco</code> → Pergunta: "Qual o endereco para visita?"<br>
-    3. Campo: <code>aparelho</code> → Pergunta: "Qual aparelho precisa de conserto?"<br>
-    4. Campo: <code>problema</code> → Pergunta: "Qual o problema/defeito?"<br>
-    5. Campo: <code>data</code> → Pergunta: "Qual dia e horario prefere?"
-  </div>
-
-  <label style="margin-top: 15px;">Mensagem de Conclusao (quando capturar tudo)</label>
-  <textarea id="completionMsg" placeholder="✅ Obrigado {nome}! Recebemos seu pedido. Nosso tecnico entrara em contato em breve para confirmar a visita no endereco: {endereco}"></textarea>
-</div>
-
-<!-- ESCALONAMENTO -->
-<div class="card">
-  <h2>🚨 Transferir para Humano</h2>
-  <div class="section-desc">Palavras que fazem o robo transferir para atendente humano</div>
-  <div id="escalationTags"></div>
-  <div style="display:flex;gap:8px;margin-top:10px;">
-    <input type="text" id="newTagInput" placeholder="Nova palavra-chave..." style="flex:1;margin-bottom:0;">
-    <button class="btn-secondary" id="btnAddTag">+ Adicionar</button>
-  </div>
-</div>
-
-<!-- SIMULADOR -->
-<div class="card">
-  <h2>🧪 Simulador de Resposta</h2>
-  <div class="section-desc">Teste como o robo responderia antes de salvar</div>
-  <input type="text" id="testQ" placeholder="Digite uma mensagem de teste (ex: oi, quanto custa, quero agendar)...">
-  <div id="previewBox" style="display:none;background:#e8f5e9;padding:14px;border-radius:8px;margin-top:10px;border:1px solid #a5d6a7;">
-    <div style="font-size: 11px; color: #2e7d32; font-weight: 700; text-transform: uppercase; margin-bottom: 6px;">🤖 Resposta do Robo:</div>
-    <div id="previewTxt" style="white-space:pre-wrap;color:#1b5e20;font-size:14px;line-height:1.5;"></div>
-  </div>
-</div>
-
-<button class="btn-primary" id="saveBtn">💾 Salvar Configuracao no Servidor</button>
-
-<div style="height:100px;"></div>
-
-<nav class="nav">
-  <a href="painel.html">📋 Painel de Conversas</a>
-  <a href="treinar.html" class="active">⚙️ Treinamento</a>
-</nav>
-
-<script>
-// ═══════════════════════════════════════════════════════
-// CONFIGURACAO
-// ═══════════════════════════════════════════════════════
-const WEBHOOK_URL = (() => {
-  const host = window.location.host;
-  if (host.includes('localhost')) return 'https://robo-atendente.vercel.app/api/webhook';
-  return window.location.protocol + '//' + host + '/api/webhook';
-})();
-
-console.log('Webhook URL:', WEBHOOK_URL);
-
-// ═══════════════════════════════════════════════════════
-// ESTADO
-// ═══════════════════════════════════════════════════════
-const STORAGE_KEY = 'bot_training_v4';
-
-let faqData = [];
-let leadQuestions = [];
-let escalation = ['atendente','humano','pessoa','reclamacao','cancelar','chefe','gerente','supervisor'];
-let isLoaded = false;
-
-// ═══════════════════════════════════════════════════════
-// UTILS
-// ═══════════════════════════════════════════════════════
-function $(id) { return document.getElementById(id); }
-function val(id) { const el = $(id); return el ? el.value.trim() : ''; }
-function setVal(id, v) { const el = $(id); if (el) el.value = v || ''; }
-
-function log(msg) {
-  console.log(msg);
-  const box = $('debug');
-  if (box) {
-    box.style.display = 'block';
-    box.innerHTML += '<div>' + new Date().toLocaleTimeString() + ' | ' + msg + '</div>';
-    box.scrollTop = box.scrollHeight;
-  }
-}
-
-function setStatus(type, text) {
-  const box = $('statusBox');
-  if (box) { box.className = 'status ' + type; box.textContent = text; }
-}
-
-function showIndicator(type, text) {
-  const el = $('saveIndicator');
-  if (!el) return;
-  el.className = 'save-indicator show ' + type;
-  el.textContent = text;
-  setTimeout(() => { el.className = 'save-indicator'; }, 4000);
-}
-
-// ═══════════════════════════════════════════════════════
-// PERSISTENCIA LOCAL
-// ═══════════════════════════════════════════════════════
-function saveLocal() {
-  const payload = buildPayload();
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-    showIndicator('saved', '💾 Auto-salvo localmente');
-  } catch (e) { console.error('localStorage erro:', e); }
-}
-
-function loadLocal() {
-  try {
-    const cached = localStorage.getItem(STORAGE_KEY);
-    if (cached) return JSON.parse(cached);
-  } catch (e) { console.error('localStorage erro:', e); }
-  return null;
-}
-
-function buildPayload() {
-  return {
-    bot_name: val('botName'),
-    company_name: val('companyName'),
-    greeting_message: val('greeting'),
-    personality: val('personality'),
-    services: val('services'),
-    business_hours: val('businessHours'),
-    pricing_info: val('pricing'),
-    fallback_message: val('fallback'),
-    completion_message: val('completionMsg'),
-    faq_data: faqData,
-    lead_questions: leadQuestions,
-    escalation_keywords: escalation,
-    active: $('botToggle').classList.contains('on'),
-    updated_at: new Date().toISOString()
-  };
-}
-
-// ═══════════════════════════════════════════════════════
-// CARREGAR DADOS
-// ═══════════════════════════════════════════════════════
-async function load() {
-  log('Iniciando carregamento...');
-  setStatus('warn', 'Carregando...');
-
-  // 1. Tentar servidor
-  try {
-    const url = WEBHOOK_URL + '?action=status&_=' + Date.now();
-    log('GET servidor: ' + url);
-
-    const res = await fetch(url, { method: 'GET', headers: { Accept: 'application/json' }, cache: 'no-store' });
-    log('HTTP Status: ' + res.status);
-
-    if (!res.ok) {
-      const txt = await res.text();
-      throw new Error('HTTP ' + res.status + ': ' + txt.substring(0, 150));
-    }
-
-    const d = await res.json();
-    log('Servidor respondeu: ' + JSON.stringify(d).substring(0, 200));
-
-    if (d.id || d.success !== false) {
-      applyData(d);
-      setStatus('ok', '✓ Conectado ao servidor - dados sincronizados');
-      log('Dados do servidor carregados com sucesso');
-      isLoaded = true;
-      saveLocal();
-      return;
-    }
-    throw new Error(d.error || 'Resposta invalida do servidor');
-
-  } catch (e) {
-    log('ERRO servidor: ' + e.message);
-
-    // 2. Fallback localStorage
-    const cached = loadLocal();
-    if (cached) {
-      applyData(cached);
-      setStatus('warn', '⚠ Modo offline - usando dados salvos localmente');
-      log('Dados carregados do cache local');
-      isLoaded = true;
-      return;
-    }
-
-    // 3. Defaults
-    setStatus('err', '✗ ' + e.message + ' (sem dados salvos)');
-    applyDefaults();
-    isLoaded = true;
-  }
-}
-
-function applyData(d) {
-  faqData = Array.isArray(d.faq_data) ? d.faq_data : [];
-  leadQuestions = Array.isArray(d.lead_questions) ? d.lead_questions : [];
-  escalation = Array.isArray(d.escalation_keywords) ? d.escalation_keywords : escalation;
-
-  setVal('botName', d.bot_name);
-  setVal('companyName', d.company_name);
-  setVal('greeting', d.greeting_message || d.greeting);
-  setVal('personality', d.personality);
-  setVal('services', d.services);
-  setVal('businessHours', d.business_hours);
-  setVal('pricing', d.pricing_info);
-  setVal('fallback', d.fallback_message);
-  setVal('completionMsg', d.completion_message);
-
-  const tog = $('botToggle');
-  const isOn = d.active !== false && d.bot_active !== false;
-  if (tog) tog.classList.toggle('on', isOn);
-
-  renderAll();
-  log('Interface atualizada com dados');
-}
-
-function applyDefaults() {
-  setVal('botName', 'TecBot');
-  setVal('companyName', 'Assistencia Express');
-  setVal('greeting', 'Ola! Bem-vindo a Assistencia Express. Sou o TecBot, seu assistente virtual. Como posso ajudar voce hoje?');
-  setVal('personality', 'Seja cordial, objetivo e profissional. Sempre ofereca orcamento gratis e visita tecnica.');
-  setVal('services', 'Conserto de geladeiras, maquinas de lavar, ar-condicionado, celulares, tablets e notebooks.');
-  setVal('businessHours', 'Segunda a Sexta: 8h as 18h\nSabado: 8h as 12h\nDomingo: Fechado');
-  setVal('pricing', '✅ Orcamento completamente GRATIS!\n💰 Visita tecnica: R$ 80\n🔧 Conserto a partir de R$ 150');
-  setVal('fallback', 'Nao entendi muito bem. Posso te ajudar com:\n• Precos e orcamentos\n• Horarios de funcionamento\n• Tipos de servico\n• Agendamento de visita\n\nDigite "atendente" para falar com um humano!');
-  setVal('completionMsg', '✅ Obrigado {nome}! Recebemos seu pedido de conserto.\n\n📋 Resumo:\n• Aparelho: {aparelho}\n• Problema: {problema}\n• Endereco: {endereco}\n• Data: {data}\n\nNosso tecnico entrara em contato em ate 2 horas para confirmar!');
-
-  faqData = [
-    { question: 'Quanto custa conserto de geladeira?', answer: 'Orcamento gratis! O valor depende do defeito. Consertos a partir de R$ 150. Posso agendar uma visita tecnica para avaliacao.' },
-    { question: 'Voces consertam maquina de lavar?', answer: 'Sim! Consertamos todas as marcas de maquinas de lavar. Qual o modelo e o defeito?' },
-    { question: 'Quanto tempo demora o conserto?', answer: 'Depende do defeito. Simples: mesmo dia. Complexo: 1-3 dias. Fazemos orcamento em ate 24h!' }
-  ];
-
-  leadQuestions = [
-    { field: 'nome', question: 'Qual seu nome completo?' },
-    { field: 'telefone', question: 'Confirme seu numero de telefone com DDD:' },
-    { field: 'endereco', question: 'Qual o endereco completo para a visita tecnica? (Rua, numero, bairro)' },
-    { field: 'aparelho', question: 'Qual aparelho precisa de conserto? (geladeira, maquina de lavar, ar-condicionado, etc)' },
-    { field: 'problema', question: 'Descreva o problema ou defeito que esta apresentando:' },
-    { field: 'data', question: 'Qual dia e horario voce prefere para a visita?' }
-  ];
-
-  renderAll();
-}
-
-function renderAll() {
-  renderTags();
-  renderFaq();
-  renderLeads();
-}
-
-// ═══════════════════════════════════════════════════════
-// TOGGLE
-// ═══════════════════════════════════════════════════════
-$('botToggle').addEventListener('click', function() {
-  this.classList.toggle('on');
-  saveLocal();
-});
-
-// ═══════════════════════════════════════════════════════
-// TAGS
-// ═══════════════════════════════════════════════════════
-function renderTags() {
-  const el = $('escalationTags');
-  if (!el) return;
-  if (escalation.length === 0) { el.innerHTML = '<span style="color:#999;font-size:13px;">Nenhuma palavra configurada</span>'; return; }
-  el.innerHTML = escalation.map((t, i) =>
-    '<span class="tag">' + t + '<button class="del" onclick="removeTag(' + i + ')">×</button></span>'
-  ).join('');
-}
-
-function addTag() {
-  const inp = $('newTagInput');
-  if (!inp) return;
-  const v = inp.value.trim().toLowerCase();
-  if (!v) { alert('Digite uma palavra'); return; }
-  if (escalation.includes(v)) { alert('Palavra ja existe'); return; }
-  escalation.push(v);
-  inp.value = '';
-  renderTags();
-  saveLocal();
-}
-
-function removeTag(i) {
-  escalation.splice(i, 1);
-  renderTags();
-  saveLocal();
-}
-
-$('btnAddTag').addEventListener('click', addTag);
-$('newTagInput').addEventListener('keypress', function(e) { if (e.key === 'Enter') addTag(); });
-
-// ═══════════════════════════════════════════════════════
-// FAQ
-// ═══════════════════════════════════════════════════════
-function renderFaq() {
-  const el = $('faqList');
-  const empty = $('faqEmpty');
-  if (!el) return;
-
-  if (faqData.length === 0) {
-    el.innerHTML = '';
-    if (empty) empty.style.display = 'block';
-    return;
-  }
-  if (empty) empty.style.display = 'none';
-
-  el.innerHTML = faqData.map((f, i) =>
-    '<div class="faq-item">' +
-      '<div class="q">Q: ' + f.question + '</div>' +
-      '<div class="a">A: ' + f.answer + '</div>' +
-      '<button class="faq-del" onclick="removeFaq(' + i + ')">×</button>' +
-    '</div>'
-  ).join('');
-}
-
-function addFaq() {
-  const q = $('faqQ').value.trim();
-  const a = $('faqA').value.trim();
-  if (!q || !a) { alert('Preencha pergunta e resposta'); return; }
-  faqData.push({ question: q, answer: a });
-  $('faqQ').value = '';
-  $('faqA').value = '';
-  renderFaq();
-  saveLocal();
-}
-
-function removeFaq(i) {
-  faqData.splice(i, 1);
-  renderFaq();
-  saveLocal();
-}
-
-$('btnAddFaq').addEventListener('click', addFaq);
-
-// ═══════════════════════════════════════════════════════
-// LEADS (CAPTURA)
-// ═══════════════════════════════════════════════════════
-function renderLeads() {
-  const el = $('leadList');
-  const empty = $('leadEmpty');
-  if (!el) return;
-
-  if (leadQuestions.length === 0) {
-    el.innerHTML = '';
-    if (empty) empty.style.display = 'block';
-    return;
-  }
-  if (empty) empty.style.display = 'none';
-
-  el.innerHTML = leadQuestions.map((l, i) =>
-    '<div class="lead-item">' +
-      '<div class="field-name">📋 Campo: ' + l.field + '</div>' +
-      '<div class="question-text">' + l.question + '</div>' +
-      '<button class="lead-del" onclick="removeLead(' + i + ')">×</button>' +
-    '</div>'
-  ).join('');
-}
-
-function addLead() {
-  const field = $('leadField').value.trim().toLowerCase();
-  const question = $('leadQuestion').value.trim();
-  if (!field || !question) { alert('Preencha campo e pergunta'); return; }
-
-  leadQuestions.push({ field: field, question: question });
-  $('leadField').value = '';
-  $('leadQuestion').value = '';
-  renderLeads();
-  saveLocal();
-}
-
-function removeLead(i) {
-  leadQuestions.splice(i, 1);
-  renderLeads();
-  saveLocal();
-}
-
-$('btnAddLead').addEventListener('click', addLead);
-
-// ═══════════════════════════════════════════════════════
-// SIMULADOR
-// ═══════════════════════════════════════════════════════
-$('testQ').addEventListener('input', function() {
-  const q = this.value.trim();
-  const box = $('previewBox');
-  const txt = $('previewTxt');
-  if (!q) { box.style.display = 'none'; return; }
-
-  const t = buildPayload();
-  txt.textContent = simulateResponse(q, t);
-  box.style.display = 'block';
-});
-
-function simulateResponse(m, t) {
-  const msg = m.toLowerCase().trim();
-  const hi = ['oi', 'ola', 'olá', 'bom dia', 'boa tarde', 'boa noite', 'hey', 'hi', 'hello'];
-
-  // Saudacao
-  if (hi.some(g => msg.includes(g))) {
-    const greeting = t.greeting_message || 'Ola!';
-    if (t.lead_questions && t.lead_questions.length > 0) {
-      return greeting + '\n\n' + t.lead_questions[0].question;
-    }
-    return greeting;
-  }
-
-  // FAQ
-  for (const f of t.faq_data || []) {
-    if (!f.question || !f.answer) continue;
-    const ws = f.question.toLowerCase().split(/\s+/).filter(w => w.length > 2);
-    if (ws.filter(w => msg.includes(w)).length >= 2 || msg.includes(f.question.toLowerCase())) return f.answer;
-  }
-
-  // Keywords
-  if (/preco|valor|custa|quanto|orcamento/i.test(msg)) return (t.pricing_info || 'Consulte-nos.') + '\n\nPosso agendar orcamento gratuito!';
-  if (/horario|hora|aberto|funciona/i.test(msg)) return '⏰ ' + (t.business_hours || 'Comercial') + '\n\nEstamos prontos!';
-  if (/servico|conserta|reparo|arruma|geladeira|maquina|ar-condicionado/i.test(msg)) return '🔧 ' + (t.services || 'Diversos servicos.') + '\n\nQual voce precisa?';
-  if ((t.escalation_keywords || []).some(w => msg.includes(w))) return '👨‍💼 Transferindo para atendente humano...';
-
-  return (t.fallback_message || 'Nao compreendi.') + '\n\nDigite "atendente"!';
-}
-
-// ═══════════════════════════════════════════════════════
-// SALVAR NO SERVIDOR
-// ═══════════════════════════════════════════════════════
-$('saveBtn').addEventListener('click', async function() {
-  const btn = this;
-  btn.disabled = true;
-  btn.textContent = 'Salvando...';
-  showIndicator('saving', '💾 Salvando no servidor...');
-  setStatus('warn', 'Salvando no servidor...');
-
-  const payload = buildPayload();
-
-  try {
-    log('POST para servidor...');
-    const res = await fetch(WEBHOOK_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify(payload)
-    });
-
-    const text = await res.text();
-    log('Resposta servidor: ' + text.substring(0, 200));
-
-    if (!res.ok) throw new Error('HTTP ' + res.status + ': ' + text.substring(0, 150));
-
-    const d = JSON.parse(text);
-    if (d.success || d.ok) {
-      setStatus('ok', '✓ Configuracao salva e ativa no WhatsApp!');
-      showIndicator('saved', '✓ Salvo no servidor!');
-      alert('✓ Configuracao salva com sucesso!\n\nO robo ja esta respondendo com as novas configuracoes.');
-      log('SUCESSO! Configuracao persistida no Supabase');
-      saveLocal();
-    } else {
-      throw new Error(d.error || 'Erro desconhecido do servidor');
-    }
-
-  } catch (e) {
-    log('ERRO: ' + e.message);
-    setStatus('err', '✗ Erro ao salvar: ' + e.message);
-    showIndicator('error', '✗ Erro: ' + e.message);
-    alert('✗ Erro ao salvar no servidor: ' + e.message + '\n\nSeus dados foram salvos localmente e serao enviados automaticamente na proxima tentativa.');
-    saveLocal();
-  }
-
-  btn.disabled = false;
-  btn.textContent = '💾 Salvar Configuracao no Servidor';
-});
-
-// ═══════════════════════════════════════════════════════
-// AUTO-SAVE
-// ═══════════════════════════════════════════════════════
-const autoSaveFields = ['botName', 'companyName', 'greeting', 'personality', 'services', 'businessHours', 'pricing', 'fallback', 'completionMsg'];
-autoSaveFields.forEach(id => {
-  const el = $(id);
-  if (el) {
-    el.addEventListener('blur', saveLocal);
-    el.addEventListener('change', saveLocal);
-  }
-});
-
-// ═══════════════════════════════════════════════════════
-// INICIAR
-// ═══════════════════════════════════════════════════════
-load();
-</script>
 
+    <script>
+        // ==========================================
+        // CONFIGURAÇÃO SUPABASE
+        // ==========================================
+        const SUPABASE_URL = 'https://SEU-PROJETO.supabase.co'; // SUBSTITUA
+        const SUPABASE_KEY = 'SUA-ANON-KEY'; // SUBSTITUA
+
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        // ==========================================
+        // APLICAÇÃO
+        // ==========================================
+        class TrainingPanel {
+            constructor() {
+                this.currentTab = 'fluxo';
+                this.editingId = null;
+                this.init();
+            }
+
+            async init() {
+                console.log('[Treinamento] Iniciando...');
+
+                const { error } = await supabaseClient.from('treinamento').select('count', { count: 'exact' });
+
+                if (error) {
+                    console.error('[Treinamento] Erro:', error);
+                    this.updateStatus('offline');
+                    return;
+                }
+
+                this.updateStatus('online');
+                await this.loadAllData();
+
+                // Inscrever em mudanças em tempo real
+                supabaseClient
+                    .channel('training_changes')
+                    .on('postgres_changes', 
+                        { event: '*', schema: 'public', table: 'treinamento' },
+                        () => this.loadAllData()
+                    )
+                    .on('postgres_changes',
+                        { event: '*', schema: 'public', table: 'bairros_precos' },
+                        () => this.loadAllData()
+                    )
+                    .on('postgres_changes',
+                        { event: '*', schema: 'public', table: 'palavras_chave_humano' },
+                        () => this.loadAllData()
+                    )
+                    .subscribe();
+            }
+
+            updateStatus(status) {
+                const badge = document.getElementById('statusBadge');
+                badge.className = 'status-badge ' + status;
+                badge.textContent = status === 'online' ? '🟢 Online' : status === 'sync' ? '🟡 Sincronizando' : '🔴 Offline';
+            }
+
+            // ==========================================
+            // CARREGAR TODOS OS DADOS
+            // ==========================================
+            async loadAllData() {
+                this.updateStatus('sync');
+
+                await Promise.all([
+                    this.loadTreinamento(),
+                    this.loadBairros(),
+                    this.loadPalavras(),
+                    this.updatePreview()
+                ]);
+
+                this.updateStatus('online');
+            }
+
+            async loadTreinamento() {
+                const { data, error } = await supabaseClient
+                    .from('treinamento')
+                    .select('*')
+                    .order('categoria', { ascending: true });
+
+                if (error) {
+                    console.error('Erro:', error);
+                    return;
+                }
+
+                // Separar por categoria
+                const fluxo = data.filter(d => d.categoria === 'fluxo');
+                const precos = data.filter(d => d.categoria === 'precos');
+                const descontos = data.filter(d => d.categoria === 'descontos');
+
+                this.renderTrainingList('listaFluxo', fluxo);
+                this.renderTrainingList('listaPrecos', precos);
+                this.renderTrainingList('listaDescontos', descontos);
+            }
+
+            renderTrainingList(containerId, items) {
+                const container = document.getElementById(containerId);
+
+                if (!items || items.length === 0) {
+                    container.innerHTML = '<div class="empty-state">Nenhuma mensagem configurada</div>';
+                    return;
+                }
+
+                container.innerHTML = items.map(item => `
+                    <div class="training-item">
+                        <div class="info">
+                            <div class="key">${item.chave}</div>
+                            <div class="value">${this.escapeHtml(item.valor)}</div>
+                            <span class="category">${item.categoria}</span>
+                        </div>
+                        <div class="actions">
+                            <button class="icon-btn edit" onclick="app.editTraining('${item.id}')" title="Editar">✏️</button>
+                            <button class="icon-btn delete" onclick="app.deleteTraining('${item.id}')" title="Excluir">🗑️</button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            async loadBairros() {
+                const { data, error } = await supabaseClient
+                    .from('bairros_precos')
+                    .select('*')
+                    .order('bairro', { ascending: true });
+
+                if (error) {
+                    console.error('Erro bairros:', error);
+                    return;
+                }
+
+                const container = document.getElementById('listaBairros');
+
+                if (!data || data.length === 0) {
+                    container.innerHTML = '<div class="empty-state">Nenhum bairro cadastrado</div>';
+                    return;
+                }
+
+                container.innerHTML = data.map(b => `
+                    <div class="bairro-item">
+                        <div class="nome">${b.bairro}</div>
+                        <div class="regiao regiao-${b.regiao}">${b.regiao.replace('_', ' ')}</div>
+                        <div>R$${b.valor_visita}</div>
+                        <div>${b.atende ? '✅ Atende' : '❌ Não'}</div>
+                        <div class="actions">
+                            <button class="icon-btn delete" onclick="app.deleteBairro('${b.id}')">🗑️</button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            async loadPalavras() {
+                const { data, error } = await supabaseClient
+                    .from('palavras_chave_humano')
+                    .select('*')
+                    .order('palavra', { ascending: true });
+
+                if (error) {
+                    console.error('Erro palavras:', error);
+                    return;
+                }
+
+                const container = document.getElementById('listaPalavras');
+
+                if (!data || data.length === 0) {
+                    container.innerHTML = '<div class="empty-state">Nenhuma palavra-chave cadastrada</div>';
+                    return;
+                }
+
+                container.innerHTML = data.map(p => `
+                    <div class="training-item">
+                        <div class="info">
+                            <div class="key">${p.palavra}</div>
+                        </div>
+                        <div class="actions">
+                            <button class="icon-btn delete" onclick="app.deletePalavra('${p.id}')">🗑️</button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            // ==========================================
+            // AÇÕES
+            // ==========================================
+            switchTab(tab) {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+
+                event.target.classList.add('active');
+                document.getElementById(`tab-${tab}`).classList.add('active');
+
+                this.currentTab = tab;
+
+                if (tab === 'preview') {
+                    this.updatePreview();
+                }
+            }
+
+            openModal(editId = null) {
+                this.editingId = editId;
+                document.getElementById('modal').classList.add('active');
+                document.getElementById('modalTitle').textContent = editId ? 'Editar Mensagem' : 'Nova Mensagem';
+
+                if (editId) {
+                    // Preencher dados para edição
+                    this.loadEditData(editId);
+                } else {
+                    document.getElementById('modalChave').value = '';
+                    document.getElementById('modalValor').value = '';
+                }
+            }
+
+            closeModal() {
+                document.getElementById('modal').classList.remove('active');
+                this.editingId = null;
+            }
+
+            async loadEditData(id) {
+                const { data } = await supabaseClient.from('treinamento').select('*').eq('id', id).single();
+                if (data) {
+                    document.getElementById('modalChave').value = data.chave;
+                    document.getElementById('modalCategoria').value = data.categoria;
+                    document.getElementById('modalValor').value = data.valor;
+                }
+            }
+
+            async saveTraining() {
+                const chave = document.getElementById('modalChave').value.trim();
+                const categoria = document.getElementById('modalCategoria').value;
+                const valor = document.getElementById('modalValor').value.trim();
+
+                if (!chave || !valor) {
+                    this.showToast('Preencha todos os campos', 'error');
+                    return;
+                }
+
+                try {
+                    if (this.editingId) {
+                        await supabaseClient.from('treinamento').update({ chave, categoria, valor }).eq('id', this.editingId);
+                        this.showToast('Mensagem atualizada!');
+                    } else {
+                        await supabaseClient.from('treinamento').insert({ chave, categoria, valor });
+                        this.showToast('Mensagem criada!');
+                    }
+
+                    this.closeModal();
+                    await this.loadTreinamento();
+
+                } catch (error) {
+                    this.showToast('Erro: ' + error.message, 'error');
+                }
+            }
+
+            async deleteTraining(id) {
+                if (!confirm('Tem certeza que deseja excluir esta mensagem?')) return;
+
+                await supabaseClient.from('treinamento').delete().eq('id', id);
+                this.showToast('Mensagem excluída');
+                await this.loadTreinamento();
+            }
+
+            async addBairro() {
+                const bairro = document.getElementById('novoBairro').value.trim().toLowerCase();
+                const regiao = document.getElementById('novaRegiao').value;
+                const valor = parseFloat(document.getElementById('novoValor').value) || 0;
+                const atende = document.getElementById('novoAtende').value === 'true';
+
+                if (!bairro) {
+                    this.showToast('Digite o nome do bairro', 'error');
+                    return;
+                }
+
+                await supabaseClient.from('bairros_precos').insert({
+                    bairro, regiao, valor_visita: valor, atende
+                });
+
+                document.getElementById('novoBairro').value = '';
+                this.showToast('Bairro adicionado!');
+                await this.loadBairros();
+            }
+
+            async deleteBairro(id) {
+                if (!confirm('Excluir este bairro?')) return;
+                await supabaseClient.from('bairros_precos').delete().eq('id', id);
+                this.showToast('Bairro excluído');
+                await this.loadBairros();
+            }
+
+            async addPalavra() {
+                const palavra = document.getElementById('novaPalavra').value.trim().toLowerCase();
+                if (!palavra) {
+                    this.showToast('Digite uma palavra-chave', 'error');
+                    return;
+                }
+
+                await supabaseClient.from('palavras_chave_humano').insert({ palavra });
+                document.getElementById('novaPalavra').value = '';
+                this.showToast('Palavra-chave adicionada!');
+                await this.loadPalavras();
+            }
+
+            async deletePalavra(id) {
+                if (!confirm('Excluir esta palavra-chave?')) return;
+                await supabaseClient.from('palavras_chave_humano').delete().eq('id', id);
+                this.showToast('Palavra-chave excluída');
+                await this.loadPalavras();
+            }
+
+            async updatePreview() {
+                const { data } = await supabaseClient.from('treinamento').select('*');
+
+                const getMsg = (chave) => {
+                    const item = data?.find(d => d.chave === chave);
+                    return item ? item.valor : 'Não configurado';
+                };
+
+                document.getElementById('previewSaudacao').textContent = getMsg('saudacao');
+                document.getElementById('previewHorario').textContent = getMsg('pergunta_horario').replace('{horario}', '14:30');
+                document.getElementById('previewBairro').textContent = getMsg('pergunta_bairro');
+                document.getElementById('previewPreco').textContent = getMsg('preco_botafogo');
+            }
+
+            showToast(msg, type = 'success') {
+                const toast = document.createElement('div');
+                toast.className = `toast ${type}`;
+                toast.textContent = msg;
+                document.body.appendChild(toast);
+                setTimeout(() => toast.remove(), 3000);
+            }
+
+            escapeHtml(text) {
+                if (!text) return '';
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+        }
+
+        const app = new TrainingPanel();
+    </script>
 </body>
 </html>

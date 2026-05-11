@@ -1,677 +1,672 @@
+// ==========================================
+// WEBHOOK WHATSAPP PRO - Vercel Serverless
+// ==========================================
+// Este arquivo deve estar em: api/webhook.js
+// ==========================================
+
 import { createClient } from '@supabase/supabase-js';
-import { waitUntil } from '@vercel/functions';
 
-// ═══════════════════════════════════════════════════════
-// CONFIGURACAO
-// ═══════════════════════════════════════════════════════
-const SUPABASE_URL = process.env.SUPABASE_URL || 'https://fwcljognwdutsagppxcq.supabase.co';
-const SUPABASE_KEY = process.env.SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ3Y2xqb2dud2R1dHNhZ3BweGNxIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NDg5NjgyMywiZXhwIjoyMDkwNDcyODIzfQ.lMntp1GpMQ-MeOeVDYK13Ayq9GNlFA0qkrMbhylgsRE';
-const WHATSAPP_TOKEN = process.env.WHATSAPP_TOKEN || 'EAFmfvvzzQO4BRETZCcUIqfW7eBoXRJRlrf8ROZBaVnODG0T5aKfyCxzeKqeupaXI9r6q1c0Vh6yrJrLgoO43g6asjAZB1sKajLOFWPpLzLODbDv97LuLjGbyZCuJADT6FYeT0pDX9o9pTHfZCz1jFatnecBs6w8WjI9KPV8b0aaaKCxePmwozA5ZAXUZCGvIcQ9RAZDZD';
-const WHATSAPP_PHONE_ID = process.env.WHATSAPP_PHONE_ID || '738758095978120';
-const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '8517608136:AAFJmE04CPd7DecwKVh_MzGA6bnGGmbT3zI';
-const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID || '-5246111585';
+// ==========================================
+// CONFIGURAÇÃO
+// ==========================================
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY;
+const WHATSAPP_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN;
+const WHATSAPP_PHONE_ID = process.env.WHATSAPP_PHONE_NUMBER_ID;
+const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN;
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+const TELEGRAM_GROUP_ID = process.env.TELEGRAM_GROUP_ID;
+const TELEGRAM_ATENDENTE_ID = process.env.TELEGRAM_ATENDENTE_ID;
 
-console.log('[INIT] ========== WEBHOOK V2 INICIANDO ==========');
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-let supabase = null;
-try {
-  supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
-  console.log('[INIT] Supabase OK');
-} catch (err) {
-  console.error('[INIT] FALHA Supabase:', err.message);
-}
-
-// ═══════════════════════════════════════════════════════
-// HANDLER PRINCIPAL
-// ═══════════════════════════════════════════════════════
+// ==========================================
+// FUNÇÃO PRINCIPAL - HANDLER VERCEL
+// ==========================================
 export default async function handler(req, res) {
-  const rid = Math.random().toString(36).substring(2, 8);
-
-  try {
-    console.log(`\n[${rid}] ${req.method} ${req.url}`);
-
+    // CORS
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-    if (req.method === 'OPTIONS') return res.status(200).end();
-    if (!supabase) return res.status(500).json({ error: 'Supabase nao inicializado' });
+    if (req.method === 'OPTIONS') {
+        return res.status(200).end();
+    }
 
-    // GET ?action=status
-    if (req.method === 'GET' && req.query?.action === 'status') {
-      try {
-        const { data: training, error } = await supabase
-          .from('bot_training')
-          .select('*')
-          .order('updated_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
+    try {
+        // GET - Verificação do webhook Meta
+        if (req.method === 'GET') {
+            const mode = req.query['hub.mode'];
+            const token = req.query['hub.verify_token'];
+            const challenge = req.query['hub.challenge'];
 
-        if (error) throw error;
+            if (mode === 'subscribe' && token === VERIFY_TOKEN) {
+                console.log('✅ Webhook verificado pelo Meta');
+                return res.status(200).send(challenge);
+            }
+            return res.status(403).send('Falha na verificação');
+        }
 
-        return res.status(200).json({
-          success: true,
-          status: 'online',
-          ...training,
-          greeting: training?.greeting_message,
-          bot_active: training?.active
-        });
-      } catch (error) {
-        console.error(`[${rid}] status erro:`, error.message);
+        // POST - Receber mensagens e ações do painel
+        if (req.method === 'POST') {
+            const action = req.query.action;
+
+            // Ações do painel de intervenção
+            if (action === 'list') {
+                return await listConversations(req, res);
+            }
+            if (action === 'messages') {
+                return await getMessages(req, res);
+            }
+            if (action === 'intervene') {
+                return await intervene(req, res);
+            }
+            if (action === 'release') {
+                return await releaseControl(req, res);
+            }
+            if (action === 'send') {
+                return await sendFromPanel(req, res);
+            }
+
+            // Webhook do WhatsApp (mensagens recebidas)
+            return await receiveWhatsAppMessage(req, res);
+        }
+
+        return res.status(405).json({ error: 'Método não permitido' });
+    } catch (error) {
+        console.error('❌ Erro no webhook:', error);
         return res.status(500).json({ error: error.message });
-      }
     }
-
-    // GET ?action=list
-    if (req.method === 'GET' && req.query?.action === 'list') {
-      try {
-        const { data: conversations, error } = await supabase
-          .from('conversations')
-          .select('*')
-          .order('last_message_time', { ascending: false });
-
-        if (error) throw error;
-
-        const conversas = (conversations || []).map(conv => ({
-          telefone: conv.phone_number,
-          nome: conv.contact_name || conv.phone_number,
-          emIntervencao: conv.status === 'human',
-          etapa: conv.status,
-          ultimaAtividade: conv.last_message_time,
-          ultima: conv.last_message || 'Sem mensagens',
-          mensagens: []
-        }));
-
-        return res.status(200).json(conversas);
-      } catch (error) {
-        return res.status(500).json({ error: error.message, conversas: [] });
-      }
-    }
-
-    // GET ?action=messages&phone=...
-    if (req.method === 'GET' && req.query?.action === 'messages') {
-      const phone = req.query.phone;
-      if (!phone) return res.status(400).json({ error: 'Phone required' });
-
-      try {
-        const { data: conversation } = await supabase
-          .from('conversations')
-          .select('*')
-          .eq('phone_number', phone)
-          .maybeSingle();
-
-        const { data: messages, error } = await supabase
-          .from('messages')
-          .select('*')
-          .eq('phone_number', phone)
-          .order('created_at', { ascending: true });
-
-        if (error) throw error;
-
-        const mensagens = (messages || []).map(msg => ({
-          data: msg.created_at,
-          timestamp: msg.created_at,
-          tipo: msg.direction === 'outbound' ? (msg.sender_type === 'human' ? 'humano' : 'bot') : 'cliente',
-          from: msg.direction === 'outbound' ? (msg.sender_type === 'human' ? 'humano' : 'bot') : 'cliente',
-          mensagem: msg.content,
-          texto: msg.content,
-          content: msg.content,
-          message: msg.content,
-          nome: msg.sender_type === 'human' ? 'Voce' : (msg.sender_type === 'bot' ? 'Bot' : 'Cliente')
-        }));
-
-        return res.status(200).json({ mensagens, emIntervencao: conversation?.status === 'human' });
-      } catch (error) {
-        return res.status(500).json({ error: error.message, mensagens: [] });
-      }
-    }
-
-    // POST — Salvar treinamento
-    if (req.method === 'POST' && (!req.query.action || req.query.action === 'saveconfig')) {
-      try {
-        const body = req.body;
-        console.log(`[${rid}] Salvando treinamento...`);
-
-        if (!body || typeof body !== 'object') throw new Error('Body invalido');
-
-        const trainingData = {
-          bot_name: body.bot_name || '',
-          company_name: body.company_name || '',
-          greeting_message: body.greeting_message || body.greeting || '',
-          personality: body.personality || '',
-          services: body.services || '',
-          business_hours: body.business_hours || body.hours || '',
-          pricing_info: body.pricing_info || body.pricing || '',
-          fallback_message: body.fallback_message || body.fallback || '',
-          faq_data: Array.isArray(body.faq_data) ? body.faq_data : [],
-          escalation_keywords: Array.isArray(body.escalation_keywords) ? body.escalation_keywords : [],
-          lead_questions: Array.isArray(body.lead_questions) ? body.lead_questions : [],
-          active: body.active !== false && body.active !== 'false',
-          updated_at: new Date().toISOString()
-        };
-
-        const { data: existing } = await supabase
-          .from('bot_training')
-          .select('id')
-          .order('updated_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        let result, error;
-
-        if (existing?.id) {
-          ({ data: result, error } = await supabase
-            .from('bot_training')
-            .update(trainingData)
-            .eq('id', existing.id)
-            .select()
-            .single());
-        } else {
-          trainingData.created_at = new Date().toISOString();
-          ({ data: result, error } = await supabase
-            .from('bot_training')
-            .insert(trainingData)
-            .select()
-            .single());
-        }
-
-        if (error) throw error;
-
-        console.log(`[${rid}] Salvo ID:`, result?.id);
-        return res.status(200).json({ success: true, message: 'Configuracao salva', id: result?.id });
-
-      } catch (error) {
-        console.error(`[${rid}] Erro salvar:`, error.message);
-        return res.status(500).json({ error: error.message });
-      }
-    }
-
-    // POST ?action=intervene/release/send
-    if (req.method === 'POST' && req.query?.action) {
-      const action = req.query.action;
-      const body = req.body;
-      const phone = body?.phone;
-
-      if (action === 'intervene') {
-        try {
-          await supabase.from('conversations')
-            .update({ status: 'human', updated_at: new Date().toISOString() })
-            .eq('phone_number', phone);
-          await saveMessage(phone, 'Atendente humano assumiu.', 'outbound', 'system');
-          return res.status(200).json({ ok: true });
-        } catch (error) {
-          return res.status(500).json({ error: error.message });
-        }
-      }
-
-      if (action === 'release') {
-        try {
-          await supabase.from('conversations')
-            .update({ status: 'bot', updated_at: new Date().toISOString() })
-            .eq('phone_number', phone);
-          await saveMessage(phone, 'Robo reassumiu.', 'outbound', 'system');
-          return res.status(200).json({ ok: true });
-        } catch (error) {
-          return res.status(500).json({ error: error.message });
-        }
-      }
-
-      if (action === 'send') {
-        try {
-          const message = body?.message;
-          if (!message) return res.status(400).json({ error: 'Message required' });
-          await saveMessage(phone, message, 'outbound', 'human');
-          if (WHATSAPP_TOKEN && WHATSAPP_PHONE_ID) {
-            await sendWhatsAppMessage(phone, message);
-          }
-          return res.status(200).json({ ok: true });
-        } catch (error) {
-          return res.status(500).json({ error: error.message });
-        }
-      }
-    }
-
-    // POST — WEBHOOK WHATSAPP
-    if (req.method === 'POST') {
-      console.log(`[${rid}] WHATSAPP WEBHOOK RECEBIDO`);
-      res.status(200).send('OK');
-      console.log(`[${rid}] 200 OK enviado ao Meta`);
-
-      waitUntil(
-        processWebhookBody(req.body, rid)
-          .then(() => console.log(`[${rid}] Processamento background concluido`))
-          .catch(err => console.error(`[${rid}] ERRO background:`, err))
-      );
-
-      return;
-    }
-
-    return res.status(405).send('Method not allowed');
-
-  } catch (fatalError) {
-    console.error(`[${rid}] FATAL:`, fatalError);
-    return res.status(500).json({ error: fatalError.message });
-  }
 }
 
-// ═══════════════════════════════════════════════════════
-// PROCESSAR WEBHOOK EM BACKGROUND
-// ═══════════════════════════════════════════════════════
-async function processWebhookBody(body, rid) {
-  try {
-    console.log(`[${rid}] Body:`, JSON.stringify(body).substring(0, 500));
+// ==========================================
+// RECEBER MENSAGEM DO WHATSAPP
+// ==========================================
+async function receiveWhatsAppMessage(req, res) {
+    const body = req.body;
 
-    if (body.object === 'whatsapp_business_account' && !body.entry) {
-      console.log(`[${rid}] Ping Meta - ignorando`);
-      return;
+    if (!body.entry || !body.entry[0].changes) {
+        return res.status(200).send('OK');
     }
 
-    const entry = body.entry?.[0];
-    if (!entry) { console.log(`[${rid}] Sem entry`); return; }
-
-    const changes = entry.changes?.[0];
-    if (!changes) { console.log(`[${rid}] Sem changes`); return; }
-
+    const changes = body.entry[0].changes[0];
     const value = changes.value;
-    if (!value) { console.log(`[${rid}] Sem value`); return; }
 
-    const message = value.messages?.[0];
-    if (!message) { console.log(`[${rid}] Sem mensagem`); return; }
-
-    console.log(`[${rid}] Message type:`, message.type);
-
-    if (message.type !== 'text') {
-      console.log(`[${rid}] Ignorado: tipo ${message.type}`);
-      return;
+    if (!value.messages || value.messages.length === 0) {
+        return res.status(200).send('OK');
     }
 
+    const message = value.messages[0];
     const from = message.from;
     const text = message.text?.body || '';
-    const contactName = value.contacts?.[0]?.profile?.name || from;
+    const name = value.contacts?.[0]?.profile?.name || 'Cliente';
 
-    console.log(`[${rid}] >>> ${from} (${contactName}): "${text}"`);
+    console.log(`📩 Mensagem de ${from}: ${text}`);
 
-    // 1. BUSCAR TREINAMENTO
-    console.log(`[${rid}] [1] Buscando treinamento...`);
-    const { data: training, error: trainingError } = await supabase
-      .from('bot_training')
-      .select('*')
-      .order('updated_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    // Salvar mensagem no banco
+    await saveMessage(from, 'cliente', text, { nome: name });
 
-    if (trainingError) {
-      console.error(`[${rid}] [1] Erro Supabase:`, trainingError);
-      await saveMessage(from, text, 'inbound', 'human', contactName);
-      return;
+    // Verificar se está em intervenção humana
+    const conversa = await getOrCreateConversation(from, name);
+
+    if (conversa.em_intervencao) {
+        // Notificar Telegram que cliente enviou mensagem enquanto humano está no controle
+        await notifyTelegram(
+            `💬 <b>Nova mensagem do cliente</b>\n` +
+            `👤 ${name} (${from})\n` +
+            `📝 ${text}\n` +
+            `⚠️ Cliente está no painel de intervenção`
+        );
+        return res.status(200).send('OK');
     }
 
-    if (!training) {
-      console.log(`[${rid}] [1] NENHUM TREINAMENTO! Crie no painel.`);
-      await saveMessage(from, text, 'inbound', 'human', contactName);
-      return;
+    // Verificar palavras-chave para humano
+    const palavrasChave = await getPalavrasChaveHumano();
+    const querHumano = palavrasChave.some(p => 
+        text.toLowerCase().includes(p.toLowerCase())
+    );
+
+    if (querHumano) {
+        await updateConversation(from, { em_intervencao: true, etapa: 'humano' });
+        await sendWhatsAppMessage(from, await getTreinamento('aviso_humano'));
+        await notifyTelegram(
+            `🚨 <b>Cliente solicitou atendimento humano!</b>\n` +
+            `👤 ${name} (${from})\n` +
+            `📝 ${text}\n` +
+            `🔗 Acesse o painel de intervenção`
+        );
+        return res.status(200).send('OK');
     }
 
-    console.log(`[${rid}] [1] Treinamento OK. Ativo:`, training.active);
+    // Processar fluxo do bot
+    await processarFluxo(from, text, conversa, name);
 
-    // 2. VERIFICAR SE BOT ESTA ATIVO
-    if (!training.active) {
-      console.log(`[${rid}] [2] Bot DESATIVADO.`);
-      await saveMessage(from, text, 'inbound', 'human', contactName);
-      return;
+    return res.status(200).send('OK');
+}
+
+// ==========================================
+// FLUXO DO BOT - LÓGICA COMPLETA
+// ==========================================
+async function processarFluxo(phone, text, conversa, name) {
+    const etapa = conversa.etapa || 'saudacao';
+    const msgLower = text.toLowerCase().trim();
+
+    // Respostas de sim/não
+    const respostasSim = ['sim', 'yes', 's', 'ok', 'pode ser', 'claro', 'confirmo', 'quero'];
+    const respostasNao = ['não', 'nao', 'no', 'n', 'não quero', 'desisto', 'cancela'];
+    const isSim = respostasSim.some(r => msgLower.includes(r));
+    const isNao = respostasNao.some(r => msgLower.includes(r));
+
+    switch (etapa) {
+        case 'saudacao':
+            // Primeira mensagem ou reset - saudação e pergunta equipamento
+            await sendWhatsAppMessage(phone, await getTreinamento('saudacao'));
+            await updateConversation(phone, { etapa: 'aguardando_equipamento' });
+            break;
+
+        case 'aguardando_equipamento':
+            // Cliente respondeu com equipamento e marca
+            // Salvar informações
+            await updateConversation(phone, { 
+                equipamento: text,
+                etapa: 'aguardando_horario' 
+            });
+
+            // Calcular horário (2h a partir de agora)
+            const agora = new Date();
+            agora.setHours(agora.getHours() + 2);
+            const horarioStr = agora.toLocaleTimeString('pt-BR', { 
+                hour: '2-digit', 
+                minute: '2-digit',
+                hour12: false 
+            });
+
+            const msgHorario = (await getTreinamento('pergunta_horario')).replace('{horario}', horarioStr);
+            await sendWhatsAppMessage(phone, msgHorario);
+            await updateConversation(phone, { 
+                horario_visita: agora.toISOString(),
+                etapa: 'confirmando_horario' 
+            });
+            break;
+
+        case 'confirmando_horario':
+            if (isSim) {
+                await sendWhatsAppMessage(phone, await getTreinamento('pergunta_bairro'));
+                await updateConversation(phone, { etapa: 'aguardando_bairro' });
+            } else if (isNao) {
+                await sendWhatsAppMessage(phone, 'Sem problemas. Qual horário seria melhor para você?');
+                await updateConversation(phone, { etapa: 'aguardando_novo_horario' });
+            } else {
+                await sendWhatsAppMessage(phone, 'Por favor, responda com "sim" para confirmar o horário ou informe outro horário preferido.');
+            }
+            break;
+
+        case 'aguardando_novo_horario':
+            // Cliente informou novo horário
+            await sendWhatsAppMessage(phone, await getTreinamento('pergunta_bairro'));
+            await updateConversation(phone, { 
+                horario_visita: text,
+                etapa: 'aguardando_bairro' 
+            });
+            break;
+
+        case 'aguardando_bairro':
+            // Identificar bairro e região
+            const bairroInfo = await identificarBairro(text);
+
+            await updateConversation(phone, { 
+                bairro: bairroInfo.bairro,
+                etapa: 'confirmando_preco' 
+            });
+
+            if (!bairroInfo.atende) {
+                // Não atende a região
+                await sendWhatsAppMessage(phone, await getTreinamento('nao_atende'));
+                await updateConversation(phone, { etapa: 'nao_atende' });
+
+                // Notificar Telegram
+                await notifyTelegram(
+                    `❌ <b>Cliente em região não atendida</b>\n` +
+                    `👤 ${name} (${phone})\n` +
+                    `🏘️ ${bairroInfo.bairro}\n` +
+                    `📝 ${text}`
+                );
+            } else {
+                // Atende - mostrar preço
+                let msgPreco = '';
+                if (bairroInfo.regiao === 'botafogo') {
+                    msgPreco = await getTreinamento('preco_botafogo');
+                } else if (bairroInfo.regiao === 'zona_sul') {
+                    msgPreco = await getTreinamento('preco_zona_sul');
+                } else if (bairroInfo.regiao === 'zona_norte') {
+                    msgPreco = await getTreinamento('preco_zona_norte');
+                }
+
+                await sendWhatsAppMessage(phone, msgPreco);
+                await updateConversation(phone, { 
+                    valor_visita: bairroInfo.valor,
+                    etapa: 'confirmando_preco' 
+                });
+            }
+            break;
+
+        case 'confirmando_preco':
+            if (isSim) {
+                await sendWhatsAppMessage(phone, await getTreinamento('pedir_endereco'));
+                await updateConversation(phone, { etapa: 'aguardando_endereco' });
+            } else if (isNao) {
+                // Tentar oferecer desconto
+                await tentarDesconto(phone, conversa);
+            } else {
+                await sendWhatsAppMessage(phone, 'Por favor, responda "sim" para prosseguir ou "não" para cancelar.');
+            }
+            break;
+
+        case 'oferecendo_desconto':
+            if (isSim) {
+                await sendWhatsAppMessage(phone, await getTreinamento('pedir_endereco'));
+                await updateConversation(phone, { etapa: 'aguardando_endereco' });
+            } else if (isNao) {
+                await sendWhatsAppMessage(phone, 'Entendido. Se precisar de nossos serviços no futuro, estamos à disposição!');
+                await updateConversation(phone, { etapa: 'finalizado' });
+
+                // Notificar Telegram que cliente recusou
+                await notifyTelegram(
+                    `❌ <b>Cliente recusou a visita</b>\n` +
+                    `👤 ${name} (${phone})\n` +
+                    `🏘️ ${conversa.bairro}\n` +
+                    `💰 R$${conversa.valor_visita}`
+                );
+            } else {
+                await sendWhatsAppMessage(phone, 'Por favor, responda "sim" para aceitar ou "não" para recusar.');
+            }
+            break;
+
+        case 'aguardando_endereco':
+            // Salvar endereço e finalizar
+            await updateConversation(phone, { 
+                endereco: text,
+                etapa: 'visita_marcada',
+                status: 'visita_marcada'
+            });
+
+            await sendWhatsAppMessage(phone, await getTreinamento('visita_marcada'));
+
+            // Notificar Telegram com todas as informações
+            const horarioVisita = conversa.horario_visita 
+                ? new Date(conversa.horario_visita).toLocaleString('pt-BR')
+                : 'A definir';
+
+            await notifyTelegram(
+                `✅ <b>NOVA VISITA MARCADA!</b>\n\n` +
+                `👤 <b>Cliente:</b> ${name}\n` +
+                `📱 <b>Telefone:</b> ${phone}\n` +
+                `🏘️ <b>Bairro:</b> ${conversa.bairro || 'Não informado'}\n` +
+                `📍 <b>Endereço:</b> ${text}\n` +
+                `🔧 <b>Equipamento:</b> ${conversa.equipamento || 'Não informado'}\n` +
+                `💰 <b>Valor visita:</b> R$${conversa.valor_visita || 'Não definido'}\n` +
+                `🕐 <b>Horário:</b> ${horarioVisita}`
+            );
+
+            // Notificar atendente individual também
+            if (TELEGRAM_ATENDENTE_ID) {
+                await notifyTelegram(
+                    `🔔 <b>Nova visita agendada!</b>\n` +
+                    `Cliente: ${name}\n` +
+                    `Endereço: ${text}\n` +
+                    `Valor: R$${conversa.valor_visita}`,
+                    TELEGRAM_ATENDENTE_ID
+                );
+            }
+            break;
+
+        case 'humano':
+            // Em intervenção humana, não fazer nada (humano responde pelo painel)
+            break;
+
+        default:
+            // Reset para saudação se etapa desconhecida
+            await sendWhatsAppMessage(phone, await getTreinamento('saudacao'));
+            await updateConversation(phone, { etapa: 'aguardando_equipamento' });
     }
+}
 
-    // 3. SALVAR MENSAGEM DO CLIENTE
-    await saveMessage(from, text, 'inbound', 'bot', contactName);
-    console.log(`[${rid}] [3] Mensagem do cliente salva`);
+// ==========================================
+// TENTAR DESCONTO
+// ==========================================
+async function tentarDesconto(phone, conversa) {
+    const bairroInfo = await identificarBairro(conversa.bairro || '');
+    let novoValor = 0;
+    let msgDesconto = '';
 
-    // 4. VERIFICAR MODO HUMANO
-    const { data: conversation } = await supabase
-      .from('conversations')
-      .select('*')
-      .eq('phone_number', from)
-      .maybeSingle();
-
-    if (conversation?.status === 'human') {
-      console.log(`[${rid}] [4] Modo HUMANO ativo`);
-      return;
-    }
-
-    // ═══════════════════════════════════════════════════════
-    // 5. SISTEMA DE FLUXO CONVERSACIONAL (CAPTURA DE LEADS)
-    // ═══════════════════════════════════════════════════════
-    const leadQuestions = training.lead_questions || [];
-    const currentStep = conversation?.lead_step || 0;
-    const leadData = conversation?.lead_data || {};
-
-    // Se há perguntas de lead configuradas e o cliente ainda nao completou
-    if (leadQuestions.length > 0 && currentStep < leadQuestions.length) {
-      console.log(`[${rid}] [5] Fluxo de lead - Etapa ${currentStep}/${leadQuestions.length}`);
-
-      // Se for a primeira mensagem (etapa 0), envia saudacao + primeira pergunta
-      if (currentStep === 0 && !leadData[leadQuestions[0].field]) {
-        const firstQuestion = leadQuestions[0];
-        const greeting = training.greeting_message || `Ola! Sou ${training.bot_name || 'o assistente'}.`;
-        const botResponse = `${greeting}\n\n${firstQuestion.question}`;
-
-        await sendWhatsAppMessageSafe(from, botResponse, rid);
-        await saveMessage(from, botResponse, 'outbound', 'bot', contactName);
-
-        // Atualizar etapa
-        await supabase.from('conversations')
-          .update({ lead_step: 1, lead_data: leadData, updated_at: new Date().toISOString() })
-          .eq('phone_number', from);
-
-        console.log(`[${rid}] [5] Primeira pergunta enviada`);
+    if (bairroInfo.regiao === 'botafogo') {
+        // Botafogo: pode zerar
+        novoValor = 0;
+        msgDesconto = (await getTreinamento('desc_botafogo')).replace('{valor}', '0');
+    } else if (bairroInfo.regiao === 'zona_sul') {
+        // Zona Sul: pode chegar até 100
+        novoValor = 100;
+        msgDesconto = (await getTreinamento('desc_zona_sul')).replace('{valor}', '100');
+    } else {
+        // Outros: sem desconto
+        await sendWhatsAppMessage(phone, 'Entendido. Se mudar de ideia, estamos à disposição!');
+        await updateConversation(phone, { etapa: 'finalizado' });
         return;
-      }
+    }
 
-      // Se o cliente respondeu uma pergunta, salvar resposta e ir para proxima
-      if (currentStep > 0 && currentStep <= leadQuestions.length) {
-        const prevQuestion = leadQuestions[currentStep - 1];
-        leadData[prevQuestion.field] = text;
+    await sendWhatsAppMessage(phone, msgDesconto);
+    await updateConversation(phone, { 
+        valor_visita: novoValor,
+        etapa: 'oferecendo_desconto' 
+    });
+}
 
-        // Se ainda ha mais perguntas
-        if (currentStep < leadQuestions.length) {
-          const nextQuestion = leadQuestions[currentStep];
-          const botResponse = nextQuestion.question;
+// ==========================================
+// IDENTIFICAR BAIRRO
+// ==========================================
+async function identificarBairro(texto) {
+    const { data: bairros } = await supabase
+        .from('bairros_precos')
+        .select('*');
 
-          await sendWhatsAppMessageSafe(from, botResponse, rid);
-          await saveMessage(from, botResponse, 'outbound', 'bot', contactName);
+    const textoLower = texto.toLowerCase().normalize('NFD').replace(/[\u0300-\u030f]/g, '');
 
-          await supabase.from('conversations')
-            .update({ lead_step: currentStep + 1, lead_data: leadData, updated_at: new Date().toISOString() })
-            .eq('phone_number', from);
+    // Procurar bairro exato ou parcial
+    let encontrado = bairros.find(b => {
+        const bairroNormalizado = b.bairro.toLowerCase().normalize('NFD').replace(/[\u0300-\u030f]/g, '');
+        return textoLower.includes(bairroNormalizado);
+    });
 
-          console.log(`[${rid}] [5] Pergunta ${currentStep + 1} enviada`);
-          return;
+    // Se não encontrou, tentar match parcial
+    if (!encontrado) {
+        encontrado = bairros.find(b => {
+            const bairroNormalizado = b.bairro.toLowerCase().normalize('NFD').replace(/[\u0300-\u030f]/g, '');
+            const palavras = bairroNormalizado.split(' ');
+            return palavras.some(p => textoLower.includes(p) && p.length > 3);
+        });
+    }
+
+    if (encontrado) {
+        return {
+            bairro: encontrado.bairro,
+            regiao: encontrado.regiao,
+            valor: encontrado.valor_visita,
+            atende: encontrado.atende
+        };
+    }
+
+    // Se não identificou, assumir zona sul como padrão (ou perguntar novamente)
+    return {
+        bairro: texto,
+        regiao: 'zona_sul',
+        valor: 120,
+        atende: true
+    };
+}
+
+// ==========================================
+// AÇÕES DO PAINEL DE INTERVENÇÃO
+// ==========================================
+async function listConversations(req, res) {
+    const { data: conversas, error } = await supabase
+        .from('conversas')
+        .select('*')
+        .order('ultima_atividade', { ascending: false });
+
+    if (error) {
+        return res.status(500).json({ error: error.message });
+    }
+
+    // Buscar última mensagem de cada conversa
+    const conversasComMensagens = await Promise.all(conversas.map(async (c) => {
+        const { data: msgs } = await supabase
+            .from('mensagens')
+            .select('*')
+            .eq('telefone', c.telefone)
+            .order('created_at', { ascending: false })
+            .limit(1);
+
+        return {
+            telefone: c.telefone,
+            nome: c.nome,
+            emIntervencao: c.em_intervencao,
+            etapa: c.etapa,
+            ultimaAtividade: c.ultima_atividade,
+            ultima: c.ultima_mensagem || (msgs?.[0]?.mensagem || 'Sem mensagens'),
+            mensagens: msgs || []
+        };
+    }));
+
+    return res.status(200).json({ conversas: conversasComMensagens });
+}
+
+async function getMessages(req, res) {
+    const phone = req.query.phone;
+
+    const { data: mensagens, error } = await supabase
+        .from('mensagens')
+        .select('*')
+        .eq('telefone', phone)
+        .order('created_at', { ascending: true });
+
+    if (error) {
+        return res.status(500).json({ error: error.message });
+    }
+
+    // Buscar estado atual da conversa
+    const { data: conversa } = await supabase
+        .from('conversas')
+        .select('em_intervencao')
+        .eq('telefone', phone)
+        .single();
+
+    return res.status(200).json({ 
+        mensagens: mensagens || [],
+        emIntervencao: conversa?.em_intervencao || false
+    });
+}
+
+async function intervene(req, res) {
+    const { phone } = req.body;
+
+    await updateConversation(phone, { em_intervencao: true });
+
+    // Adicionar mensagem de sistema
+    await saveMessage(phone, 'sistema', '🔴 Atendente humano assumiu o controle', {});
+
+    // Notificar Telegram
+    const conversa = await getOrCreateConversation(phone);
+    await notifyTelegram(
+        `👤 <b>Intervenção humana ativada</b>\n` +
+        `Cliente: ${conversa.nome || phone}\n` +
+        `Telefone: ${phone}`
+    );
+
+    return res.status(200).json({ ok: true, emIntervencao: true });
+}
+
+async function releaseControl(req, res) {
+    const { phone } = req.body;
+
+    await updateConversation(phone, { em_intervencao: false });
+
+    // Adicionar mensagem de sistema
+    await saveMessage(phone, 'sistema', '🤖 Robô reassumiu o atendimento', {});
+
+    // Continuar fluxo do bot
+    const conversa = await getOrCreateConversation(phone);
+    await processarFluxo(phone, '', conversa, conversa.nome || 'Cliente');
+
+    return res.status(200).json({ ok: true, emIntervencao: false });
+}
+
+async function sendFromPanel(req, res) {
+    const { phone, message } = req.body;
+
+    // Enviar pelo WhatsApp
+    await sendWhatsAppMessage(phone, message);
+
+    // Salvar no banco como mensagem humana
+    await saveMessage(phone, 'humano', message, {});
+
+    return res.status(200).json({ ok: true });
+}
+
+// ==========================================
+// FUNÇÕES AUXILIARES SUPABASE
+// ==========================================
+async function getOrCreateConversation(phone, name = null) {
+    const { data: existing } = await supabase
+        .from('conversas')
+        .select('*')
+        .eq('telefone', phone)
+        .single();
+
+    if (existing) {
+        if (name && !existing.nome) {
+            await supabase
+                .from('conversas')
+                .update({ nome: name })
+                .eq('telefone', phone);
         }
-
-        // Se completou todas as perguntas
-        if (currentStep >= leadQuestions.length) {
-          // Salvar ultima resosta
-          const lastQuestion = leadQuestions[leadQuestions.length - 1];
-          leadData[lastQuestion.field] = text;
-
-          const completionMsg = training.completion_message ||
-            `✅ Obrigado! Recebemos suas informacoes:\n\n` +
-            Object.entries(leadData).map(([k, v]) => `• ${k}: ${v}`).join('\n') +
-            `\n\nNosso tecnico entrara em contato em breve para confirmar a visita!`;
-
-          await sendWhatsAppMessageSafe(from, completionMsg, rid);
-          await saveMessage(from, completionMsg, 'outbound', 'bot', contactName);
-
-          // Notificar Telegram
-          const notifyMsg = `🆕 *NOVO LEAD CAPTURADO*\n\n` +
-            `Cliente: ${leadData.nome || contactName}\n` +
-            `Telefone: ${from}\n` +
-            Object.entries(leadData).map(([k, v]) => `• ${k}: ${v}`).join('\n') +
-            `\n\n➡️ Entre em contato para agendar a visita!`;
-
-          if (TELEGRAM_BOT_TOKEN && TELEGRAM_CHAT_ID) {
-            try { await sendTelegram(notifyMsg); } catch (e) { console.error('Telegram erro:', e); }
-          }
-
-          // Resetar fluxo
-          await supabase.from('conversations')
-            .update({ lead_step: 0, lead_data: {}, updated_at: new Date().toISOString() })
-            .eq('phone_number', from);
-
-          console.log(`[${rid}] [5] Lead completo! Notificacao enviada`);
-          return;
-        }
-      }
+        return existing;
     }
 
-    // ═══════════════════════════════════════════════════════
-    // 6. RESPOSTA INTELIGENTE (FAQ + Keywords) se nao estiver em fluxo de lead
-    // ═══════════════════════════════════════════════════════
-    console.log(`[${rid}] [6] Gerando resposta inteligente...`);
-    const responseData = await generateResponse(text, training, from, contactName);
-    const botResponse = responseData.text;
-
-    console.log(`[${rid}] [6] Resposta: "${botResponse.substring(0, 100)}..."`);
-
-    await sendWhatsAppMessageSafe(from, botResponse, rid);
-    await saveMessage(from, botResponse, 'outbound', 'bot', contactName);
-
-    if (responseData.notify && TELEGRAM_BOT_TOKEN && TELEGRAM_CHAT_ID) {
-      try { await sendTelegram(responseData.notifyMessage); } catch (e) { console.error('Telegram erro:', e); }
-    }
-
-    console.log(`[${rid}] ====== FIM ======`);
-
-  } catch (error) {
-    console.error(`[${rid}] ERRO GERAL:`, error);
-  }
-}
-
-// ═══════════════════════════════════════════════════════
-// GERAR RESPOSTA INTELIGENTE
-// ═══════════════════════════════════════════════════════
-async function generateResponse(userMessage, training, phoneNumber, contactName) {
-  const msg = userMessage.toLowerCase().trim();
-  const name = contactName || phoneNumber;
-
-  // SAUDACOES
-  const greetings = ['oi', 'ola', 'olá', 'bom dia', 'boa tarde', 'boa noite', 'hey', 'hi', 'hello', 'eai', 'eae', 'opa', 'fala'];
-  if (greetings.some(g => msg === g || msg.startsWith(g + ' '))) {
-    return {
-      text: training.greeting_message || `Ola! Sou ${training.bot_name || 'o assistente'} da ${training.company_name || 'empresa'}. Como posso ajudar?`,
-      notify: false, notifyType: '', notifyMessage: ''
-    };
-  }
-
-  // FAQ
-  const faq = training.faq_data || [];
-  for (const item of faq) {
-    if (!item.question || !item.answer) continue;
-    const q = item.question.toLowerCase();
-    const words = q.split(/\s+/).filter(w => w.length > 2);
-    const matches = words.filter(w => msg.includes(w)).length;
-    if (matches >= 2 || msg.includes(q)) {
-      return { text: item.answer, notify: false, notifyType: '', notifyMessage: '' };
-    }
-  }
-
-  // PRECO
-  if (msg.includes('preco') || msg.includes('preço') || msg.includes('valor') || msg.includes('custa') || msg.includes('quanto') || msg.includes('cobrar') || msg.includes('orcamento') || msg.includes('orçamento')) {
-    return { text: (training.pricing_info || 'Entre em contato para orcamento.') + '\n\nPosso agendar um orcamento gratuito!', notify: false, notifyType: '', notifyMessage: '' };
-  }
-
-  // HORARIO
-  if (msg.includes('horario') || msg.includes('horário') || msg.includes('hora') || msg.includes('aberto') || msg.includes('funciona') || msg.includes('atende') || msg.includes('abre')) {
-    return { text: '⏰ ' + (training.business_hours || 'Horario comercial') + '\n\nEstamos prontos para atender!', notify: false, notifyType: '', notifyMessage: '' };
-  }
-
-  // SERVICOS
-  if (msg.includes('servico') || msg.includes('serviço') || msg.includes('faz') || msg.includes('conserta') || msg.includes('arruma') || msg.includes('troca') || msg.includes('reparo') || msg.includes('trabalho')) {
-    return { text: '🔧 ' + (training.services || 'Diversos servicos.') + '\n\nQual voce precisa?', notify: false, notifyType: '', notifyMessage: '' };
-  }
-
-  // LOCAL
-  if (msg.includes('local') || msg.includes('endereco') || msg.includes('endereço') || msg.includes('onde') || msg.includes('fica') || msg.includes('chegar') || msg.includes('mapa')) {
-    return { text: '📍 Voce pode buscar no Google Maps por "' + (training.company_name || 'nossa empresa') + '".', notify: false, notifyType: '', notifyMessage: '' };
-  }
-
-  // GARANTIA
-  if (msg.includes('garantia') || msg.includes('garante')) {
-    return { text: '✅ Todos os nossos servicos possuem garantia! (geralmente 30 a 90 dias)', notify: false, notifyType: '', notifyMessage: '' };
-  }
-
-  // PRAZO
-  if (msg.includes('prazo') || msg.includes('tempo') || msg.includes('demora') || msg.includes('rapido') || msg.includes('rápido') || msg.includes('urgente')) {
-    return { text: '⏱️ O prazo depende do defeito. Fazemos orcamento em ate 24h!', notify: false, notifyType: '', notifyMessage: '' };
-  }
-
-  // AGENDAR → NOTIFICA TELEGRAM
-  if (msg.includes('agendar') || msg.includes('marcar') || msg.includes('visita') || msg.includes('posso ir') || msg.includes('levar') || msg.includes('vir')) {
-    const notifyMsg = `📅 *VISITA AGENDADA*\n\nCliente: ${name}\nTelefone: ${phoneNumber}\nMensagem: "${userMessage}"\n\n➡️ Entre em contato para confirmar horario!`;
-    return {
-      text: '📅 Perfeito! Para agendar, preciso saber:\n1️⃣ Qual equipamento?\n2️⃣ Qual o problema?\n3️⃣ Qual dia e horario?\n\nOu digite "atendente" para falar com um humano!',
-      notify: true,
-      notifyType: 'visita',
-      notifyMessage: notifyMsg
-    };
-  }
-
-  // ESCALONAMENTO
-  const escalationWords = training.escalation_keywords || ['atendente', 'humano', 'pessoa', 'reclamacao', 'problema grave', 'cancelar', 'chefe', 'gerente', 'supervisor', 'dono'];
-  const shouldEscalate = escalationWords.some(word => msg.includes(word));
-
-  if (shouldEscalate) {
-    try {
-      await supabase.from('conversations')
-        .update({ status: 'human', updated_at: new Date().toISOString() })
-        .eq('phone_number', phoneNumber);
-    } catch (err) { console.error('Erro transferir:', err); }
-
-    const notifyMsg = `🚨 *ATENDIMENTO HUMANO*\n\nCliente: ${name}\nTelefone: ${phoneNumber}\nMensagem: "${userMessage}"\n\n➡️ Transferido para fila humana!`;
-    return {
-      text: '👨‍💼 Entendido! Vou transferir voce para um atendente humano. Aguarde um momento...',
-      notify: true,
-      notifyType: 'humano',
-      notifyMessage: notifyMsg
-    };
-  }
-
-  // FALLBACK
-  return {
-    text: (training.fallback_message || 'Nao entendi muito bem. Posso te ajudar com precos, horarios, servicos e agendamentos.') + '\n\nDigite "atendente" se precisar de um humano!',
-    notify: false,
-    notifyType: '',
-    notifyMessage: ''
-  };
-}
-
-// ═══════════════════════════════════════════════════════
-// ENVIAR WHATSAPP COM TRATAMENTO DE ERRO
-// ═══════════════════════════════════════════════════════
-async function sendWhatsAppMessageSafe(to, text, rid) {
-  if (!WHATSAPP_TOKEN || !WHATSAPP_PHONE_ID) {
-    console.log(`[${rid}] SEM WHATSAPP_TOKEN`);
-    return;
-  }
-  try {
-    await sendWhatsAppMessage(to, text);
-    console.log(`[${rid}] WhatsApp ENVIADO`);
-  } catch (err) {
-    console.error(`[${rid}] ERRO WhatsApp:`, err.message);
-  }
-}
-
-async function sendWhatsAppMessage(to, text) {
-  const url = `https://graph.facebook.com/v18.0/${WHATSAPP_PHONE_ID}/messages`;
-
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${WHATSAPP_TOKEN}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      messaging_product: 'whatsapp',
-      recipient_type: 'individual',
-      to: to,
-      type: 'text',
-      text: { body: text }
-    })
-  });
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    console.error('WhatsApp API erro:', JSON.stringify(data));
-    throw new Error(data.error?.message || 'Erro WhatsApp API');
-  }
-
-  console.log('WhatsApp enviado ID:', data.messages?.[0]?.id);
-  return data;
-}
-
-// ═══════════════════════════════════════════════════════
-// SALVAR MENSAGEM
-// ═══════════════════════════════════════════════════════
-async function saveMessage(phone, content, direction, senderType, contactName) {
-  try {
-    let { data: conversation } = await supabase
-      .from('conversations')
-      .select('id')
-      .eq('phone_number', phone)
-      .maybeSingle();
-
-    if (!conversation) {
-      const { data: newConv, error: convError } = await supabase
-        .from('conversations')
-        .insert({
-          phone_number: phone,
-          contact_name: contactName,
-          status: 'bot',
-          last_message: content,
-          last_message_time: new Date().toISOString(),
-          unread: true
+    const { data: created } = await supabase
+        .from('conversas')
+        .insert({ 
+            telefone: phone, 
+            nome: name,
+            etapa: 'saudacao',
+            em_intervencao: false
         })
         .select()
         .single();
 
-      if (convError) {
-        console.error('Erro criar conversa:', convError);
-        return;
-      }
-      conversation = newConv;
-    } else {
-      await supabase.from('conversations')
-        .update({
-          contact_name: contactName || undefined,
-          last_message: content,
-          last_message_time: new Date().toISOString(),
-          unread: true
-        })
-        .eq('id', conversation.id);
-    }
-
-    await supabase.from('messages').insert({
-      conversation_id: conversation.id,
-      phone_number: phone,
-      direction: direction,
-      content: content,
-      sender_type: senderType
-    });
-
-  } catch (error) {
-    console.error('Erro saveMessage:', error);
-  }
+    return created;
 }
 
-// ═══════════════════════════════════════════════════════
-// ENVIAR TELEGRAM
-// ═══════════════════════════════════════════════════════
-async function sendTelegram(text) {
-  if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
-    console.log('Telegram nao configurado');
-    return;
-  }
+async function updateConversation(phone, updates) {
+    const updateData = {
+        ...updates,
+        ultima_atividade: new Date().toISOString()
+    };
 
-  const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
+    const { error } = await supabase
+        .from('conversas')
+        .update(updateData)
+        .eq('telefone', phone);
 
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      chat_id: TELEGRAM_CHAT_ID,
-      text: text,
-      parse_mode: 'Markdown',
-      disable_web_page_preview: true
-    })
-  });
+    if (error) {
+        console.error('Erro ao atualizar conversa:', error);
+    }
+}
 
-  const data = await response.json();
+async function saveMessage(phone, tipo, mensagem, metadata = {}) {
+    // Garantir que conversa existe
+    await getOrCreateConversation(phone);
 
-  if (!response.ok || !data.ok) {
-    console.error('Telegram erro:', JSON.stringify(data));
-    throw new Error(data.description || 'Erro Telegram');
-  }
+    const { error } = await supabase
+        .from('mensagens')
+        .insert({
+            telefone: phone,
+            tipo: tipo,
+            mensagem: mensagem,
+            metadata: metadata
+        });
 
-  console.log('Telegram enviado');
-  return data;
+    // Atualizar última mensagem na conversa
+    await supabase
+        .from('conversas')
+        .update({ ultima_mensagem: mensagem })
+        .eq('telefone', phone);
+
+    if (error) {
+        console.error('Erro ao salvar mensagem:', error);
+    }
+}
+
+async function getTreinamento(chave) {
+    const { data } = await supabase
+        .from('treinamento')
+        .select('valor')
+        .eq('chave', chave)
+        .eq('ativo', true)
+        .single();
+
+    return data?.valor || 'Mensagem não configurada';
+}
+
+async function getPalavrasChaveHumano() {
+    const { data } = await supabase
+        .from('palavras_chave_humano')
+        .select('palavra');
+
+    return data?.map(p => p.palavra) || [];
+}
+
+// ==========================================
+// WHATSAPP API
+// ==========================================
+async function sendWhatsAppMessage(to, text) {
+    const url = `https://graph.facebook.com/v18.0/${WHATSAPP_PHONE_ID}/messages`;
+
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${WHATSAPP_TOKEN}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                messaging_product: 'whatsapp',
+                to: to,
+                type: 'text',
+                text: { body: text }
+            })
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            console.error('Erro WhatsApp API:', result);
+            return false;
+        }
+
+        // Salvar mensagem do bot no banco
+        await saveMessage(to, 'bot', text, { message_id: result.messages?.[0]?.id });
+
+        return true;
+    } catch (error) {
+        console.error('Erro ao enviar WhatsApp:', error);
+        return false;
+    }
+}
+
+// ==========================================
+// TELEGRAM NOTIFICATIONS
+// ==========================================
+async function notifyTelegram(text, chatId = null) {
+    const targetChat = chatId || TELEGRAM_GROUP_ID;
+
+    if (!targetChat || !TELEGRAM_BOT_TOKEN) {
+        console.log('Telegram não configurado, notificação ignorada');
+        return;
+    }
+
+    const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
+
+    try {
+        await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                chat_id: targetChat,
+                text: text,
+                parse_mode: 'HTML'
+            })
+        });
+    } catch (error) {
+        console.error('Erro Telegram:', error);
+    }
 }

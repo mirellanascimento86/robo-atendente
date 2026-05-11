@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#075e54">
-    <title>WhatsApp Pro</title>
+    <title>WhatsApp Pro - Painel de Intervenção</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.0/dist/umd/supabase.min.js"></script>
     <style>
         * { 
             margin: 0; 
@@ -158,6 +159,7 @@
             font-weight: 600;
         }
         .connection-badge.offline { background: var(--danger); }
+        .connection-badge.sync { background: var(--warning); color: #111; }
 
         .search-container {
             padding: 8px 12px;
@@ -200,6 +202,7 @@
         }
         .chat-item:hover { background: rgba(255,255,255,0.05); }
         .chat-item.active { background: #2a3942; }
+        .chat-item.unread { border-left: 3px solid var(--accent); }
 
         .chat-avatar {
             width: 52px;
@@ -532,6 +535,31 @@
         @supports (-webkit-touch-callout: none) {
             input, textarea { font-size: 16px; }
         }
+
+        .typing-indicator {
+            display: none;
+            align-self: flex-start;
+            background: var(--incoming);
+            padding: 12px 16px;
+            border-radius: 16px;
+            margin-bottom: 8px;
+        }
+        .typing-indicator.active { display: flex; }
+        .typing-indicator span {
+            width: 8px;
+            height: 8px;
+            background: var(--text-secondary);
+            border-radius: 50%;
+            display: inline-block;
+            margin: 0 2px;
+            animation: typing 1.4s infinite;
+        }
+        .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+        .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes typing {
+            0%, 60%, 100% { transform: translateY(0); }
+            30% { transform: translateY(-10px); }
+        }
     </style>
 <base target="_blank">
 </head>
@@ -540,7 +568,7 @@
 
     <div id="loading">
         <div class="spinner"></div>
-        <p>Conectando ao painel...</p>
+        <p>Conectando ao Supabase...</p>
     </div>
 
     <div id="app">
@@ -569,7 +597,7 @@
 
             <div class="chat-list" id="chatList">
                 <div class="empty-list">
-                    <p>Carregando...</p>
+                    <p>Carregando conversas...</p>
                 </div>
             </div>
         </aside>
@@ -577,8 +605,8 @@
         <main class="chat-area" id="chatArea">
             <div class="chat-placeholder" id="chatPlaceholder">
                 <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
-                <h3>WhatsApp Web</h3>
-                <p>Selecione uma conversa para começar</p>
+                <h3>WhatsApp Pro</h3>
+                <p>Selecione uma conversa para começar<br>As conversas são sincronizadas em tempo real</p>
             </div>
 
             <div id="activeChat" style="display: none; flex-direction: column; height: 100%;">
@@ -599,7 +627,11 @@
                     <span>Você assumiu o controle - Robô desativado</span>
                 </div>
 
-                <div class="messages-container" id="messagesContainer"></div>
+                <div class="messages-container" id="messagesContainer">
+                    <div class="typing-indicator" id="typingIndicator">
+                        <span></span><span></span><span></span>
+                    </div>
+                </div>
 
                 <div class="input-container">
                     <div class="input-wrapper">
@@ -616,42 +648,52 @@
 
     <script>
         // ==========================================
-        // CONFIGURACAO
+        // CONFIGURAÇÃO SUPABASE
         // ==========================================
-        const CONFIG = {
-            WEBHOOK_URL: window.location.origin + '/api/webhook',
-            POLL_INTERVAL: 3000,
-            CHAT_POLL_INTERVAL: 1500,
-            DEBUG: false
-        };
+        const SUPABASE_URL = 'https://SEU-PROJETO.supabase.co'; // SUBSTITUA
+        const SUPABASE_KEY = 'SUA-ANON-KEY'; // SUBSTITUA
+
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
         // ==========================================
-        // APLICACAO
+        // APLICAÇÃO
         // ==========================================
         class WhatsAppPanel {
             constructor() {
                 this.chats = new Map();
                 this.currentPhone = null;
                 this.debugMode = false;
+                this.subscription = null;
                 this.init();
             }
 
-            init() {
-                console.log('[Painel] Iniciando...');
-                console.log('[Painel] Webhook URL:', CONFIG.WEBHOOK_URL);
+            async init() {
+                console.log('[Painel] Iniciando com Supabase Realtime...');
+
+                // Verificar conexão
+                const { error } = await supabaseClient.from('conversas').select('count', { count: 'exact' });
+
+                if (error) {
+                    console.error('[Painel] Erro Supabase:', error);
+                    this.updateStatus('offline');
+                    document.querySelector('#loading p').textContent = 'Erro de conexão. Verifique as configurações.';
+                    return;
+                }
 
                 setTimeout(() => {
                     document.getElementById('loading').classList.add('fade-out');
                 }, 500);
 
-                this.fetchConversations();
-                setInterval(() => this.fetchConversations(), CONFIG.POLL_INTERVAL);
+                this.updateStatus('sync');
 
-                setInterval(() => {
-                    if (this.currentPhone) {
-                        this.fetchMessages(this.currentPhone);
-                    }
-                }, CONFIG.CHAT_POLL_INTERVAL);
+                // Carregar conversas iniciais
+                await this.loadConversations();
+
+                // Inscrever em mudanças em tempo real
+                this.subscribeToChanges();
+
+                // Atualizar lista periodicamente (backup)
+                setInterval(() => this.loadConversations(), 5000);
             }
 
             log(msg, type = 'info') {
@@ -672,116 +714,111 @@
             }
 
             // ==========================================
-            // BUSCAR CONVERSAS
+            // SUPABASE REALTIME - SINCRONIZAÇÃO AO VIVO
             // ==========================================
-            async fetchConversations() {
-                try {
-                    this.updateStatus('online');
+            subscribeToChanges() {
+                // Inscrever em novas mensagens
+                this.subscription = supabaseClient
+                    .channel('whatsapp_changes')
+                    .on('postgres_changes', 
+                        { event: '*', schema: 'public', table: 'mensagens' },
+                        async (payload) => {
+                            this.log('Mudança detectada em mensagens', 'success');
 
-                    const url = `${CONFIG.WEBHOOK_URL}?action=list&_t=${Date.now()}`;
-                    this.log('Buscando: ' + url);
-
-                    const response = await fetch(url);
-
-                    if (!response.ok) {
-                        throw new Error(`HTTP ${response.status}`);
-                    }
-
-                    const data = await response.json();
-                    this.log('Resposta: ' + JSON.stringify(data).substring(0, 200), 'success');
-
-                    const conversas = data.conversas || data;
-
-                    if (!Array.isArray(conversas)) {
-                        throw new Error('Resposta nao e array: ' + typeof conversas);
-                    }
-
-                    this.log(`Recebidas ${conversas.length} conversas`);
-
-                    conversas.forEach(conv => {
-                        const phone = conv.telefone;
-                        const existing = this.chats.get(phone);
-
-                        if (!existing) {
-                            this.chats.set(phone, {
-                                ...conv,
-                                messages: conv.mensagens || []
-                            });
-                            this.log('Nova: ' + phone);
-                        } else {
-                            // CORRECAO: sempre atualizar emIntervencao do servidor
-                            existing.nome = conv.nome || existing.nome;
-                            existing.emIntervencao = conv.emIntervencao;
-                            existing.etapa = conv.etapa;
-                            existing.ultimaAtividade = conv.ultimaAtividade;
-                            existing.ultima = conv.ultima || existing.ultima;
-                            // Nao sobrescrever messages local com vazio do servidor
-                            if (conv.mensagens && conv.mensagens.length > 0) {
-                                existing.messages = conv.mensagens;
+                            // Se a mudança é do chat atual, recarregar mensagens
+                            if (payload.new && payload.new.telefone === this.currentPhone) {
+                                await this.loadMessages(this.currentPhone);
                             }
+
+                            // Atualizar preview na lista
+                            await this.loadConversations();
+                        }
+                    )
+                    .on('postgres_changes',
+                        { event: '*', schema: 'public', table: 'conversas' },
+                        async (payload) => {
+                            this.log('Mudança detectada em conversas', 'success');
+                            await this.loadConversations();
+
+                            // Se for a conversa atual, atualizar UI
+                            if (payload.new && payload.new.telefone === this.currentPhone) {
+                                const chat = this.chats.get(this.currentPhone);
+                                if (chat) {
+                                    chat.em_intervencao = payload.new.em_intervencao;
+                                    this.updateUI(chat);
+                                }
+                            }
+                        }
+                    )
+                    .subscribe((status) => {
+                        this.log('Realtime status: ' + status, status === 'SUBSCRIBED' ? 'success' : 'error');
+                        if (status === 'SUBSCRIBED') {
+                            this.updateStatus('online');
+                        }
+                    });
+            }
+
+            // ==========================================
+            // CARREGAR CONVERSAS DO SUPABASE
+            // ==========================================
+            async loadConversations() {
+                try {
+                    const { data: conversas, error } = await supabaseClient
+                        .from('conversas')
+                        .select('*')
+                        .order('ultima_atividade', { ascending: false });
+
+                    if (error) throw error;
+
+                    this.log(`Carregadas ${conversas?.length || 0} conversas`);
+
+                    // Atualizar mapa local
+                    conversas?.forEach(conv => {
+                        const existing = this.chats.get(conv.telefone);
+                        if (!existing) {
+                            this.chats.set(conv.telefone, conv);
+                        } else {
+                            // Mesclar dados, preservando mensagens locais
+                            Object.assign(existing, conv);
                         }
                     });
 
                     this.renderList();
 
-                    // Se estiver em um chat, atualizar UI
+                    // Atualizar UI se chat aberto
                     if (this.currentPhone) {
                         const chat = this.chats.get(this.currentPhone);
-                        if (chat) {
-                            this.updateUI(chat);
-                        }
+                        if (chat) this.updateUI(chat);
                     }
 
                 } catch (error) {
-                    this.log('ERRO: ' + error.message, 'error');
+                    this.log('Erro ao carregar: ' + error.message, 'error');
                     this.updateStatus('offline');
-                    console.error(error);
                 }
             }
 
             // ==========================================
-            // BUSCAR MENSAGENS
+            // CARREGAR MENSAGENS DO SUPABASE
             // ==========================================
-            async fetchMessages(phone) {
+            async loadMessages(phone) {
                 try {
-                    const url = `${CONFIG.WEBHOOK_URL}?action=messages&phone=${encodeURIComponent(phone)}&_t=${Date.now()}`;
+                    const { data: mensagens, error } = await supabaseClient
+                        .from('mensagens')
+                        .select('*')
+                        .eq('telefone', phone)
+                        .order('created_at', { ascending: true });
 
-                    const response = await fetch(url);
+                    if (error) throw error;
 
-                    if (!response.ok) {
-                        throw new Error(`HTTP ${response.status}`);
-                    }
-
-                    const data = await response.json();
-                    const mensagens = data.mensagens || data;
-
-                    if (!Array.isArray(mensagens)) {
-                        this.log('mensagens nao e array: ' + typeof mensagens, 'error');
-                        return;
-                    }
-
-                    this.log(`${mensagens.length} mensagens para ${phone}`);
+                    this.log(`${mensagens?.length || 0} mensagens carregadas`);
 
                     const chat = this.chats.get(phone);
-                    if (!chat) return;
+                    if (chat) {
+                        chat.mensagens = mensagens || [];
 
-                    // CORRECAO: atualizar emIntervencao do servidor tambem
-                    if (data.emIntervencao !== undefined) {
-                        chat.emIntervencao = data.emIntervencao;
-                        this.log(`Estado intervencao atualizado: ${chat.emIntervencao}`);
-                    }
-
-                    chat.messages = mensagens;
-
-                    if (this.currentPhone === phone) {
-                        this.renderMessages(mensagens);
-                        this.updateUI(chat); // Re-atualizar UI com estado correto
-                    }
-
-                    if (mensagens.length > 0) {
-                        const last = mensagens[mensagens.length - 1];
-                        chat.ultima = last.mensagem || last.texto || last.content || 'Nova mensagem';
-                        this.renderList();
+                        if (this.currentPhone === phone) {
+                            this.renderMessages(mensagens || []);
+                        }
                     }
 
                 } catch (error) {
@@ -801,22 +838,24 @@
                         (c.nome?.toLowerCase().includes(searchTerm)) || 
                         c.telefone.includes(searchTerm))
                     .sort((a, b) => {
-                        if (a.emIntervencao && !b.emIntervencao) return -1;
-                        if (!a.emIntervencao && b.emIntervencao) return 1;
-                        return new Date(b.ultimaAtividade || 0) - new Date(a.ultimaAtividade || 0);
+                        if (a.em_intervencao && !b.em_intervencao) return -1;
+                        if (!a.em_intervencao && b.em_intervencao) return 1;
+                        return new Date(b.ultima_atividade || 0) - new Date(a.ultima_atividade || 0);
                     });
 
                 if (chats.length === 0) {
-                    container.innerHTML = '<div class="empty-list"><p>Aguardando conversas...</p></div>';
+                    container.innerHTML = '<div class="empty-list"><p>Nenhuma conversa ainda. Aguardando mensagens...</p></div>';
                     return;
                 }
 
                 container.innerHTML = chats.map(c => {
                     const isActive = c.telefone === this.currentPhone;
-                    const time = this.formatTime(c.ultimaAtividade);
+                    const time = this.formatTime(c.ultima_atividade);
+                    const isUnread = !isActive && c.ultima_mensagem && 
+                        new Date(c.ultima_atividade) > new Date(c.updated_at || 0);
 
                     return `
-                        <div class="chat-item ${isActive ? 'active' : ''}" 
+                        <div class="chat-item ${isActive ? 'active' : ''} ${isUnread ? 'unread' : ''}" 
                              onclick="app.selectChat('${c.telefone}')"
                              data-phone="${c.telefone}">
                             <div class="chat-avatar">${this.getInitials(c.nome)}</div>
@@ -827,10 +866,10 @@
                                 </div>
                                 <div class="chat-preview">
                                     <span style="flex:1;overflow:hidden;text-overflow:ellipsis;">
-                                        ${this.escapeHtml(c.ultima || 'Sem mensagens')}
+                                        ${this.escapeHtml(c.ultima_mensagem || 'Sem mensagens')}
                                     </span>
-                                    <span class="status-indicator ${c.emIntervencao ? 'human' : 'bot'}">
-                                        ${c.emIntervencao ? '🔴 VOCÊ' : '🤖 BOT'}
+                                    <span class="status-indicator ${c.em_intervencao ? 'human' : 'bot'}">
+                                        ${c.em_intervencao ? '🔴 VOCÊ' : '🤖 BOT'}
                                     </span>
                                 </div>
                             </div>
@@ -842,33 +881,35 @@
             // ==========================================
             // SELECIONAR CHAT
             // ==========================================
-            selectChat(phone) {
+            async selectChat(phone) {
                 this.log('Selecionando: ' + phone);
                 this.currentPhone = phone;
-                const chat = this.chats.get(phone);
 
+                const chat = this.chats.get(phone);
                 if (!chat) {
-                    this.log('Chat nao encontrado!', 'error');
-                    return;
+                    await this.loadConversations();
+                    const refreshed = this.chats.get(phone);
+                    if (!refreshed) {
+                        this.log('Chat não encontrado!', 'error');
+                        return;
+                    }
                 }
+
+                const currentChat = this.chats.get(phone);
 
                 document.getElementById('sidebar').classList.add('hidden-mobile');
                 document.getElementById('chatArea').classList.add('active', 'has-chat');
                 document.getElementById('chatPlaceholder').style.display = 'none';
                 document.getElementById('activeChat').style.display = 'flex';
 
-                document.getElementById('chatName').textContent = chat.nome || phone;
-                document.getElementById('chatAvatar').textContent = this.getInitials(chat.nome);
+                document.getElementById('chatName').textContent = currentChat.nome || phone;
+                document.getElementById('chatAvatar').textContent = this.getInitials(currentChat.nome);
 
-                this.updateUI(chat);
+                this.updateUI(currentChat);
 
-                if (chat.messages && chat.messages.length > 0) {
-                    this.renderMessages(chat.messages);
-                } else {
-                    document.getElementById('messagesContainer').innerHTML = '';
-                }
+                // Carregar mensagens
+                await this.loadMessages(phone);
 
-                this.fetchMessages(phone);
                 this.renderList();
             }
 
@@ -882,7 +923,7 @@
             }
 
             // ==========================================
-            // ATUALIZAR UI - CORRECAO PRINCIPAL
+            // ATUALIZAR UI
             // ==========================================
             updateUI(chat) {
                 const banner = document.getElementById('interventionBanner');
@@ -891,9 +932,9 @@
                 const actions = document.getElementById('chatActions');
                 const status = document.getElementById('chatStatus');
 
-                this.log(`updateUI: emIntervencao=${chat.emIntervencao} para ${chat.telefone}`);
+                this.log(`updateUI: emIntervencao=${chat.em_intervencao}`);
 
-                if (chat.emIntervencao === true) {
+                if (chat.em_intervencao === true) {
                     banner.classList.add('active');
                     input.disabled = false;
                     sendBtn.disabled = false;
@@ -926,24 +967,24 @@
                 let lastDate = null;
                 let html = '';
 
-                messages.forEach((msg, index) => {
-                    const msgDate = new Date(msg.data || msg.timestamp || Date.now()).toDateString();
+                messages.forEach((msg) => {
+                    const msgDate = new Date(msg.created_at).toDateString();
 
                     if (msgDate !== lastDate) {
-                        html += `<div class="date-separator">${this.formatDate(msg.data || msg.timestamp)}</div>`;
+                        html += `<div class="date-separator">${this.formatDate(msg.created_at)}</div>`;
                         lastDate = msgDate;
                     }
 
-                    const tipo = msg.tipo || msg.from || 'cliente';
+                    const tipo = msg.tipo;
                     let type = 'incoming';
 
                     if (tipo === 'bot' || tipo === 'robo') type = 'outgoing';
                     else if (tipo === 'humano' || tipo === 'me' || tipo === 'atendente') type = 'outgoing';
                     else if (tipo === 'system' || tipo === 'sistema') type = 'system';
 
-                    const content = this.escapeHtml(msg.mensagem || msg.texto || msg.content || msg.message || '');
-                    const time = this.formatTime(msg.data || msg.timestamp);
-                    const sender = msg.nome || (type === 'outgoing' ? 'Você' : 'Cliente');
+                    const content = this.escapeHtml(msg.mensagem || '');
+                    const time = this.formatTime(msg.created_at);
+                    const sender = msg.metadata?.nome || (type === 'outgoing' ? 'Você' : 'Cliente');
 
                     html += `
                         <div class="message ${type}">
@@ -958,10 +999,10 @@
             }
 
             // ==========================================
-            // ASSUMIR CONTROLE - CORRECAO
+            // ASSUMIR CONTROLE (via Supabase)
             // ==========================================
             async intervene(phone) {
-                this.log('Intervencao solicitada para: ' + phone);
+                this.log('Intervenção solicitada: ' + phone);
 
                 const btn = document.querySelector('.action-btn');
                 if (btn) {
@@ -970,25 +1011,31 @@
                 }
 
                 try {
-                    const response = await fetch(`${CONFIG.WEBHOOK_URL}?action=intervene`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ phone: phone })
+                    // Atualizar direto no Supabase
+                    const { error } = await supabaseClient
+                        .from('conversas')
+                        .update({ em_intervencao: true })
+                        .eq('telefone', phone);
+
+                    if (error) throw error;
+
+                    // Adicionar mensagem de sistema
+                    await supabaseClient.from('mensagens').insert({
+                        telefone: phone,
+                        tipo: 'sistema',
+                        mensagem: '🔴 Atendente humano assumiu o controle',
+                        metadata: {}
                     });
 
-                    const result = await response.json();
-                    this.log('Resposta intervene: ' + JSON.stringify(result), 'success');
-
-                    // CORRECAO: atualizar estado local IMEDIATAMENTE
                     const chat = this.chats.get(phone);
                     if (chat) {
-                        chat.emIntervencao = true;
+                        chat.em_intervencao = true;
                         this.updateUI(chat);
                         this.renderList();
-
-                        // Forcar recarregar mensagens para mostrar msg de sistema
-                        await this.fetchMessages(phone);
+                        await this.loadMessages(phone);
                     }
+
+                    this.log('Intervenção ativada com sucesso', 'success');
 
                 } catch (error) {
                     this.log('Erro intervene: ' + error.message, 'error');
@@ -1002,10 +1049,10 @@
             }
 
             // ==========================================
-            // LIBERAR ROBO - CORRECAO
+            // LIBERAR ROBÔ (via Supabase)
             // ==========================================
             async release(phone) {
-                this.log('Liberacao solicitada para: ' + phone);
+                this.log('Liberação solicitada: ' + phone);
 
                 const btn = document.querySelector('.action-btn');
                 if (btn) {
@@ -1014,24 +1061,30 @@
                 }
 
                 try {
-                    const response = await fetch(`${CONFIG.WEBHOOK_URL}?action=release`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ phone: phone })
+                    const { error } = await supabaseClient
+                        .from('conversas')
+                        .update({ em_intervencao: false })
+                        .eq('telefone', phone);
+
+                    if (error) throw error;
+
+                    // Adicionar mensagem de sistema
+                    await supabaseClient.from('mensagens').insert({
+                        telefone: phone,
+                        tipo: 'sistema',
+                        mensagem: '🤖 Robô reassumiu o atendimento',
+                        metadata: {}
                     });
 
-                    const result = await response.json();
-                    this.log('Resposta release: ' + JSON.stringify(result), 'success');
-
-                    // CORRECAO: atualizar estado local IMEDIATAMENTE
                     const chat = this.chats.get(phone);
                     if (chat) {
-                        chat.emIntervencao = false;
+                        chat.em_intervencao = false;
                         this.updateUI(chat);
                         this.renderList();
-
-                        await this.fetchMessages(phone);
+                        await this.loadMessages(phone);
                     }
+
+                    this.log('Robô liberado com sucesso', 'success');
 
                 } catch (error) {
                     this.log('Erro release: ' + error.message, 'error');
@@ -1044,7 +1097,7 @@
             }
 
             // ==========================================
-            // ENVIAR MENSAGEM - CORRECAO
+            // ENVIAR MENSAGEM (via Supabase + Webhook)
             // ==========================================
             async sendMessage() {
                 if (!this.currentPhone) return;
@@ -1054,22 +1107,26 @@
                 if (!text) return;
 
                 const chat = this.chats.get(this.currentPhone);
-
-                // CORRECAO: verificacao mais robusta
-                if (!chat) {
-                    alert('Chat nao encontrado!');
-                    return;
-                }
-
-                if (chat.emIntervencao !== true) {
-                    alert('Assuma o controle primeiro! Estado atual: ' + chat.emIntervencao);
+                if (!chat || !chat.em_intervencao) {
+                    alert('Assuma o controle primeiro!');
                     return;
                 }
 
                 input.value = '';
 
                 try {
-                    const response = await fetch(`${CONFIG.WEBHOOK_URL}?action=send`, {
+                    // Salvar mensagem no Supabase (humano)
+                    const { error } = await supabaseClient.from('mensagens').insert({
+                        telefone: this.currentPhone,
+                        tipo: 'humano',
+                        mensagem: text,
+                        metadata: { nome: 'Atendente' }
+                    });
+
+                    if (error) throw error;
+
+                    // Enviar via webhook para WhatsApp
+                    const response = await fetch('/api/webhook?action=send', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
@@ -1079,14 +1136,15 @@
                     });
 
                     const result = await response.json();
-                    this.log('Enviado: ' + JSON.stringify(result), 'success');
 
                     if (!result.ok) {
                         throw new Error(result.erro || 'Erro ao enviar');
                     }
 
                     // Recarregar mensagens
-                    setTimeout(() => this.fetchMessages(this.currentPhone), 300);
+                    await this.loadMessages(this.currentPhone);
+
+                    this.log('Mensagem enviada', 'success');
 
                 } catch (error) {
                     this.log('Erro enviar: ' + error.message, 'error');
@@ -1106,8 +1164,8 @@
 
             updateStatus(status) {
                 const badge = document.getElementById('connectionBadge');
-                badge.className = 'connection-badge ' + (status === 'online' ? '' : 'offline');
-                badge.textContent = status === 'online' ? '🟢 Online' : '🔴 Offline';
+                badge.className = 'connection-badge ' + (status === 'online' ? '' : status === 'sync' ? 'sync' : 'offline');
+                badge.textContent = status === 'online' ? '🟢 Online' : status === 'sync' ? '🟡 Sincronizando' : '🔴 Offline';
             }
 
             getInitials(name) {

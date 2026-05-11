@@ -1,7 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
+import { waitUntil } from '@vercel/functions';
 
 // ═══════════════════════════════════════════════════════
-// CONFIGURACAO (use Environment Variables no Vercel!)
+// CONFIGURACAO
 // ═══════════════════════════════════════════════════════
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://fwcljognwdutsagppxcq.supabase.co';
 const SUPABASE_KEY = process.env.SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ3Y2xqb2dud2R1dHNhZ3BweGNxIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NDg5NjgyMywiZXhwIjoyMDkwNDcyODIzfQ.lMntp1GpMQ-MeOeVDYK13Ayq9GNlFA0qkrMbhylgsRE';
@@ -10,12 +11,14 @@ const WHATSAPP_PHONE_ID = process.env.WHATSAPP_PHONE_ID || '738758095978120';
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '8517608136:AAFJmE04CPd7DecwKVh_MzGA6bnGGmbT3zI';
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID || '-5246111585';
 
+console.log('[INIT] ========== WEBHOOK INICIANDO ==========');
+
 let supabase = null;
 try {
   supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
-  console.log('[INIT] Supabase OK');
+  console.log('[INIT] Supabase client criado');
 } catch (err) {
-  console.error('[INIT] Supabase FALHA:', err.message);
+  console.error('[INIT] FALHA Supabase:', err.message);
 }
 
 // ═══════════════════════════════════════════════════════
@@ -23,23 +26,20 @@ try {
 // ═══════════════════════════════════════════════════════
 export default async function handler(req, res) {
   const rid = Math.random().toString(36).substring(2, 8);
-  
+
   try {
     console.log(`\n[${rid}] ${req.method} ${req.url}`);
-    
+
     // CORS
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept');
-    
+
     if (req.method === 'OPTIONS') return res.status(200).end();
-    
-    if (!supabase) {
-      return res.status(500).json({ error: 'Supabase nao inicializado' });
-    }
+    if (!supabase) return res.status(500).json({ error: 'Supabase nao inicializado' });
 
     // ═══════════════════════════════════════════════════════
-    // GET ?action=status  → Painel de treinamento consulta
+    // GET ?action=status
     // ═══════════════════════════════════════════════════════
     if (req.method === 'GET' && req.query?.action === 'status') {
       try {
@@ -49,9 +49,9 @@ export default async function handler(req, res) {
           .order('updated_at', { ascending: false })
           .limit(1)
           .maybeSingle();
-          
+
         if (error) throw error;
-        
+
         return res.status(200).json({
           success: true,
           status: 'online',
@@ -65,16 +65,16 @@ export default async function handler(req, res) {
       }
     }
 
-    // GET ?action=list → Lista conversas
+    // GET ?action=list
     if (req.method === 'GET' && req.query?.action === 'list') {
       try {
         const { data: conversations, error } = await supabase
           .from('conversations')
           .select('*')
           .order('last_message_time', { ascending: false });
-          
+
         if (error) throw error;
-        
+
         const conversas = (conversations || []).map(conv => ({
           telefone: conv.phone_number,
           nome: conv.contact_name || conv.phone_number,
@@ -84,33 +84,33 @@ export default async function handler(req, res) {
           ultima: conv.last_message || 'Sem mensagens',
           mensagens: []
         }));
-        
+
         return res.status(200).json(conversas);
       } catch (error) {
         return res.status(500).json({ error: error.message, conversas: [] });
       }
     }
 
-    // GET ?action=messages&phone=... → Mensagens de uma conversa
+    // GET ?action=messages&phone=...
     if (req.method === 'GET' && req.query?.action === 'messages') {
       const phone = req.query.phone;
       if (!phone) return res.status(400).json({ error: 'Phone required' });
-      
+
       try {
         const { data: conversation } = await supabase
           .from('conversations')
           .select('*')
           .eq('phone_number', phone)
           .maybeSingle();
-          
+
         const { data: messages, error } = await supabase
           .from('messages')
           .select('*')
           .eq('phone_number', phone)
           .order('created_at', { ascending: true });
-          
+
         if (error) throw error;
-        
+
         const mensagens = (messages || []).map(msg => ({
           data: msg.created_at,
           timestamp: msg.created_at,
@@ -122,28 +122,23 @@ export default async function handler(req, res) {
           message: msg.content,
           nome: msg.sender_type === 'human' ? 'Voce' : (msg.sender_type === 'bot' ? 'Bot' : 'Cliente')
         }));
-        
-        return res.status(200).json({
-          mensagens: mensagens,
-          emIntervencao: conversation?.status === 'human'
-        });
+
+        return res.status(200).json({ mensagens, emIntervencao: conversation?.status === 'human' });
       } catch (error) {
         return res.status(500).json({ error: error.message, mensagens: [] });
       }
     }
 
     // ═══════════════════════════════════════════════════════
-    // POST ?action=saveconfig → Salvar treinamento
+    // POST — Salvar treinamento
     // ═══════════════════════════════════════════════════════
     if (req.method === 'POST' && (!req.query.action || req.query.action === 'saveconfig')) {
       try {
         const body = req.body;
         console.log(`[${rid}] Salvando treinamento...`);
-        
-        if (!body || typeof body !== 'object') {
-          throw new Error('Body invalido');
-        }
-        
+
+        if (!body || typeof body !== 'object') throw new Error('Body invalido');
+
         const trainingData = {
           bot_name: body.bot_name || '',
           company_name: body.company_name || '',
@@ -158,16 +153,16 @@ export default async function handler(req, res) {
           active: body.active !== false && body.active !== 'false',
           updated_at: new Date().toISOString()
         };
-        
+
         const { data: existing } = await supabase
           .from('bot_training')
           .select('id')
           .order('updated_at', { ascending: false })
           .limit(1)
           .maybeSingle();
-          
+
         let result, error;
-        
+
         if (existing?.id) {
           ({ data: result, error } = await supabase
             .from('bot_training')
@@ -183,16 +178,17 @@ export default async function handler(req, res) {
             .select()
             .single());
         }
-        
+
         if (error) throw error;
-        
-        console.log(`[${rid}] Treinamento salvo ID:`, result?.id);
-        
+
+        console.log(`[${rid}] Salvo ID:`, result?.id);
+
         return res.status(200).json({
           success: true,
           message: 'Configuracao salva',
           id: result?.id
         });
+
       } catch (error) {
         console.error(`[${rid}] Erro salvar:`, error.message);
         return res.status(500).json({ error: error.message });
@@ -200,13 +196,13 @@ export default async function handler(req, res) {
     }
 
     // ═══════════════════════════════════════════════════════
-    // POST ?action=intervene/release/send → Ações do painel
+    // POST ?action=intervene/release/send
     // ═══════════════════════════════════════════════════════
     if (req.method === 'POST' && req.query?.action) {
       const action = req.query.action;
       const body = req.body;
       const phone = body?.phone;
-      
+
       if (action === 'intervene') {
         try {
           await supabase.from('conversations')
@@ -218,7 +214,7 @@ export default async function handler(req, res) {
           return res.status(500).json({ error: error.message });
         }
       }
-      
+
       if (action === 'release') {
         try {
           await supabase.from('conversations')
@@ -230,7 +226,7 @@ export default async function handler(req, res) {
           return res.status(500).json({ error: error.message });
         }
       }
-      
+
       if (action === 'send') {
         try {
           const message = body?.message;
@@ -247,24 +243,28 @@ export default async function handler(req, res) {
     }
 
     // ═══════════════════════════════════════════════════════
-    // POST — WEBHOOK WHATSAPP (Mensagens recebidas)
+    // POST — WEBHOOK WHATSAPP (CORRIGIDO com waitUntil)
     // ═══════════════════════════════════════════════════════
     if (req.method === 'POST') {
       console.log(`[${rid}] WHATSAPP WEBHOOK RECEBIDO`);
-      
-      // IMPORTANTE: Responder 200 IMEDIATAMENTE para o Meta não reenviar
+
+      // Responder 200 IMEDIATAMENTE para o Meta
       res.status(200).send('OK');
-      
-      // Processar em background (não bloquear a resposta)
-      processWebhookBody(req.body, rid).catch(err => {
-        console.error(`[${rid}] ERRO BACKGROUND:`, err);
-      });
-      
-      return; // Já respondeu
+      console.log(`[${rid}] 200 OK enviado ao Meta`);
+
+      // CRUCIAL: Usar waitUntil para manter a funcao viva apos a resposta
+      // Isso permite que o processamento continue no background
+      waitUntil(
+        processWebhookBody(req.body, rid)
+          .then(() => console.log(`[${rid}] Processamento background concluido`))
+          .catch(err => console.error(`[${rid}] ERRO background:`, err))
+      );
+
+      return;
     }
 
     return res.status(405).send('Method not allowed');
-    
+
   } catch (fatalError) {
     console.error(`[${rid}] FATAL:`, fatalError);
     return res.status(500).json({ error: fatalError.message });
@@ -272,46 +272,34 @@ export default async function handler(req, res) {
 }
 
 // ═══════════════════════════════════════════════════════
-// PROCESSAR WEBHOOK EM BACKGROUND (separado do response)
+// PROCESSAR WEBHOOK EM BACKGROUND (com waitUntil)
 // ═══════════════════════════════════════════════════════
 async function processWebhookBody(body, rid) {
   try {
     console.log(`[${rid}] Body:`, JSON.stringify(body).substring(0, 500));
 
-    // Verificar se é ping de verificação do Meta
+    // Verificar se é ping de verificacao
     if (body.object === 'whatsapp_business_account' && !body.entry) {
       console.log(`[${rid}] Ping Meta - ignorando`);
       return;
     }
 
     const entry = body.entry?.[0];
-    if (!entry) {
-      console.log(`[${rid}] Sem entry no body`);
-      return;
-    }
+    if (!entry) { console.log(`[${rid}] Sem entry`); return; }
 
     const changes = entry.changes?.[0];
-    if (!changes) {
-      console.log(`[${rid}] Sem changes`);
-      return;
-    }
+    if (!changes) { console.log(`[${rid}] Sem changes`); return; }
 
     const value = changes.value;
-    if (!value) {
-      console.log(`[${rid}] Sem value`);
-      return;
-    }
+    if (!value) { console.log(`[${rid}] Sem value`); return; }
 
     const message = value.messages?.[0];
-    if (!message) {
-      console.log(`[${rid}] Sem mensagem (pode ser status delivery)`);
-      return;
-    }
+    if (!message) { console.log(`[${rid}] Sem mensagem`); return; }
 
     console.log(`[${rid}] Message type:`, message.type);
 
     if (message.type !== 'text') {
-      console.log(`[${rid}] Ignorado: tipo ${message.type} (só processo texto)`);
+      console.log(`[${rid}] Ignorado: tipo ${message.type}`);
       return;
     }
 
@@ -339,7 +327,7 @@ async function processWebhookBody(body, rid) {
     }
 
     if (!training) {
-      console.log(`[${rid}] [1] NENHUM TREINAMENTO ENCONTRADO! Crie um no painel.`);
+      console.log(`[${rid}] [1] NENHUM TREINAMENTO! Crie no painel.`);
       await saveMessage(from, text, 'inbound', 'human', contactName);
       return;
     }
@@ -347,10 +335,10 @@ async function processWebhookBody(body, rid) {
     console.log(`[${rid}] [1] Treinamento OK. Ativo:`, training.active, '| Bot:', training.bot_name);
 
     // ═══════════════════════════════════════════════════════
-    // 2. VERIFICAR SE BOT ESTÁ ATIVO
+    // 2. VERIFICAR SE BOT ESTA ATIVO
     // ═══════════════════════════════════════════════════════
     if (!training.active) {
-      console.log(`[${rid}] [2] Bot DESATIVADO no painel. Ignorando.`);
+      console.log(`[${rid}] [2] Bot DESATIVADO no painel.`);
       await saveMessage(from, text, 'inbound', 'human', contactName);
       return;
     }
@@ -362,7 +350,7 @@ async function processWebhookBody(body, rid) {
     console.log(`[${rid}] [3] Mensagem do cliente salva`);
 
     // ═══════════════════════════════════════════════════════
-    // 4. VERIFICAR MODO HUMANO (intervenção)
+    // 4. VERIFICAR MODO HUMANO (intervencao)
     // ═══════════════════════════════════════════════════════
     const { data: conversation } = await supabase
       .from('conversations')
@@ -371,7 +359,7 @@ async function processWebhookBody(body, rid) {
       .maybeSingle();
 
     if (conversation?.status === 'human') {
-      console.log(`[${rid}] [4] Modo HUMANO ativo - não respondo`);
+      console.log(`[${rid}] [4] Modo HUMANO ativo - nao respondo`);
       return;
     }
 
@@ -382,7 +370,7 @@ async function processWebhookBody(body, rid) {
     const responseData = await generateResponse(text, training, from, contactName);
     const botResponse = responseData.text;
 
-    console.log(`[${rid}] [5] Resposta gerada: "${botResponse.substring(0, 100)}..."`);
+    console.log(`[${rid}] [5] Resposta: "${botResponse.substring(0, 100)}..."`);
 
     // ═══════════════════════════════════════════════════════
     // 6. ENVIAR RESPOSTA VIA WHATSAPP
@@ -395,17 +383,17 @@ async function processWebhookBody(body, rid) {
         console.error(`[${rid}] [6] ERRO WhatsApp:`, err.message);
       }
     } else {
-      console.log(`[${rid}] [6] SEM WHATSAPP_TOKEN - não enviado`);
+      console.log(`[${rid}] [6] SEM WHATSAPP_TOKEN`);
     }
 
     // ═══════════════════════════════════════════════════════
-    // 7. SALVAR RESPOSTA DO BOT NO HISTÓRICO
+    // 7. SALVAR RESPOSTA DO BOT NO HISTORICO
     // ═══════════════════════════════════════════════════════
     await saveMessage(from, botResponse, 'outbound', 'bot', contactName);
     console.log(`[${rid}] [7] Resposta do bot salva`);
 
     // ═══════════════════════════════════════════════════════
-    // 8. NOTIFICAR TELEGRAM (se necessário)
+    // 8. NOTIFICAR TELEGRAM (se necessario)
     // ═══════════════════════════════════════════════════════
     if (responseData.notify && TELEGRAM_BOT_TOKEN && TELEGRAM_CHAT_ID) {
       try {
@@ -430,12 +418,12 @@ async function generateResponse(userMessage, training, phoneNumber, contactName)
   const msg = userMessage.toLowerCase().trim();
   const name = contactName || phoneNumber;
 
-  // 1. SAUDAÇÕES (usa greeting_message do painel)
+  // 1. SAUDACOES (usa greeting_message do painel)
   const greetings = ['oi', 'ola', 'olá', 'bom dia', 'boa tarde', 'boa noite', 'hey', 'hi', 'hello', 'eai', 'eae', 'opa', 'fala'];
   if (greetings.some(g => msg === g || msg.startsWith(g + ' '))) {
-    return { 
-      text: training.greeting_message || `Olá! Sou ${training.bot_name || 'o assistente'} da ${training.company_name || 'empresa'}. Como posso ajudar?`, 
-      notify: false, notifyType: '', notifyMessage: '' 
+    return {
+      text: training.greeting_message || `Ola! Sou ${training.bot_name || 'o assistente'} da ${training.company_name || 'empresa'}. Como posso ajudar?`,
+      notify: false, notifyType: '', notifyMessage: ''
     };
   }
 
@@ -451,59 +439,59 @@ async function generateResponse(userMessage, training, phoneNumber, contactName)
     }
   }
 
-  // 3. PREÇO (usa pricing_info do painel)
+  // 3. PRECO (usa pricing_info do painel)
   if (msg.includes('preco') || msg.includes('preço') || msg.includes('valor') || msg.includes('custa') || msg.includes('quanto') || msg.includes('cobrar') || msg.includes('orcamento') || msg.includes('orçamento')) {
-    return { 
-      text: (training.pricing_info || 'Entre em contato para orçamento.') + '\n\nPosso agendar um orçamento gratuito!', 
-      notify: false, notifyType: '', notifyMessage: '' 
+    return {
+      text: (training.pricing_info || 'Entre em contato para orcamento.') + '\n\nPosso agendar um orcamento gratuito!',
+      notify: false, notifyType: '', notifyMessage: ''
     };
   }
 
-  // 4. HORÁRIO (usa business_hours do painel)
+  // 4. HORARIO (usa business_hours do painel)
   if (msg.includes('horario') || msg.includes('horário') || msg.includes('hora') || msg.includes('aberto') || msg.includes('funciona') || msg.includes('atende') || msg.includes('abre')) {
-    return { 
-      text: '⏰ ' + (training.business_hours || 'Horário comercial') + '\n\nEstamos prontos para atender!', 
-      notify: false, notifyType: '', notifyMessage: '' 
+    return {
+      text: '⏰ ' + (training.business_hours || 'Horario comercial') + '\n\nEstamos prontos para atender!',
+      notify: false, notifyType: '', notifyMessage: ''
     };
   }
 
-  // 5. SERVIÇOS (usa services do painel)
+  // 5. SERVICOS (usa services do painel)
   if (msg.includes('servico') || msg.includes('serviço') || msg.includes('faz') || msg.includes('conserta') || msg.includes('arruma') || msg.includes('troca') || msg.includes('reparo') || msg.includes('trabalho')) {
-    return { 
-      text: '🔧 ' + (training.services || 'Diversos serviços.') + '\n\nQual você precisa?', 
-      notify: false, notifyType: '', notifyMessage: '' 
+    return {
+      text: '🔧 ' + (training.services || 'Diversos servicos.') + '\n\nQual voce precisa?',
+      notify: false, notifyType: '', notifyMessage: ''
     };
   }
 
-  // 6. LOCAL/ENDEREÇO (usa company_name do painel)
+  // 6. LOCAL/ENDERECO (usa company_name do painel)
   if (msg.includes('local') || msg.includes('endereco') || msg.includes('endereço') || msg.includes('onde') || msg.includes('fica') || msg.includes('chegar') || msg.includes('mapa')) {
-    return { 
-      text: '📍 Você pode buscar no Google Maps por "' + (training.company_name || 'nossa empresa') + '".\n\nOu digite "atendente" para falar com um humano!', 
-      notify: false, notifyType: '', notifyMessage: '' 
+    return {
+      text: '📍 Voce pode buscar no Google Maps por "' + (training.company_name || 'nossa empresa') + '".\n\nOu digite "atendente" para falar com um humano!',
+      notify: false, notifyType: '', notifyMessage: ''
     };
   }
 
   // 7. GARANTIA
   if (msg.includes('garantia') || msg.includes('garante') || msg.includes('garantir')) {
-    return { 
-      text: '✅ ' + (training.personality ? training.personality + '\n\n' : '') + 'Todos os nossos serviços possuem garantia! (geralmente 30 a 90 dias conforme o serviço)', 
-      notify: false, notifyType: '', notifyMessage: '' 
+    return {
+      text: '✅ ' + (training.personality ? training.personality + '\n\n' : '') + 'Todos os nossos servicos possuem garantia! (geralmente 30 a 90 dias conforme o servico)',
+      notify: false, notifyType: '', notifyMessage: ''
     };
   }
 
   // 8. PRAZO
   if (msg.includes('prazo') || msg.includes('tempo') || msg.includes('demora') || msg.includes('rapido') || msg.includes('rápido') || msg.includes('urgente')) {
-    return { 
-      text: '⏱️ O prazo depende do defeito. Fazemos orçamento em até 24h!\n\nQuer agendar uma visita?', 
-      notify: false, notifyType: '', notifyMessage: '' 
+    return {
+      text: '⏱️ O prazo depende do defeito. Fazemos orcamento em ate 24h!\n\nQuer agendar uma visita?',
+      notify: false, notifyType: '', notifyMessage: ''
     };
   }
 
   // 9. AGENDAR → NOTIFICA TELEGRAM
   if (msg.includes('agendar') || msg.includes('marcar') || msg.includes('visita') || msg.includes('posso ir') || msg.includes('levar') || msg.includes('vir')) {
-    const notifyMsg = `📅 *VISITA AGENDADA*\n\nCliente: ${name}\nTelefone: ${phoneNumber}\nMensagem: "${userMessage}"\n\n➡️ Entre em contato para confirmar horário!`;
+    const notifyMsg = `📅 *VISITA AGENDADA*\n\nCliente: ${name}\nTelefone: ${phoneNumber}\nMensagem: "${userMessage}"\n\n➡️ Entre em contato para confirmar horario!`;
     return {
-      text: '📅 Perfeito! Para agendar, preciso saber:\n1️⃣ Qual equipamento?\n2️⃣ Qual o problema?\n3️⃣ Qual dia e horário?\n\nOu digite "atendente" para falar com um humano!',
+      text: '📅 Perfeito! Para agendar, preciso saber:\n1️⃣ Qual equipamento?\n2️⃣ Qual o problema?\n3️⃣ Qual dia e horario?\n\nOu digite "atendente" para falar com um humano!',
       notify: true,
       notifyType: 'visita',
       notifyMessage: notifyMsg
@@ -526,7 +514,7 @@ async function generateResponse(userMessage, training, phoneNumber, contactName)
 
     const notifyMsg = `🚨 *ATENDIMENTO HUMANO*\n\nCliente: ${name}\nTelefone: ${phoneNumber}\nMensagem: "${userMessage}"\n\n➡️ Transferido para fila humana!`;
     return {
-      text: '👨‍💼 Entendido! Vou transferir você para um atendente humano. Aguarde um momento...',
+      text: '👨‍💼 Entendido! Vou transferir voce para um atendente humano. Aguarde um momento...',
       notify: true,
       notifyType: 'humano',
       notifyMessage: notifyMsg
@@ -535,7 +523,7 @@ async function generateResponse(userMessage, training, phoneNumber, contactName)
 
   // 11. FALLBACK (usa fallback_message do painel)
   return {
-    text: (training.fallback_message || 'Não entendi muito bem. Posso te ajudar com preços, horários, serviços e agendamentos.') + '\n\nDigite "atendente" se precisar de um humano!',
+    text: (training.fallback_message || 'Nao entendi muito bem. Posso te ajudar com precos, horarios, servicos e agendamentos.') + '\n\nDigite "atendente" se precisar de um humano!',
     notify: false,
     notifyType: '',
     notifyMessage: ''
@@ -601,7 +589,7 @@ async function saveMessage(phone, content, direction, senderType, contactName) {
 // ═══════════════════════════════════════════════════════
 async function sendWhatsAppMessage(to, text) {
   const url = `https://graph.facebook.com/v18.0/${WHATSAPP_PHONE_ID}/messages`;
-  
+
   const response = await fetch(url, {
     method: 'POST',
     headers: {
@@ -629,11 +617,11 @@ async function sendWhatsAppMessage(to, text) {
 }
 
 // ═══════════════════════════════════════════════════════
-// ENVIAR NOTIFICAÇÃO TELEGRAM
+// ENVIAR NOTIFICACAO TELEGRAM
 // ═══════════════════════════════════════════════════════
 async function sendTelegram(text) {
   if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
-    console.log('Telegram não configurado');
+    console.log('Telegram nao configurado');
     return;
   }
 
